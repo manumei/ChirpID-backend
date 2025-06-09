@@ -1,0 +1,9 @@
+torch==2.1.0+cu128
+torchvision==0.16.0+cu128
+torchaudio==2.1.0+cu128
+cupy-cuda12x
+matplotlib
+pandas
+numpy
+
+--extra-index-url https://download.pytorch.org/whl/cu128
