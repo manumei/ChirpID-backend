@@ -2,6 +2,8 @@
 
 ## Plans
 
+### Recortar dataset y subirlo al repo, o compartirlo por otro medio.
+
 ### Data Processing
 
 **Data Selection**
