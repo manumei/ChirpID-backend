@@ -9,6 +9,7 @@ ffourier = lb.stft(audio)
 S_db = lb.amplitude_to_db(np.abs(ffourier), ref=np.max)
 
 rms = librosa.feature.rms(S=ffourier, hop_length=1)  # root-mean-square value for each frame, hop-length es la cantidad de frames de audio que se usan para calcular cada valor de energía
+print("La energia de audioPrueba =", rms)
 
 plt.figure(figsize=(10, 4))
 plt.imshow(S_db, aspect='auto', origin='lower', cmap='viridis')
