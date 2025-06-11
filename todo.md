@@ -28,16 +28,16 @@ Using torchaudio.load or librosa.load, setting frequencies to standard 32kHz (li
 
 **Silence Filtering**
 Filter out the low-energy background noise and silence, to only keep the relevant bird songs
-However, fijarse de que pueda servir cuando se le de una grabacion con cierto silencio o ruido entrelazado
-Ask ChatGPT &/ Santi Pierini, and check the papers how that second part would work
+However, fijarse de que pueda servir cuando se le de una grabacion con cierto silencio o ruido entrelazado. Audio energy (testingLibrosa.py)
+Ask ChatGPT &/ Santi Pierini, and check the papers how that second part would work.
 
 **Duration Handling**
 Decide fixed duration window (hay que ver cuantos segundos)
-Cut the longer audios, chose windows that contain enough energy/amplitude (to ensure bird sound)
+Cut the longer audios, chose windows that contain enough audio energy/amplitude (to ensure bird sound)
 
 **Spectrograms**
 Apply Fourier to get the Spectrograms, amplitude to decibels, etc.
-Get the matrix for the grayscale of the spectrogram for the model. testingLibrosa.
+Get the matrix for the grayscale of the spectrogram for the model. testingLibrosa.py
 
 **Normalize Data**
 Fijarse despues bien como hacerlo. Pregunta perfecta para hacerle a Santi Pierini honestly, or just
