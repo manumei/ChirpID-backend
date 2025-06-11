@@ -2,7 +2,7 @@
 
 ## Plans
 
-### Recortar dataset y subirlo al repo, o compartirlo por otro medio.
+### !! Recortar dataset y subirlo al repo, o compartirlo por otro medio !!
 
 ### Data Processing
 
@@ -37,7 +37,7 @@ Cut the longer audios, chose windows that contain enough energy/amplitude (to en
 
 **Spectrograms**
 Apply Fourier to get the Spectrograms, amplitude to decibels, etc.
-Get the matrix for the grayscale of the spectrogram for the model
+Get the matrix for the grayscale of the spectrogram for the model. testingLibrosa.
 
 **Normalize Data**
 Fijarse despues bien como hacerlo. Pregunta perfecta para hacerle a Santi Pierini honestly, or just
