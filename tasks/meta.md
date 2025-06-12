@@ -10,6 +10,6 @@ Info.md es medio tirado asi nomas, siempre con titulitos y eso, pero armando on 
 - Instructions.md: Paso por paso numerados de como se ejecuta todo completo, notebook por notebook
 Instructions.md es claro y conciso, estructurado con numeros y pasos, y para despues ser literalmente pegado en el README.md como instrucciones que cualquiera que tenga el repo pueda seguir. Para que both nosotros, y Robie, leamos y ejecutemos paso por paso, para que cargar todo, datos y modelo, desde cero
 
-### TODO.md
+### todo.md
 
-Lo que estamos actually haciendo, en el orden que lo estamos haciendo, para ver que las cosas funcionen a menor escala, despues mayor, etc.). Referenciando a los otros markdowns if necessary. TODO.md estaria bueno tenerlo organizado, pero tampoco tiene que ser tan estricto, ni numeros o asi hacen falta. Tambien podriamos agregarle "(MANU)" y "(LARA)" a ciertas subpartes si alguno se va haciendo cargo por su cuenta de subpartes
+Lo que estamos actually haciendo, en el orden que lo estamos haciendo, para ver que las cosas funcionen a menor escala, despues mayor, etc.). Referenciando a los otros markdowns if necessary. todo.md estaria bueno tenerlo organizado, pero tampoco tiene que ser tan estricto, ni numeros o asi hacen falta. Tambien podriamos agregarle "(MANU)" y "(LARA)" a ciertas subpartes si alguno se va haciendo cargo por su cuenta de subpartes
