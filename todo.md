@@ -72,9 +72,12 @@ SK-Learn Modules for K-Fold, turn into torch.tensors for the model
 
 ### 1. Data Processing
 
-**1.0 Data Loading**
-1.0.0) Open the data_loading.ipynb Jupyter Notebook
+**1.0 MetaData Loading**
+1.0.0) Open the MetaDataLoading.ipynb Jupyter Notebook
 1.0.1) Select the (Latitude, Longitude) and Rating cutoffs for the data to be loaded
 1.0.2) Run All Cells in the Jupyter Notebook, and voila. Loading is done!
 
-**1.1 Data Augmentation**
+**1.1 Audio Loading**
+1.1.0) Just Run All Cells from the AudioLoading.ipynb, after completing step 1.0
+
+**1.2 Data Augmentation**
