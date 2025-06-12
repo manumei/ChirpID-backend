@@ -2,8 +2,6 @@
 
 ## Plans
 
-### !! Recortar dataset y subirlo al repo, o compartirlo por otro medio !!
-
 ### Data Processing
 
 **Data Selection**
@@ -48,6 +46,9 @@ Convert to PyTorch tensors, check the shapes and such
 And then create DataLoader, do shuffle=True and consider mini-batching via batch_size and stuff
 And get on to Training Time
 
+**Final DataProcessing()**
+Once every function is finished, reset the changes (the .wav folder and such variables)
+
 ---
 
 ## Problems & Solutions
@@ -64,3 +65,16 @@ For species below that target, instead of SMOTE or duplication techniques, just 
 
 **Cross Validation es medio quilombo**
 SK-Learn Modules for K-Fold, turn into torch.tensors for the model
+
+---
+
+## Instructions
+
+### 1. Data Processing
+
+**1.0 Data Loading**
+1.0.0) Open the data_loading.ipynb Jupyter Notebook
+1.0.1) Select the (Latitude, Longitude) and Rating cutoffs for the data to be loaded
+1.0.2) Run All Cells in the Jupyter Notebook, and voila. Loading is done!
+
+**1.1 Data Augmentation**
