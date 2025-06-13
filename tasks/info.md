@@ -66,3 +66,9 @@ For species below that target, instead of SMOTE or duplication techniques, just 
 **Cross Validation es medio quilombo**
 SK-Learn Modules for K-Fold, turn into torch.tensors for the model
 
+---
+
+## Ideas
+
+Suboscines y Oscines
+
