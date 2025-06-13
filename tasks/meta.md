@@ -13,3 +13,7 @@ Instructions.md es claro y conciso, estructurado con numeros y pasos, y para des
 ### todo.md
 
 Lo que estamos actually haciendo, en el orden que lo estamos haciendo, para ver que las cosas funcionen a menor escala, despues mayor, etc.). Referenciando a los otros markdowns if necessary. todo.md estaria bueno tenerlo organizado, pero tampoco tiene que ser tan estricto, ni numeros o asi hacen falta. Tambien podriamos agregarle "(MANU)" y "(LARA)" a ciertas subpartes si alguno se va haciendo cargo por su cuenta de subpartes
+
+### notebooks.md
+
+Information about each of the notebooks, showing the order they come in, what each of them uses, what it does with it, and the changes it executes during its utility
