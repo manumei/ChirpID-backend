@@ -15,11 +15,6 @@ Create list of (filename, clas_id) entries
 **OGG to WAV**<br>
 For better work with transforms, place the wavs in database/assets/wav
 
-**Silence & Noise Removal**<br>
-Choose a fixed time interval (eg. SILENCE_CUT= 2.5 seconds), and then Cut & RePaste the .wav files, but having removed from each audio, every section where there are 2.5s+ of noise / silence.<br>
-Analyze with the spectrograms, check with ChatGPT how to do it optimally. Reload the audios with the silence/noise parts cut. So now data augmentation can be done comfortably.<br>
-Make sure that the window chosen later is longer than the SILENCE_CUT chosen here. For example, try SILENCE_CUT = 3, AUDIO_WINDOW = 5 so that no windows are mostly noise/silence.<br>
-
 **Train Test Split**<br>
 
 Split data into Train & Test, *with stratify* so all classes get in both, using SK-Learn modules.<br>
@@ -27,6 +22,11 @@ Final data should be lists of tuples [(filename1, class_id1), (filename2, class_
 
 **Load the Audios**<br>
 Using torchaudio.load or librosa.load, setting frequencies to standard 32kHz (librosa o torchaduil.transforms ambos lo hacen)
+
+**Silence & Noise Removal**<br>
+Choose a fixed time interval (eg. SILENCE_CUT= 2.5 seconds), and then Cut & RePaste the .wav files, but having removed from each audio, every section where there are 2.5s+ of noise / silence.<br>
+Analyze with the spectrograms, check with ChatGPT how to do it optimally. Reload the audios with the silence/noise parts cut. So now data augmentation can be done comfortably.<br>
+Make sure that the window chosen later is longer than the SILENCE_CUT chosen here. For example, try SILENCE_CUT = 3, AUDIO_WINDOW = 5 so that no windows are mostly noise/silence.<br>
 
 **Silence Filtering**<br>
 Filter out the low-energy background noise and silence, to only keep the relevant bird songs.<br>
