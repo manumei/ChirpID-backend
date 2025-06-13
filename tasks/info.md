@@ -12,12 +12,12 @@ Reload the metadata CSV to keep only the selected samples
 Map the bird_name to integers, class IDs
 Create list of (filename, clas_id) entries
 
-**OGG to WAV**<br>
-For better work with transforms, place the wavs in database/assets/wav
-
 **Train Test Split**<br>
 Split data into Train & Test, *with stratify* so all classes get in both, using SK-Learn modules.<br>
 Final data should be lists of tuples [(filename1, class_id1), (filename2, class_id2), ...]
+
+**OGG to WAV**<br>
+For better work with transforms, place the wavs in database/assets/wav
 
 **Load the Audios**<br>
 Using torchaudio.load or librosa.load, setting frequencies to standard 32kHz (librosa o torchaduil.transforms ambos lo hacen)
