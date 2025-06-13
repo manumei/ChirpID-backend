@@ -16,7 +16,6 @@ Create list of (filename, clas_id) entries
 For better work with transforms, place the wavs in database/assets/wav
 
 **Train Test Split**<br>
-
 Split data into Train & Test, *with stratify* so all classes get in both, using SK-Learn modules.<br>
 Final data should be lists of tuples [(filename1, class_id1), (filename2, class_id2), ...]
 
