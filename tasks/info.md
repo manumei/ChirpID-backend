@@ -35,6 +35,11 @@ Cut the longer audios, chose windows that contain enough audio energy/amplitude 
 
 **Spectrograms**
 Apply Fourier to get the Spectrograms, amplitude to decibels, etc.
+
+creemos una carpeta con las imagenes de los spectrograms
+asi no tenemos que seguir lidiando con los audios
+
+
 Get the matrix for the grayscale of the spectrogram for the model. testingLibrosa.py
 
 **Normalize Data**
