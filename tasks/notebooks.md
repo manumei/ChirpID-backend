@@ -34,10 +34,10 @@ Loads the saved model from the ModelTesting Notebook without doing any re-traini
 
 ### Useful Auxiliary Files, from [utils/](../utils/)
 
-**util.py**
+**[util.py](../utils/util.py)**
 
 Has useful auxiliary functions for the models and loading data, general-purpose utility auxiliary file.
 
-**models.py**
+**[models.py](../utils/models.py)**
 
 Has the PyTorch CNN Model logic. Important! When the model receives a value to predict, it should of course go through its entire process of converting to .wav, then reduce-noise and select window for spectrogram, then the grayscale matrix, and then predicting based on that.
