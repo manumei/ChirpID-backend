@@ -10,17 +10,11 @@ Takes the original train_metadata.csv and makes cutoffs based on coordinates, au
 
 ### 2. [AudioLoading.ipynb](../notebooks/AudioLoading.ipynb) | Status: Finished ☑️
 
-Reads the CSV to see which samples from the .ogg audio files to take, and it copies them into the dev/ and test/ folders in database/audio/, doing a stratified
+Reads the CSV to see which samples from the .ogg audio files to take, and it copies them into the dev/ and test/ folders in database/audio/, doing a stratified sampling to ensure proportional class representation in both datasets.
 
-Following train_data.csv, it takes the given .ogg files in raw/ and converts them to 32kHz waveform (.wav) files, splitting them into folders for each species' class_id for later stratifying when doing train-test split.
+### 3. [AudioProcessing.ipynb](../notebooks/AudioProcessing.ipynb) | Status: Work in Progress 🛠️
 
-### 2. [WavLoading.ipynb](../notebooks/WavLoading.ipynb) | Status: Finished ☑️
-
-
-
-### 3. [WavProcessing.ipynb](../notebooks/WavProcessing.ipynb) | Status: Work in Progress 🛠️
-
-Takes the waveform audio files, and creates reduced-noise spectrograms on a set window (currently librosa default, soon to be changed), and then loads the spectrograms into database/spect/
+Loads the dev/ audio files with librosa, keeping only the segments of high energy audio, creating samples from the division of longer audios into multiple of such segments. It then creates spectrograms on a set window for each segments, and loads them as .png images into database/spect/
 
 ### 4. [DataLoading.ipynb](../notebooks/DataLoading.ipynb) | Status: To be started ⏳
 
@@ -42,4 +36,4 @@ Has useful auxiliary functions for the models and loading data, general-purpose 
 
 **[models.py](../utils/models.py)**
 
-Has the PyTorch CNN Model logic. Important! When the model receives a value to predict, it should of course go through its entire process of converting to .wav, then reduce-noise and select window for spectrogram, then the grayscale matrix, and then predicting based on that.
+Has the PyTorch CNN Model logic. Important! When the model receives a value to predict, it should of course go through its entire process of being loaded by librosa, then reduce-noise, cut segment and select window for spectrogram, then the grayscale matrix, and then predicting based on that.
