@@ -18,15 +18,15 @@ Loads the dev/ audio files with librosa, keeping only the segments of high energ
 
 ### 4. [DataLoading.ipynb](../notebooks/DataLoading.ipynb) | Status: Work in Progress 🛠️
 
-Takes the spectrograms from the spect/ folder, and gets the images into a matrix form, with the grayscale of all the pixels, so they can be given to a Convolutional Neural Network for training. It loads the matrices pixel info into a CSV so they can then be read & extracted, easily reconverted into a feedable matrix without having to re-run this notebook again. The target CSV (at database/meta/final_model_data.csv) has a row for each sample, with the columns 'label' (class_id), and then all the pixel elements of the spectrogram.
+Takes the spectrograms from the spect/ folder, and gets the images into a matrix form, with the grayscale of all the pixels, so they can be given to a Convolutional Neural Network for training. It loads the matrices pixel info into a CSV so they can then be read & extracted, easily reconverted into a feedable matrix without having to re-run this notebook again. The target CSV (at database/meta/train_data.csv) has a row for each sample, with the columns 'label' (class_id), and then all the pixel elements of the spectrogram.
 
 ### 5. [ModelTraining.ipynb](../notebooks/ModelTraining.ipynb) | Status: To be started ⏳
 
-This notebook reads the final_model_data.csv, gets the matrices and turns them into torch tensors, and with that it trains the CNN PyTorch model imported from utils/models.py. It runs the entire training process with cross-validation. And then in a final cell, saves the model with its weights, so it can be imported and loaded from other files (such as .py or .ipynb files) for instant predictions based on the trained weights, without having to do re-training.
+This notebook reads the train_data.csv, gets the matrices and turns them into torch tensors, and with that it trains the CNN PyTorch model imported from utils/models.py. It runs the entire training process and then in a final cell saves the model with its weights in a .pth file, so it can be imported and loaded from other files (such as .py or .ipynb files) for instant predictions based on the trained weights, without having to do re-training.
 
 ### 6. [ModelTesting.ipynb](../notebooks/ModelTesting.ipynb) | Status: To be started ⏳
 
-Loads the saved model from the ModelTesting Notebook without doing any re-training, and is given the test set to evaluate final performance. 
+Loads the saved model from the ModelTesting Notebook without doing any re-training, and is given the test set to evaluate final performance.
 
 ### Useful Auxiliary Files, from [utils/](../utils/)
 
