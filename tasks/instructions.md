@@ -22,7 +22,8 @@ Run All Cells from AudioProcessing.ipynb, it will load the files at 32kHz freque
 
 Run All Cells from DataLoading.ipynb, it will load a CSV with the matrices of the grayscale pixels from the dev spectrograms, attached with the class_id label belonging to the given bird sample. The CSV will be loaded at dataset/samples/train_data.csv
 
-## 2. Model Training
+## 2. Running the Model
 
-...coming soon
+### 2.1 Model Training
 
+Run All Cells from ModelTraining.ipynb, this fetches the CSV with the 
