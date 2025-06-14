@@ -22,7 +22,7 @@ Takes the spectrograms from the spect/ folder, and gets the images into a matrix
 
 ### 5. [ModelTraining.ipynb](../notebooks/ModelTraining.ipynb) | Status: To be started ⏳
 
-This notebook reads the final_model_data.csv and trains the CNN PyTorch model. It runs the entire training process with cross-validation. And then in a final cell, saves the model with its weights, so it can be imported and loaded from other files (such as .py or .ipynb files) for instant predictions based on the trained weights, without having to do re-training.
+This notebook reads the final_model_data.csv, gets the matrices and turns them into torch tensors, and with that it trains the CNN PyTorch model imported from utils/models.py. It runs the entire training process with cross-validation. And then in a final cell, saves the model with its weights, so it can be imported and loaded from other files (such as .py or .ipynb files) for instant predictions based on the trained weights, without having to do re-training.
 
 ### 6. [ModelTesting.ipynb](../notebooks/ModelTesting.ipynb) | Status: To be started ⏳
 
