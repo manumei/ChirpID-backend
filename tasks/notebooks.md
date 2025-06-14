@@ -12,11 +12,11 @@ Takes the original train_metadata.csv and makes cutoffs based on coordinates, au
 
 Reads the CSV to see which samples from the .ogg audio files to take, and it copies them into the dev/ and test/ folders in database/audio/, doing a stratified sampling to ensure proportional class representation in both datasets.
 
-### 3. [AudioProcessing.ipynb](../notebooks/AudioProcessing.ipynb) | Status: Work in Progress 🛠️
+### 3. [AudioProcessing.ipynb](../notebooks/AudioProcessing.ipynb) | Status: Finished ☑️
 
 Loads the dev/ audio files with librosa, keeping only the segments of high energy audio, creating samples from the division of longer audios into multiple of such segments. It then creates spectrograms on a set window for each segments, and loads them as .png images into database/spect/
 
-### 4. [DataLoading.ipynb](../notebooks/DataLoading.ipynb) | Status: To be started ⏳
+### 4. [DataLoading.ipynb](../notebooks/DataLoading.ipynb) | Status: Work in Progress 🛠️
 
 Takes the spectrograms from the spect/ folder, and gets the images into a matrix form, with the grayscale of all the pixels, so they can be given to a Convolutional Neural Network for training. It loads the matrices pixel info into a CSV so they can then be read & extracted, easily reconverted into a feedable matrix without having to re-run this notebook again. The target CSV (at database/meta/final_model_data.csv) has a row for each sample, with the columns 'label' (class_id), and then all the pixel elements of the spectrogram.
 
