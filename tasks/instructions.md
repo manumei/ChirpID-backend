@@ -22,7 +22,14 @@ Run All Cells from AudioProcessing.ipynb, it will load the files at 32kHz freque
 
 Run All Cells from DataLoading.ipynb, it will load a CSV with the matrices of the grayscale pixels from the dev spectrograms, attached with the class_id label belonging to the given bird sample. The CSV will be loaded at dataset/samples/train_data.csv
 
-## 2. Model Training
+## 2. Running the Model
 
-...coming soon
+### 2.1 Model Training
 
+Run All Cells from ModelTraining.ipynb, this fetches train_data.csv and all its labeled matrices of grayscale spectrogram pixels per sample, it turns them into torch tensors, and feeds those to the model to run the training process, then saves the model weights as a .pth file, to make future immediate inferences of new audio files to process and predict.
+
+...coming soon 
+- k-fold cross validation
+- grid search regularization techniques
+- grid search architectures
+- grid search learning rate values & techniques
