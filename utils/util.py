@@ -63,6 +63,12 @@ def save_test_audios(segment, sr, test_audios_dir, filename, start):
         sf.write(test_audio_path, segment, sr)
         saved_test_audios += 1
 
+# Data Processing Aux
+def get_spect_matrix(image_path):
+    img = Image.open(image_path).convert('L')
+    pixels = np.array(img)
+    return pixels
+
 def audio_process(audio_path, reduce_noise: bool):
     ''' 
     Takes the path to an audio file (any format) and processes it to finally return the grayscale spectrogram pixel matrix.
@@ -71,6 +77,6 @@ def audio_process(audio_path, reduce_noise: bool):
     Step 3: Reduce noise for each segment if reduce_noise is True. (using reduce_noise_seg)
     Step 4: Generate a Spectrogram .png Image for each segment. (using get_spec_image)
     Step 5: Save the Spectrogram img in an auxiliary temp directory (Image.fromarray(img).save(spec_path))
-    Step 6: Read the Spectrogram .png Image and return the pixel matrix. (using PIL.Image.open)
+    Step 6: Read the Spectrogram .png Image and return the pixel matrix. (using get_spect_matrix)
     '''
 
