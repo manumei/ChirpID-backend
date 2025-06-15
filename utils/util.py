@@ -62,3 +62,15 @@ def save_test_audios(segment, sr, test_audios_dir, filename, start):
         test_audio_path = os.path.join(test_audios_dir, test_audio_filename)
         sf.write(test_audio_path, segment, sr)
         saved_test_audios += 1
+
+def audio_process(audio_path, reduce_noise: bool):
+    ''' 
+    Takes the path to an audio file (any format) and processes it to finally return the grayscale spectrogram pixel matrix.
+    Step 1: Load the audio file with librosa. (using lbrs_loading)
+    Step 2: Split into high-RMS segments of 5 seconds. (using get_rmsThreshold)
+    Step 3: Reduce noise for each segment if reduce_noise is True. (using reduce_noise_seg)
+    Step 4: Generate a Spectrogram .png Image for each segment. (using get_spec_image)
+    Step 5: Save the Spectrogram img in an auxiliary temp directory (Image.fromarray(img).save(spec_path))
+    Step 6: Read the Spectrogram .png Image and return the pixel matrix. (using PIL.Image.open)
+    '''
+
