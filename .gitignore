@@ -1,1 +1,5 @@
 data/
+uploads/
+.env
+.env.*
+__pycache__/
