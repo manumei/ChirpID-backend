@@ -1,3 +1,4 @@
+# Directory Aux
 import os
 import shutil
 
@@ -14,3 +15,50 @@ def count_files_in_dir(dir_path):
         return 0
     return len([f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))])
 
+# Audio Processing Aux
+import librosa as lbrs
+import noisereduce as nr
+from PIL import Image
+import numpy as np
+
+def lbrs_loading(audio_path, sr, mono=True):
+    y, srate = lbrs.load(audio_path, sr=sr, mono=mono)
+    if srate != sr:
+        raise ValueError(f"Sample rate mismatch: expected {sr}, got {srate}, at audio file {audio_path}")
+    return y, srate
+
+def get_rmsThreshold(y, frame_len, hop_len, thresh_factor=0.5):
+    rms = lbrs.feature.rms(y=y, frame_length=frame_len, hop_length=hop_len)[0]
+    threshold = thresh_factor * np.mean(rms)
+    return threshold
+
+def reduce_noise_seg(segment, srate, filename, class_id):
+    try:
+        segment = nr.reduce_noise(y=segment, sr=srate, stationary=False)
+    except RuntimeWarning as e:
+        print(f"RuntimeWarning while reducing noise for {filename} from {class_id}: {e}")
+    except Exception as e:
+        print(f"Error while reducing noise for {filename} from {class_id}: {e}")
+    return segment
+
+def get_spec_norm(segment, sr, mels, hoplen, nfft):
+    spec = lbrs.feature.melspectrogram(y=segment, sr=sr, n_mels=mels, hop_length=hoplen, n_fft=nfft)
+    spec_db = lbrs.power_to_db(spec, ref=np.max)
+    norm_spec = (spec_db - spec_db.min()) / (spec_db.max() - spec_db.min())
+    return norm_spec
+
+def get_spec_image(segment, sr, mels, hoplen, nfft, filename, start, spectrogram_dir):
+    norm_spec = get_spec_norm(segment, sr, mels, hoplen, nfft)
+    img = (norm_spec * 255).astype(np.uint8)
+    spec_filename = f"{os.path.splitext(filename)[0]}_{start}.png"
+    spec_path = os.path.join(spectrogram_dir, spec_filename)
+    return img, spec_path, spec_filename
+
+def save_test_audios(segment, sr, test_audios_dir, filename, start):
+    if test_audios_dir is not None and saved_test_audios < 10:
+        import soundfile as sf
+        os.makedirs(test_audios_dir, exist_ok=True)
+        test_audio_filename = f"{os.path.splitext(filename)[0]}_{start}_test.wav"
+        test_audio_path = os.path.join(test_audios_dir, test_audio_filename)
+        sf.write(test_audio_path, segment, sr)
+        saved_test_audios += 1
