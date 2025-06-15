@@ -11,7 +11,7 @@ Instructions.md es claro y conciso, estructurado con numeros y pasos, y para des
 
 ### todo.md
 
-Reminders and things to-do, no real order, ideas y cosas para tener ahi so we dont forget.
+Reminders and things to-do, no real order, ideas y cosas para tener ahi so we dont forget. Has some doubts and stuff too.
 
 ### notebooks.md
 
