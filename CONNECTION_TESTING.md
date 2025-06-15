@@ -12,7 +12,8 @@ This guide helps you validate the connection between the React Native frontend a
    ```
 
 2. **React Native Frontend Setup**
-   ```bash
+
+   ```arduino
    cd "\chirpid"
    npm install
    ```
@@ -28,7 +29,7 @@ python get_ip.py
 
 Update the `.env` file in your React Native project:
 
-```
+```bash
 EXPO_PUBLIC_API_URL=http://YOUR_IP_ADDRESS:5000
 ```
 
@@ -41,7 +42,7 @@ python run.py
 
 You should see:
 
-```
+```bash
 Starting ChirpID Backend Server...
 Server will be available at: http://0.0.0.0:5000
 Local network access at: http://<your-ip>:5000
@@ -58,7 +59,7 @@ python test_server.py
 
 Expected output:
 
-```
+```bash
 Testing ChirpID Backend Server...
 ========================================
 Ping test: 200
