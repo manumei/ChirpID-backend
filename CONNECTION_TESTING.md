@@ -4,34 +4,38 @@ This guide helps you validate the connection between the React Native frontend a
 
 ## Prerequisites
 
-1. **Flask Backend Setup**
+##### Flask Backend Setup
+
+Run this from the ChirpID-backend repository root:
 
    ```bash
-   cd "\ChirpID-backend"
    pip install -r requirements.txt
    ```
 
-2. **React Native Frontend Setup**
+##### React Native Frontend Setup
 
-   ```arduino
-   cd "\chirpid"
+Make sure you have cloned the [chirpid front-end repository](https://github.com/manudelp/chirpid.git).
+Run this from the chirpid/ root:
+
+   ```bash
    npm install
    ```
 
 ## Step 1: Get Your Local IP Address
 
-Run this script to get your computer's local IP address:
+Run this script from the ChirpID-backend root to get your computer's local IP address:
 
 ```bash
-cd "\ChirpID-backend"
 python get_ip.py
 ```
 
-Update the `.env` file in your React Native project:
+Go to the front-end repository, and update the `.env` file:
 
 ```bash
 EXPO_PUBLIC_API_URL=http://YOUR_IP_ADDRESS:5000
 ```
+
+If the file does not exist, create it at the chirpid/ root and just add that line.
 
 ## Step 2: Start the Flask Backend
 
@@ -82,8 +86,9 @@ All tests passed! 🎉
 
 ## Step 4: Start the React Native App
 
+Navigate to the root of the front-end repository at chirpid/ again, and run this:
+
 ```bash
-cd "\chirpid"
 npx expo start
 ```
 
