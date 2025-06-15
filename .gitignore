@@ -3,3 +3,4 @@ uploads/
 .env
 .env.*
 __pycache__/
+train_data.csv
