@@ -16,3 +16,7 @@ Reminders and things to-do, no real order, ideas y cosas para tener ahi so we do
 ### notebooks.md
 
 Information about each of the notebooks, showing the order they come in, what each of them uses, what it does with it, and the changes it executes during its utility
+
+### targets.md
+
+Set targets and objectives with deadlines for the task, can be especifically assigned to a collaborator, or just tenerlos ahi y los vamos haciendo. Importante para mantener bien el rumbo de las cosas.
