@@ -1,3 +1,7 @@
-# ChirpID
+# ChirpID Backend
 
-[https://youtu.be/EntQpTuF1Kk](https://youtu.be/EntQpTuF1Kk)
+##### For instructions on how to run the connection between the Flask server and the React Native front-end, see [the App instructions](app/README.md).
+
+---
+
+##### For instructions on how to run the Neural Network model for bird prediction, see [the Notebooks Instructions](notebooks/README.md).
