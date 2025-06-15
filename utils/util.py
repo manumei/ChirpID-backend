@@ -36,9 +36,9 @@ def reduce_noise_seg(segment, srate, filename, class_id):
     try:
         segment = nr.reduce_noise(y=segment, sr=srate, stationary=False)
     except RuntimeWarning as e:
-        print(f"RuntimeWarning while reducing noise for {filename} from {class_id}: {e}")
+        print(f"RuntimeWarning while reducing noise for segment in {filename} from {class_id}: {e}")
     except Exception as e:
-        print(f"Error while reducing noise for {filename} from {class_id}: {e}")
+        print(f"Error while reducing noise for segment in {filename} from {class_id}: {e}")
     return segment
 
 def get_spec_norm(segment, sr, mels, hoplen, nfft):
@@ -68,27 +68,34 @@ def get_spect_matrix(image_path):
     pixels = np.array(img)
     return pixels
 
-def audio_process(audio_path, aux_dir, reduce_noise: bool, sr=32000, segment_sec=5.0,
-                frame_len=2048, hop_len=512, mels=128, nfft=2048, test_audios_dir=None):
+def get_spec_matrix_direct(segment, sr, mels, hoplen, nfft):
+    """ Get spectrogram matrix directly from segment and params """
+    norm_spec = get_spec_norm(segment, sr, mels, hoplen, nfft)
+    matrix = (norm_spec * 255).astype(np.uint8)
+    return matrix
+
+def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
+                frame_len=2048, hop_len=512, mels=128, nfft=2048):
     ''' 
-    Takes the path to an audio file (any format) and processes it to finally return the grayscale spectrogram pixel matrix.
+    Takes the path to an audio file (any format) and processes it to finally return 
+    the list of grayscale spectrogram pixel matrices for each of its high-RMS segments.
+
     Step 1: Load the audio file with librosa. (using lbrs_loading)
     Step 2: Split into high-RMS segments of 5 seconds. (using get_rmsThreshold)
     Step 3: Reduce noise for each segment if reduce_noise is True. (using reduce_noise_seg)
-    Step 4: Generate a Spectrogram .png Image for each segment. (using get_spec_image)
-    Step 5: Save the Spectrogram img in an auxiliary temp directory (Image.fromarray(img).save(spec_path))
-    Step 6: Read the Spectrogram .png Image and return the pixel matrix. (using get_spect_matrix)
+    Step 4: Generate a Spectrogram grayscale matrix for each segment. (using get_spec_mnatrix_direct)
     '''
-    
+
+    matrices = []
     print(f"Processing audio file: {audio_path}")
     samples_per_segment = int(sr * segment_sec)
 
+    # Step 1
     y, srate = lbrs_loading(audio_path, sr)
-    print(f"Audio loaded with sample rate: {srate}")
-    
+
+    # Step 2
     threshold = get_rmsThreshold(y, frame_len, hop_len)
-    print(f"RMS threshold calculated: {threshold}")
-    
+
     for start in range(0, len(y) - samples_per_segment + 1, samples_per_segment):
         segment = y[start:start + samples_per_segment]
         seg_rms = np.mean(lbrs.feature.rms(y=segment)[0])
@@ -97,17 +104,14 @@ def audio_process(audio_path, aux_dir, reduce_noise: bool, sr=32000, segment_sec
             # print(f"Segment at {start} has {seg_rms} RMS, below threshold {threshold}. Skipping...")
             continue
 
+        # Step 3
         if reduce_noise:
             segment = reduce_noise_seg(segment, srate, os.path.basename(audio_path), class_id=None)
-        
-        # Generate filename for spectrogram
+
+        # Step 4
         filename = os.path.basename(audio_path)
-        img, spec_path, spec_name = get_spec_image(segment, sr=srate, mels=mels, hoplen=hop_len, nfft=nfft, filename=filename, start=start, spectrogram_dir=aux_dir)
-        Image.fromarray(img).save(spec_path)
-
-
-
-    # Save first 10 segmented audios as test samples
-    util.save_test_audios(segment, sr, test_audios_dir, filename, start)
-
-
+        matrix = get_spec_matrix_direct(segment, srate, mels, hop_len, nfft)
+        matrices.append(matrix)
+    
+    print(f"Processed {len(matrices)} segments from {audio_path}")
+    return matrices
