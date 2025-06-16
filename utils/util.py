@@ -125,3 +125,13 @@ def save_model(model, model_name):
     model_save_path = os.path.join(model_dir, f"{model_name}.pth")
     torch.save(model.state_dict(), model_save_path)
     print(f"Model weights saved to: {model_save_path}")
+
+def load_model(model_class, model_name, num_classes=28):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model_class(num_classes=num_classes).to(device)
+    model_path = os.path.join('..', 'models', f"{model_name}.pth")
+    state_dict = torch.load(model_path, map_location=device)
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
+
