@@ -115,3 +115,13 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
     
     print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
+
+# Model Utils
+import torch
+
+def save_model(model, model_name):
+    model_dir = os.path.join('..', 'models')
+    os.makedirs(model_dir, exist_ok=True)
+    model_save_path = os.path.join(model_dir, f"{model_name}.pth")
+    torch.save(model.state_dict(), model_save_path)
+    print(f"Model weights saved to: {model_save_path}")
