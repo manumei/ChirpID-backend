@@ -8,6 +8,7 @@ from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 import numpy as np
+import matplotlib.pyplot as plt
 
 def clean_dir(dest_dir):
     ''' Deletes the raw audio files in the dest_dir.'''
@@ -209,7 +210,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
         'val_accuracies': val_accuracies
     }
 
-def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
+def k_fold_cross_validation(dataset, model, k_folds=5, 
                             num_epochs=300, batch_size=32, lr=0.001, 
                             random_state=42, aggregate_predictions=True):
     """
@@ -217,8 +218,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     
     Args:
         dataset: PyTorch dataset containing all data
-        model_class: Model class to instantiate (e.g., models.BirdCNN)
-        num_classes: Number of output classes
+        model: Model to use
         k_folds: Number of folds for cross validation
         num_epochs: Number of epochs per fold
         batch_size: Batch size for data loaders
@@ -263,7 +263,6 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
         
         # Initialize model, criterion, and optimizer
-        model = model_class(num_classes=num_classes).to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)
         
@@ -371,6 +370,20 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     
     return results
 
+def plot_fold_curves(results, metric_key, title, ylabel):
+    plt.figure(figsize=(12, 5))
+    for i, (fold_key, fold_data) in enumerate(results['fold_results'].items()):
+        history = fold_data['history']
+        plt.plot(history[f"train_{metric_key}"], label=f"Train Fold {i+1}", linestyle='--')
+        plt.plot(history[f"val_{metric_key}"], label=f"Val Fold {i+1}")
+    plt.title(title)
+    plt.xlabel("Epoch")
+    plt.ylabel(ylabel)
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
 # Model Utils
 def save_model(model, model_name):
     model_dir = os.path.join('..', 'models')
@@ -379,12 +392,16 @@ def save_model(model, model_name):
     torch.save(model.state_dict(), model_save_path)
     print(f"Model weights saved to: {model_save_path}")
 
-def load_model(model_class, model_name, num_classes=28):
+def load_model(model, model_name):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model_class(num_classes=num_classes).to(device)
     model_path = os.path.join('..', 'models', f"{model_name}.pth")
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     model.eval()
     return model
 
+def reset_model(model, lr=0.001):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.CrossEntropyLoss()
+    return model, optimizer, criterion, device
