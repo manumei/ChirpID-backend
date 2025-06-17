@@ -1,6 +1,13 @@
 # Directory Aux
 import os
 import shutil
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from sklearn.model_selection import KFold
+from torch.utils.data import DataLoader, Subset
+from tqdm import tqdm
+import numpy as np
 
 def clean_dir(dest_dir):
     ''' Deletes the raw audio files in the dest_dir.'''
@@ -116,9 +123,255 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
     print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
 
-# Model Utils
-import torch
+# Training and Validation Functions
+def train_epoch(model, train_loader, criterion, optimizer, device):
+    """Train model for one epoch and return loss and accuracy."""
+    model.train()
+    running_loss, correct, total = 0.0, 0, 0
+    
+    for X_batch, y_batch in train_loader:
+        X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+        
+        optimizer.zero_grad()
+        outputs = model(X_batch)
+        loss = criterion(outputs, y_batch)
+        loss.backward()
+        optimizer.step()
+        
+        running_loss += loss.item() * X_batch.size(0)
+        preds = outputs.argmax(dim=1)
+        correct += (preds == y_batch).sum().item()
+        total += y_batch.size(0)
+    
+    return running_loss / total, correct / total
 
+def validate_epoch(model, val_loader, criterion, device, return_predictions=False):
+    """Validate model for one epoch and return loss and accuracy."""
+    model.eval()
+    val_loss, val_correct, val_total = 0.0, 0, 0
+    
+    if return_predictions:
+        all_predictions = []
+        all_targets = []
+    
+    with torch.no_grad():
+        for X_batch, y_batch in val_loader:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            outputs = model(X_batch)
+            loss = criterion(outputs, y_batch)
+            
+            val_loss += loss.item() * X_batch.size(0)
+            preds = outputs.argmax(dim=1)
+            val_correct += (preds == y_batch).sum().item()
+            val_total += y_batch.size(0)
+            
+            if return_predictions:
+                all_predictions.append(outputs.cpu())
+                all_targets.append(y_batch.cpu())
+    
+    if return_predictions:
+        return val_loss / val_total, val_correct / val_total, torch.cat(all_predictions), torch.cat(all_targets)
+    else:
+        return val_loss / val_total, val_correct / val_total
+
+def train_single_fold(model, train_loader, val_loader, criterion, optimizer, 
+                    num_epochs, device, fold_num=None):
+    """Train model on a single fold and return training history."""
+    train_losses, val_losses = [], []
+    train_accuracies, val_accuracies = [], []
+    
+    desc = f"Fold {fold_num}" if fold_num is not None else "Training"
+    pbar = tqdm(range(num_epochs), desc=desc, unit="epoch")
+    
+    for epoch in pbar:
+        # Training
+        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+        train_losses.append(train_loss)
+        train_accuracies.append(train_acc)
+        
+        # Validation
+        val_loss, val_acc = validate_epoch(model, val_loader, criterion, device)
+        val_losses.append(val_loss)
+        val_accuracies.append(val_acc)
+        
+        pbar.set_description(f"{desc} - Epoch {epoch+1}/{num_epochs}")
+        pbar.set_postfix(
+            train_acc=f"{train_acc:.3f}", 
+            train_loss=f"{train_loss:.4f}",
+            val_acc=f"{val_acc:.3f}",
+            val_loss=f"{val_loss:.4f}"
+        )
+    
+    return {
+        'train_losses': train_losses,
+        'val_losses': val_losses,
+        'train_accuracies': train_accuracies,
+        'val_accuracies': val_accuracies
+    }
+
+def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
+                            num_epochs=300, batch_size=32, lr=0.001, 
+                            random_state=42, aggregate_predictions=True):
+    """
+    Perform K-Fold Cross Validation training.
+    
+    Args:
+        dataset: PyTorch dataset containing all data
+        model_class: Model class to instantiate (e.g., models.BirdCNN)
+        num_classes: Number of output classes
+        k_folds: Number of folds for cross validation
+        num_epochs: Number of epochs per fold
+        batch_size: Batch size for data loaders
+        lr: Learning rate
+        random_state: Random seed for reproducibility
+        aggregate_predictions: If True, compute cross-entropy on aggregated predictions
+                                If False, use mean of individual fold losses
+    
+    Returns:
+        Dictionary containing results for each fold and aggregated metrics
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # Initialize KFold
+    kfold = KFold(n_splits=k_folds, shuffle=True, random_state=random_state)
+    
+    # Store results for each fold
+    fold_results = {}
+    final_val_accuracies = []
+    final_val_losses = []
+    
+    # For aggregated predictions
+    if aggregate_predictions:
+        all_final_predictions = []
+        all_final_targets = []
+    
+    print(f"Starting {k_folds}-Fold Cross Validation on {device}")
+    print(f"Dataset size: {len(dataset)}")
+    
+    for fold, (train_ids, val_ids) in enumerate(kfold.split(dataset)):
+        print(f"\n{'='*50}")
+        print(f"FOLD {fold + 1}/{k_folds}")
+        print(f"Train size: {len(train_ids)}, Val size: {len(val_ids)}")
+        print(f"{'='*50}")
+        
+        # Create data subsets
+        train_subset = Subset(dataset, train_ids)
+        val_subset = Subset(dataset, val_ids)
+        
+        # Create data loaders
+        train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
+        
+        # Initialize model, criterion, and optimizer
+        model = model_class(num_classes=num_classes).to(device)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+        
+        # Train the fold
+        fold_history = train_single_fold(
+            model, train_loader, val_loader, criterion, optimizer,
+            num_epochs, device, fold_num=fold+1
+        )
+        
+        # Get final predictions if aggregating
+        if aggregate_predictions:
+            final_val_loss, final_val_acc, final_preds, final_targets = validate_epoch(
+                model, val_loader, criterion, device, return_predictions=True
+            )
+            all_final_predictions.append(final_preds)
+            all_final_targets.append(final_targets)
+        else:
+            final_val_loss, final_val_acc = fold_history['val_losses'][-1], fold_history['val_accuracies'][-1]
+        
+        # Store fold results
+        fold_results[f'fold_{fold+1}'] = {
+            'history': fold_history,
+            'final_val_acc': final_val_acc,
+            'final_val_loss': final_val_loss,
+            'best_val_acc': max(fold_history['val_accuracies']),
+            'model_state': model.state_dict().copy()  # Save best model if needed
+        }
+        
+        final_val_accuracies.append(final_val_acc)
+        final_val_losses.append(final_val_loss)
+        
+        print(f"Fold {fold+1} Final - Val Acc: {final_val_acc:.4f}, "
+            f"Val Loss: {final_val_loss:.4f}")
+    
+    # Calculate aggregate statistics
+    if aggregate_predictions:
+        # Compute true aggregated cross-entropy
+        all_predictions = torch.cat(all_final_predictions, dim=0)
+        all_targets = torch.cat(all_final_targets, dim=0)
+        
+        criterion_agg = nn.CrossEntropyLoss()
+        aggregated_loss = criterion_agg(all_predictions, all_targets).item()
+        
+        # Compute aggregated accuracy
+        aggregated_preds = all_predictions.argmax(dim=1)
+        aggregated_accuracy = (aggregated_preds == all_targets).float().mean().item()
+        
+        # print(f"\n{'='*60}")
+        # print(f"K-FOLD CROSS VALIDATION RESULTS")
+        # print(f"{'='*60}")
+        # print(f"AGGREGATED METRICS (True Cross-Entropy):")
+        # print(f"  Aggregated Validation Accuracy: {aggregated_accuracy:.4f}")
+        # print(f"  Aggregated Validation Loss: {aggregated_loss:.4f}")
+        # print(f"\nPER-FOLD AVERAGES:")
+        # print(f"  Mean Validation Accuracy: {np.mean(final_val_accuracies):.4f} ± {np.std(final_val_accuracies):.4f}")
+        # print(f"  Mean Validation Loss: {np.mean(final_val_losses):.4f} ± {np.std(final_val_losses):.4f}")
+        # print(f"  Individual Fold Accuracies: {[f'{acc:.4f}' for acc in final_val_accuracies]}")
+        
+        summary = {
+            'aggregated_accuracy': aggregated_accuracy,
+            'aggregated_loss': aggregated_loss,
+            'mean_val_accuracy': np.mean(final_val_accuracies),
+            'std_val_accuracy': np.std(final_val_accuracies),
+            'mean_val_loss': np.mean(final_val_losses),
+            'std_val_loss': np.std(final_val_losses),
+            'individual_accuracies': final_val_accuracies,
+            'individual_losses': final_val_losses
+        }
+    else:
+        # Use mean of fold losses (original approach)
+        mean_val_acc = np.mean(final_val_accuracies)
+        std_val_acc = np.std(final_val_accuracies)
+        mean_val_loss = np.mean(final_val_losses)
+        std_val_loss = np.std(final_val_losses)
+        
+        # print(f"\n{'='*60}")
+        # print(f"K-FOLD CROSS VALIDATION RESULTS")
+        # print(f"{'='*60}")
+        # print(f"Mean Validation Accuracy: {mean_val_acc:.4f} ± {std_val_acc:.4f}")
+        # print(f"Mean Validation Loss: {mean_val_loss:.4f} ± {std_val_loss:.4f}")
+        # print(f"Individual Fold Accuracies: {[f'{acc:.4f}' for acc in final_val_accuracies]}")
+        
+        summary = {
+            'mean_val_accuracy': mean_val_acc,
+            'std_val_accuracy': std_val_acc,
+            'mean_val_loss': mean_val_loss,
+            'std_val_loss': std_val_loss,
+            'individual_accuracies': final_val_accuracies,
+            'individual_losses': final_val_losses
+        }
+    
+    # Compile results
+    results = {
+        'fold_results': fold_results,
+        'summary': summary,
+        'config': {
+            'k_folds': k_folds,
+            'num_epochs': num_epochs,
+            'batch_size': batch_size,
+            'learning_rate': lr,
+            'device': str(device),
+            'aggregate_predictions': aggregate_predictions
+        }
+    }
+    
+    return results
+
+# Model Utils
 def save_model(model, model_name):
     model_dir = os.path.join('..', 'models')
     os.makedirs(model_dir, exist_ok=True)
