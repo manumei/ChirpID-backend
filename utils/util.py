@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
+from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 import numpy as np
@@ -232,7 +233,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
 
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
                             num_epochs=300, batch_size=32, lr=0.001, 
-                            random_state=42, aggregate_predictions=True):
+                            random_state=435, aggregate_predictions=True, use_class_weights=True):
     """
     Perform K-Fold Cross Validation training with F1 score reporting.
     
@@ -247,6 +248,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         random_state: Random seed for reproducibility
         aggregate_predictions: If True, compute cross-entropy on aggregated predictions
                                 If False, use mean of individual fold losses
+        use_class_weights: If True, compute and use class weights for CrossEntropyLoss
     
     Returns:
         Dictionary containing results for each fold and aggregated metrics including F1 scores
@@ -269,6 +271,8 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     
     print(f"Starting {k_folds}-Fold Cross Validation on {device}")
     print(f"Dataset size: {len(dataset)}")
+    if use_class_weights:
+        print("Using class re-weighting for imbalanced data")
     
     for fold, (train_ids, val_ids) in enumerate(kfold.split(dataset)):
         print(f"\n{'='*50}")
@@ -279,6 +283,31 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         # Create data subsets
         train_subset = Subset(dataset, train_ids)
         val_subset = Subset(dataset, val_ids)
+        
+        # Compute class weights for this fold if enabled
+        if use_class_weights:
+            # Extract training labels for this fold
+            train_labels = [dataset[i][1].item() for i in train_ids]
+            unique_classes = np.unique(train_labels)
+            
+            # Compute class weights using sklearn
+            class_weights_array = compute_class_weight(
+                'balanced',
+                classes=unique_classes,
+                y=train_labels
+            )
+            
+            # Create tensor of weights for all classes (fill missing classes with 1.0)
+            class_weights = torch.ones(num_classes)
+            for i, cls in enumerate(unique_classes):
+                class_weights[cls] = class_weights_array[i]
+            
+            class_weights = class_weights.to(device)
+            print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+            
+            criterion = nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            criterion = nn.CrossEntropyLoss()
         
         # Create data loaders
         train_loader = DataLoader(
@@ -299,9 +328,8 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
             persistent_workers=True
         )
         
-        # Initialize model, criterion, and optimizer
+        # Initialize model and optimizer
         model = model_class(num_classes=num_classes).to(device)
-        criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)
         
         # Train the fold
@@ -330,7 +358,8 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
             'final_val_f1': final_val_f1,
             'best_val_acc': max(fold_history['val_accuracies']),
             'best_val_f1': max(fold_history['val_f1s']),
-            'model_state': model.state_dict().copy()  # Save best model if needed
+            'model_state': model.state_dict().copy(),  # Save best model if needed
+            'class_weights': class_weights.cpu() if use_class_weights else None
         }
         
         final_val_accuracies.append(final_val_acc)
@@ -399,7 +428,8 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
             'batch_size': batch_size,
             'learning_rate': lr,
             'device': str(device),
-            'aggregate_predictions': aggregate_predictions
+            'aggregate_predictions': aggregate_predictions,
+            'use_class_weights': use_class_weights
         }
     }
     
