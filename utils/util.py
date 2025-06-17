@@ -146,9 +146,9 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         correct += (preds == y_batch).sum().item()
         total += y_batch.size(0)
         
-        all_preds.extend(preds.cpu().numpy())
-        all_targets.extend(y_batch.cpu().numpy())
-    
+        all_preds.extend(preds.detach().cpu().numpy())
+        all_targets.extend(y_batch.detach().cpu().numpy())
+
     f1 = f1_score(all_targets, all_preds, average='macro', zero_division=0)
     return running_loss / total, correct / total, f1
 
@@ -164,7 +164,8 @@ def validate_epoch(model, val_loader, criterion, device, return_predictions=Fals
     
     with torch.no_grad():
         for X_batch, y_batch in val_loader:
-            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            X_batch = X_batch.to(device, non_blocking=True)
+            y_batch = y_batch.to(device, non_blocking=True)
             outputs = model(X_batch)
             loss = criterion(outputs, y_batch)
             
@@ -173,12 +174,12 @@ def validate_epoch(model, val_loader, criterion, device, return_predictions=Fals
             val_correct += (preds == y_batch).sum().item()
             val_total += y_batch.size(0)
             
-            all_preds.extend(preds.cpu().numpy())
-            all_targets.extend(y_batch.cpu().numpy())
+            all_preds.extend(preds.detach().cpu().numpy())
+            all_targets.extend(y_batch.detach().cpu().numpy())
             
             if return_predictions:
-                all_predictions.append(outputs.cpu())
-                all_target_tensors.append(y_batch.cpu())
+                all_predictions.append(outputs.detach().cpu())
+                all_target_tensors.append(y_batch.detach().cpu())
     
     f1 = f1_score(all_targets, all_preds, average='macro', zero_division=0)
     
@@ -280,8 +281,23 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         val_subset = Subset(dataset, val_ids)
         
         # Create data loaders
-        train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(
+            train_subset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=12,
+            pin_memory=True,
+            persistent_workers=True
+        )
+
+        val_loader = DataLoader(
+            val_subset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=12,
+            pin_memory=True,
+            persistent_workers=True
+        )
         
         # Initialize model, criterion, and optimizer
         model = model_class(num_classes=num_classes).to(device)
