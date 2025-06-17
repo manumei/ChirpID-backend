@@ -191,11 +191,18 @@ def validate_epoch(model, val_loader, criterion, device, return_predictions=Fals
         return val_loss / val_total, val_correct / val_total, f1
 
 def train_single_fold(model, train_loader, val_loader, criterion, optimizer, 
-                    num_epochs, device, fold_num=None):
+                    num_epochs, device, fold_num=None, estop_thresh=15):
     """Train model on a single fold and return training history including F1 scores."""
     train_losses, val_losses = [], []
     train_accuracies, val_accuracies = [], []
     train_f1s, val_f1s = [], []
+    
+    # Early stopping variables
+    best_val_loss = float('inf')
+    best_model_state = None
+    epochs_without_improvement = 0
+    best_epoch = 0
+    early_stopped = False
     
     desc = f"Fold {fold_num}" if fold_num is not None else "Training"
     pbar = tqdm(range(num_epochs), desc=desc, unit="epoch")
@@ -213,6 +220,21 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
         val_accuracies.append(val_acc)
         val_f1s.append(val_f1)
         
+        # Early stopping logic
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_model_state = model.state_dict().copy()
+            epochs_without_improvement = 0
+            best_epoch = epoch
+        else:
+            epochs_without_improvement += 1
+        
+        # Check if we should stop early
+        if epochs_without_improvement >= estop_thresh:
+            print(f"\nEarly stopping triggered after {epoch + 1} epochs. Best val loss: {best_val_loss:.4f} at epoch {best_epoch + 1}")
+            early_stopped = True
+            break
+        
         pbar.set_description(f"{desc} - Epoch {epoch+1}/{num_epochs}")
         pbar.set_postfix(
             train_acc=f"{train_acc:.3f}", 
@@ -220,8 +242,15 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
             train_f1=f"{train_f1:.3f}",
             val_acc=f"{val_acc:.3f}",
             val_loss=f"{val_loss:.4f}",
-            val_f1=f"{val_f1:.3f}"
+            val_f1=f"{val_f1:.3f}",
+            best_val_loss=f"{best_val_loss:.4f}",
+            no_improve=epochs_without_improvement
         )
+    
+    # Restore best model state
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        print(f"Restored model weights from epoch {best_epoch + 1} (best val loss: {best_val_loss:.4f})")
     
     return {
         'train_losses': train_losses,
@@ -229,14 +258,19 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
         'train_accuracies': train_accuracies,
         'val_accuracies': val_accuracies,
         'train_f1s': train_f1s,
-        'val_f1s': val_f1s
+        'val_f1s': val_f1s,
+        'best_val_loss': best_val_loss,
+        'best_epoch': best_epoch,
+        'early_stopped': early_stopped,
+        'total_epochs': epoch + 1 if early_stopped else num_epochs
     }
 
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
                             num_epochs=300, batch_size=32, lr=0.001, 
-                            random_state=435, aggregate_predictions=True, use_class_weights=True):
+                            random_state=435, aggregate_predictions=True, use_class_weights=True,
+                            estop_thresh=15):
     """
-    Perform K-Fold Cross Validation training with F1 score reporting.
+    Perform K-Fold Cross Validation training with F1 score reporting and early stopping.
     
     Args:
         dataset: PyTorch dataset containing all data
@@ -250,6 +284,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         aggregate_predictions: If True, compute cross-entropy on aggregated predictions
                                 If False, use mean of individual fold losses
         use_class_weights: If True, compute and use class weights for CrossEntropyLoss
+        estop_thresh: Number of epochs without improvement before early stopping
     
     Returns:
         Dictionary containing results for each fold and aggregated metrics including F1 scores
@@ -334,7 +369,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         # Train the fold
         fold_history = train_single_fold(
             model, train_loader, val_loader, criterion, optimizer,
-            num_epochs, device, fold_num=fold+1
+            num_epochs, device, fold_num=fold+1, estop_thresh=estop_thresh
         )
         
         # Get final predictions if aggregating
@@ -433,9 +468,9 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
 
 def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
                         batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
-                        use_class_weights=True):
+                        use_class_weights=True, estop_thresh=15):
     """
-    Perform single fold training with 80-20 split.
+    Perform single fold training with 80-20 split and early stopping.
     
     Args:
         dataset: PyTorch dataset containing all data
@@ -447,6 +482,7 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
         test_size: Fraction of data to use for validation (0.2 = 20%)
         random_state: Random seed for reproducibility
         use_class_weights: If True, compute and use class weights for CrossEntropyLoss
+        estop_thresh: Number of epochs without improvement before early stopping
     
     Returns:
         Dictionary containing training history and final model
@@ -519,7 +555,7 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
     # Train the model
     history = train_single_fold(
         model, train_loader, val_loader, criterion, optimizer,
-        num_epochs, device, fold_num=None
+        num_epochs, device, fold_num=None, estop_thresh=estop_thresh
     )
     
     # Get final validation metrics
@@ -542,11 +578,14 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
             'learning_rate': lr,
             'test_size': test_size,
             'device': str(device),
-            'use_class_weights': use_class_weights
+            'use_class_weights': use_class_weights,
+            'estop_thresh': estop_thresh
         }
     }
     
     print(f"\nTraining Complete!")
+    if history['early_stopped']:
+        print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
     print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
     print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
     
@@ -641,8 +680,6 @@ def print_kfold_best_results(results):
     
     if 'aggregated_f1' in results['summary']:
         print(f"Aggregated F1 Score: {results['summary']['aggregated_f1']:.4f}")
-
-# ...existing code...
 
 # Model Utils
 def save_model(model, model_name, model_save_path):
