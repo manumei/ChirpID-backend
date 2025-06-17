@@ -4,7 +4,21 @@ How to add noise to make model more robust? Research what the common pracvtices 
 
 How to make the model deal with noise/silence? Should the model be able to predict if the audio is *not a bird*? What if the model receives just silence? What if it receives some audio that just isn't a bird at all? Shazam says "song not found".
 
+**Fully-Connected Neural Network** (Lara)
+Implement another model in models.py, an FCNN that works with flattened vectores instead of matrices.
+Aca dejo lo quepuse en el mensaje de WhatsApp por si sirve de tip:
 
+- En ModelTraining.ipynb | Agrega en la celda donde se define features, antes del features.reshape(313, 224), agrega una variable features_fcnn que sea las features pero flattened, y despues fijate de repetir oo mismo que hice con features de los torch.tensors y eso, pero con features_fcnn
+
+- En util.py | Agrega en la funcion audio_processing, un parametro boolean, fcnn=false por default. Y cerca del final de la funcion, donde hace matrices.append(matrix) o algo asi al final del loop for agrega un
+
+    ```python
+    if fcnn:
+       vector = matrices.flatten()
+       matrices.append(vector)
+Asi retornea una lista de vectores flats, en vez de matrices, como necesita la fcnn
+
+Despues en models.py crea el modelo, uno nuevo abajo del que ya tenemos de BirdCNN. Avisale a Chat que considere que las dimensiones de los vectores de features de input son (70,112)
 
 ~~**Limit Segments per Audio** (Mei)
 Try limiting the max amount of segments per single audio sample, so that a single very long recording doesn't get significant over-representation above the other birds in that same (como dijo Trini, que la pajarita "Maria" no tenga demasiada sobre-representacion en toda su especie).~~
