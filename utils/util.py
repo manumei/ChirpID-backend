@@ -82,7 +82,7 @@ def get_spec_matrix_direct(segment, sr, mels, hoplen, nfft):
     return matrix
 
 def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
-                frame_len=2048, hop_len=512, mels=128, nfft=2048, thresh=0.75):
+                frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.75):
     ''' 
     Takes the path to an audio file (any format) and processes it to finally return 
     the list of grayscale spectrogram pixel matrices for each of its high-RMS segments.
