@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  chirpid-backend:
+    image: ghcr.io/your-username/chirpid-backend/chirpid-backend:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+    volumes:
+      - uploads_data:/app/app/uploads
+      - database_data:/app/database
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # Uncomment for SSL
+      # - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - chirpid-backend
+    restart: unless-stopped
+
+volumes:
+  uploads_data:
+    driver: local
+  database_data:
+    driver: local
