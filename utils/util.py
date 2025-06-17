@@ -272,8 +272,6 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     
     print(f"Starting {k_folds}-Fold Cross Validation on {device}")
     print(f"Dataset size: {len(dataset)}")
-    if use_class_weights:
-        print("Using class re-weighting for imbalanced data")
     
     for fold, (train_ids, val_ids) in enumerate(kfold.split(dataset)):
         print(f"\n{'='*50}")
@@ -304,7 +302,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
                 class_weights[cls] = class_weights_array[i]
             
             class_weights = class_weights.to(device)
-            print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+            # print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
             
             criterion = nn.CrossEntropyLoss(weight=class_weights)
         else:
@@ -366,9 +364,6 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         final_val_accuracies.append(final_val_acc)
         final_val_losses.append(final_val_loss)
         final_val_f1s.append(final_val_f1)
-        
-        print(f"Fold {fold+1} Final - Val Acc: {final_val_acc:.4f}, "
-            f"Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
     
     # Calculate aggregate statistics
     if aggregate_predictions:
