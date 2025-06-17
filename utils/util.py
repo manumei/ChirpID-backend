@@ -126,6 +126,7 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
     print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
 
+
 # Training and Validation Functions
 def train_epoch(model, train_loader, criterion, optimizer, device):
     """Train model for one epoch and return loss, accuracy, and F1 score."""
@@ -435,6 +436,127 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     
     return results
 
+def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
+                        batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
+                        use_class_weights=True):
+    """
+    Perform single fold training with 80-20 split.
+    
+    Args:
+        dataset: PyTorch dataset containing all data
+        model_class: Model class to instantiate (e.g., models.BirdCNN)
+        num_classes: Number of output classes
+        num_epochs: Number of epochs to train
+        batch_size: Batch size for data loaders
+        lr: Learning rate
+        test_size: Fraction of data to use for validation (0.2 = 20%)
+        random_state: Random seed for reproducibility
+        use_class_weights: If True, compute and use class weights for CrossEntropyLoss
+    
+    Returns:
+        Dictionary containing training history and final model
+    """
+    from sklearn.model_selection import train_test_split
+    from torch.utils.data import Subset
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # Create train-validation split
+    indices = list(range(len(dataset)))
+    train_ids, val_ids = train_test_split(
+        indices, test_size=test_size, random_state=random_state, 
+        stratify=[dataset[i][1].item() for i in indices]  # stratify by labels
+    )
+    
+    print(f"Training on {device}")
+    print(f"Dataset size: {len(dataset)}")
+    print(f"Train size: {len(train_ids)}, Val size: {len(val_ids)}")
+    
+    # Create data subsets
+    train_subset = Subset(dataset, train_ids)
+    val_subset = Subset(dataset, val_ids)
+    
+    # Compute class weights if enabled
+    if use_class_weights:
+        train_labels = [dataset[i][1].item() for i in train_ids]
+        unique_classes = np.unique(train_labels)
+        
+        class_weights_array = compute_class_weight(
+            'balanced',
+            classes=unique_classes,
+            y=train_labels
+        )
+        
+        class_weights = torch.ones(num_classes)
+        for i, cls in enumerate(unique_classes):
+            class_weights[cls] = class_weights_array[i]
+        
+        class_weights = class_weights.to(device)
+        print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+        
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+    else:
+        criterion = nn.CrossEntropyLoss()
+    
+    # Create data loaders
+    train_loader = DataLoader(
+        train_subset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=12,
+        pin_memory=True,
+        persistent_workers=True
+    )
+
+    val_loader = DataLoader(
+        val_subset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=12,
+        pin_memory=True,
+        persistent_workers=True
+    )
+    
+    # Initialize model and optimizer
+    model = model_class(num_classes=num_classes).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    
+    # Train the model
+    history = train_single_fold(
+        model, train_loader, val_loader, criterion, optimizer,
+        num_epochs, device, fold_num=None
+    )
+    
+    # Get final validation metrics
+    final_val_loss, final_val_acc, final_val_f1 = validate_epoch(
+        model, val_loader, criterion, device
+    )
+    
+    results = {
+        'history': history,
+        'final_val_acc': final_val_acc,
+        'final_val_loss': final_val_loss,
+        'final_val_f1': final_val_f1,
+        'best_val_acc': max(history['val_accuracies']),
+        'best_val_f1': max(history['val_f1s']),
+        'model': model,
+        'model_state': model.state_dict().copy(),
+        'config': {
+            'num_epochs': num_epochs,
+            'batch_size': batch_size,
+            'learning_rate': lr,
+            'test_size': test_size,
+            'device': str(device),
+            'use_class_weights': use_class_weights
+        }
+    }
+    
+    print(f"\nTraining Complete!")
+    print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
+    print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
+    
+    return results
+
 def plot_mean_curve(results, metric_key, title, ylabel):
     all_train = []
     all_val = []
@@ -461,6 +583,71 @@ def plot_mean_curve(results, metric_key, title, ylabel):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+def plot_single_fold_curve(results, metric_key, title, ylabel):
+    """
+    Plot a single training curve for single fold training results.
+    
+    Args:
+        results: Dictionary containing training history from single_fold_training
+        metric_key: Key for the metric in history (e.g., 'accuracies', 'losses', 'f1s')
+        title: Title for the plot
+        ylabel: Label for y-axis
+    """
+    import matplotlib.pyplot as plt
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(results['history'][f'train_{metric_key}'], label=f'Train {ylabel}', linestyle='--')
+    plt.plot(results['history'][f'val_{metric_key}'], label=f'Val {ylabel}')
+    plt.title(title)
+    plt.xlabel('Epoch')
+    plt.ylabel(ylabel)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def print_single_fold_results(results):
+    """
+    Print formatted results from single fold training.
+    
+    Args:
+        results: Dictionary containing training results from single_fold_training
+    """
+    print(f"Final Validation Accuracy: {results['final_val_acc']:.4f}")
+    print(f"Final Validation F1 Score: {results['final_val_f1']:.4f}")
+    print(f"Best Validation Accuracy: {results['best_val_acc']:.4f}")
+    print(f"Best Validation F1 Score: {results['best_val_f1']:.4f}")
+
+def print_kfold_best_results(results):
+    """
+    Print best results for each metric from k-fold cross validation alongside the epoch they occurred.
+    
+    Args:
+        results: Dictionary containing k-fold cross validation results
+    """
+    print("K-Fold Cross Validation - Best Results per Fold:")
+    print("="*60)
+    
+    for fold_name, fold_data in results['fold_results'].items():
+        print(f"\n{fold_name.upper()}:")
+        
+        # Find best epochs for each metric
+        best_val_acc_epoch = fold_data['val_accuracies'].index(fold_data['best_val_acc']) + 1
+        best_val_f1_epoch = fold_data['val_f1s'].index(fold_data['best_val_f1']) + 1
+        best_val_loss_epoch = fold_data['val_losses'].index(min(fold_data['val_losses'])) + 1
+        
+        print(f"  Best Val Accuracy: {fold_data['best_val_acc']:.4f} (Epoch {best_val_acc_epoch})")
+        print(f"  Best Val F1 Score: {fold_data['best_val_f1']:.4f} (Epoch {best_val_f1_epoch})")
+        print(f"  Best Val Loss: {min(fold_data['val_losses']):.4f} (Epoch {best_val_loss_epoch})")
+    
+    print(f"\nOVERALL SUMMARY:")
+    print(f"Mean Val Accuracy: {results['summary']['mean_val_acc']:.4f} ± {results['summary']['std_val_acc']:.4f}")
+    print(f"Mean Val F1 Score: {results['summary']['mean_val_f1']:.4f} ± {results['summary']['std_val_f1']:.4f}")
+    
+    if 'aggregated_f1' in results['summary']:
+        print(f"Aggregated F1 Score: {results['summary']['aggregated_f1']:.4f}")
+
+# ...existing code...
 
 # Model Utils
 def save_model(model, model_name):
