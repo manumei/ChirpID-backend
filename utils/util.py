@@ -650,12 +650,15 @@ def print_kfold_best_results(results):
 # ...existing code...
 
 # Model Utils
-def save_model(model, model_name):
-    model_dir = os.path.join('..', 'models')
-    os.makedirs(model_dir, exist_ok=True)
-    model_save_path = os.path.join(model_dir, f"{model_name}.pth")
+def save_model(model, model_name, model_save_path):
     torch.save(model.state_dict(), model_save_path)
     print(f"Model weights saved to: {model_save_path}")
+
+def test_saved_model(save_path):
+    state = torch.load(save_path, map_location='cpu')
+    print(type(state))
+    print(list(state.keys())[:5])  # show first 5 parameter names
+    print(state[list(state.keys())[0]].shape)  # show shape of first tensor
 
 def load_model(model_class, model_name, num_classes=28):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
