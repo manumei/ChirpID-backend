@@ -372,12 +372,25 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     
     return results
 
-def plot_fold_curves(results, metric_key, title, ylabel):
-    plt.figure(figsize=(12, 5))
-    for i, (fold_key, fold_data) in enumerate(results['fold_results'].items()):
+def plot_mean_curve(results, metric_key, title, ylabel):
+    all_train = []
+    all_val = []
+
+    for fold_data in results['fold_results'].values():
         history = fold_data['history']
-        plt.plot(history[f"train_{metric_key}"], label=f"Train Fold {i+1}", linestyle='--')
-        plt.plot(history[f"val_{metric_key}"], label=f"Val Fold {i+1}")
+        all_train.append(history[f"train_{metric_key}"])
+        all_val.append(history[f"val_{metric_key}"])
+
+    # Convert to arrays for averaging
+    all_train = np.array(all_train)
+    all_val = np.array(all_val)
+
+    mean_train = all_train.mean(axis=0)
+    mean_val = all_val.mean(axis=0)
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(mean_train, label="Mean Train", linestyle='--')
+    plt.plot(mean_val, label="Mean Val")
     plt.title(title)
     plt.xlabel("Epoch")
     plt.ylabel(ylabel)
@@ -409,3 +422,4 @@ def reset_model(model_class, lr=0.001, num_classes=28):
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
     return model, optimizer, criterion, device
+
