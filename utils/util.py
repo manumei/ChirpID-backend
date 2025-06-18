@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.model_selection import KFold
+from sklearn.metrics import f1_score
+from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 import numpy as np
@@ -124,11 +126,13 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
     print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
 
+
 # Training and Validation Functions
 def train_epoch(model, train_loader, criterion, optimizer, device):
-    """Train model for one epoch and return loss and accuracy."""
+    """Train model for one epoch and return loss, accuracy, and F1 score."""
     model.train()
     running_loss, correct, total = 0.0, 0, 0
+    all_preds, all_targets = [], []
     
     for X_batch, y_batch in train_loader:
         X_batch, y_batch = X_batch.to(device), y_batch.to(device)
@@ -143,21 +147,27 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         preds = outputs.argmax(dim=1)
         correct += (preds == y_batch).sum().item()
         total += y_batch.size(0)
-    
-    return running_loss / total, correct / total
+        
+        all_preds.extend(preds.detach().cpu().numpy())
+        all_targets.extend(y_batch.detach().cpu().numpy())
+
+    f1 = f1_score(all_targets, all_preds, average='macro', zero_division=0)
+    return running_loss / total, correct / total, f1
 
 def validate_epoch(model, val_loader, criterion, device, return_predictions=False):
-    """Validate model for one epoch and return loss and accuracy."""
+    """Validate model for one epoch and return loss, accuracy, and F1 score."""
     model.eval()
     val_loss, val_correct, val_total = 0.0, 0, 0
+    all_preds, all_targets = [], []
     
     if return_predictions:
         all_predictions = []
-        all_targets = []
+        all_target_tensors = []
     
     with torch.no_grad():
         for X_batch, y_batch in val_loader:
-            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            X_batch = X_batch.to(device, non_blocking=True)
+            y_batch = y_batch.to(device, non_blocking=True)
             outputs = model(X_batch)
             loss = criterion(outputs, y_batch)
             
@@ -166,55 +176,101 @@ def validate_epoch(model, val_loader, criterion, device, return_predictions=Fals
             val_correct += (preds == y_batch).sum().item()
             val_total += y_batch.size(0)
             
+            all_preds.extend(preds.detach().cpu().numpy())
+            all_targets.extend(y_batch.detach().cpu().numpy())
+            
             if return_predictions:
-                all_predictions.append(outputs.cpu())
-                all_targets.append(y_batch.cpu())
+                all_predictions.append(outputs.detach().cpu())
+                all_target_tensors.append(y_batch.detach().cpu())
+    
+    f1 = f1_score(all_targets, all_preds, average='macro', zero_division=0)
     
     if return_predictions:
-        return val_loss / val_total, val_correct / val_total, torch.cat(all_predictions), torch.cat(all_targets)
+        return val_loss / val_total, val_correct / val_total, f1, torch.cat(all_predictions), torch.cat(all_target_tensors)
     else:
-        return val_loss / val_total, val_correct / val_total
+        return val_loss / val_total, val_correct / val_total, f1
 
 def train_single_fold(model, train_loader, val_loader, criterion, optimizer, 
-                    num_epochs, device, fold_num=None):
-    """Train model on a single fold and return training history."""
+                    num_epochs, device, fold_num=None, estop_thresh=15):
+    """Train model on a single fold and return training history including F1 scores."""
     train_losses, val_losses = [], []
     train_accuracies, val_accuracies = [], []
+    train_f1s, val_f1s = [], []
+    
+    # Early stopping variables
+    best_val_loss = float('inf')
+    best_model_state = None
+    epochs_without_improvement = 0
+    best_epoch = 0
+    early_stopped = False
     
     desc = f"Fold {fold_num}" if fold_num is not None else "Training"
     pbar = tqdm(range(num_epochs), desc=desc, unit="epoch")
     
     for epoch in pbar:
         # Training
-        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+        train_loss, train_acc, train_f1 = train_epoch(model, train_loader, criterion, optimizer, device)
         train_losses.append(train_loss)
         train_accuracies.append(train_acc)
+        train_f1s.append(train_f1)
         
         # Validation
-        val_loss, val_acc = validate_epoch(model, val_loader, criterion, device)
+        val_loss, val_acc, val_f1 = validate_epoch(model, val_loader, criterion, device)
         val_losses.append(val_loss)
         val_accuracies.append(val_acc)
+        val_f1s.append(val_f1)
+        
+        # Early stopping logic
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_model_state = model.state_dict().copy()
+            epochs_without_improvement = 0
+            best_epoch = epoch
+        else:
+            epochs_without_improvement += 1
+        
+        # Check if we should stop early
+        if epochs_without_improvement >= estop_thresh:
+            print(f"\nEarly stopping triggered after {epoch + 1} epochs. Best val loss: {best_val_loss:.4f} at epoch {best_epoch + 1}")
+            early_stopped = True
+            break
         
         pbar.set_description(f"{desc} - Epoch {epoch+1}/{num_epochs}")
         pbar.set_postfix(
             train_acc=f"{train_acc:.3f}", 
             train_loss=f"{train_loss:.4f}",
+            train_f1=f"{train_f1:.3f}",
             val_acc=f"{val_acc:.3f}",
-            val_loss=f"{val_loss:.4f}"
+            val_loss=f"{val_loss:.4f}",
+            val_f1=f"{val_f1:.3f}",
+            best_val_loss=f"{best_val_loss:.4f}",
+            no_improve=epochs_without_improvement
         )
+    
+    # Restore best model state
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        print(f"Restored model weights from epoch {best_epoch + 1} (best val loss: {best_val_loss:.4f})")
     
     return {
         'train_losses': train_losses,
         'val_losses': val_losses,
         'train_accuracies': train_accuracies,
-        'val_accuracies': val_accuracies
+        'val_accuracies': val_accuracies,
+        'train_f1s': train_f1s,
+        'val_f1s': val_f1s,
+        'best_val_loss': best_val_loss,
+        'best_epoch': best_epoch,
+        'early_stopped': early_stopped,
+        'total_epochs': epoch + 1 if early_stopped else num_epochs
     }
 
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
                             num_epochs=300, batch_size=32, lr=0.001, 
-                            random_state=42, aggregate_predictions=True):
+                            random_state=435, aggregate_predictions=True, use_class_weights=True,
+                            estop_thresh=15):
     """
-    Perform K-Fold Cross Validation training.
+    Perform K-Fold Cross Validation training with F1 score reporting and early stopping.
     
     Args:
         dataset: PyTorch dataset containing all data
@@ -227,9 +283,11 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         random_state: Random seed for reproducibility
         aggregate_predictions: If True, compute cross-entropy on aggregated predictions
                                 If False, use mean of individual fold losses
+        use_class_weights: If True, compute and use class weights for CrossEntropyLoss
+        estop_thresh: Number of epochs without improvement before early stopping
     
     Returns:
-        Dictionary containing results for each fold and aggregated metrics
+        Dictionary containing results for each fold and aggregated metrics including F1 scores
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -240,6 +298,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     fold_results = {}
     final_val_accuracies = []
     final_val_losses = []
+    final_val_f1s = []
     
     # For aggregated predictions
     if aggregate_predictions:
@@ -259,45 +318,87 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         train_subset = Subset(dataset, train_ids)
         val_subset = Subset(dataset, val_ids)
         
-        # Create data loaders
-        train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
+        # Compute class weights for this fold if enabled
+        if use_class_weights:
+            # Extract training labels for this fold
+            train_labels = [dataset[i][1].item() for i in train_ids]
+            unique_classes = np.unique(train_labels)
+            
+            # Compute class weights using sklearn
+            class_weights_array = compute_class_weight(
+                'balanced',
+                classes=unique_classes,
+                y=train_labels
+            )
+            
+            # Create tensor of weights for all classes (fill missing classes with 1.0)
+            class_weights = torch.ones(num_classes)
+            for i, cls in enumerate(unique_classes):
+                class_weights[cls] = class_weights_array[i]
+            
+            class_weights = class_weights.to(device)
+            # print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+            
+            criterion = nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            criterion = nn.CrossEntropyLoss()
         
-        # Initialize model, criterion, and optimizer
+        # Create data loaders
+        train_loader = DataLoader(
+            train_subset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=12,
+            pin_memory=True,
+            persistent_workers=True
+        )
+
+        val_loader = DataLoader(
+            val_subset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=12,
+            pin_memory=True,
+            persistent_workers=True
+        )
+        
+        # Initialize model and optimizer
         model = model_class(num_classes=num_classes).to(device)
-        criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)
         
         # Train the fold
         fold_history = train_single_fold(
             model, train_loader, val_loader, criterion, optimizer,
-            num_epochs, device, fold_num=fold+1
+            num_epochs, device, fold_num=fold+1, estop_thresh=estop_thresh
         )
         
         # Get final predictions if aggregating
         if aggregate_predictions:
-            final_val_loss, final_val_acc, final_preds, final_targets = validate_epoch(
+            final_val_loss, final_val_acc, final_val_f1, final_preds, final_targets = validate_epoch(
                 model, val_loader, criterion, device, return_predictions=True
             )
             all_final_predictions.append(final_preds)
             all_final_targets.append(final_targets)
         else:
-            final_val_loss, final_val_acc = fold_history['val_losses'][-1], fold_history['val_accuracies'][-1]
+            final_val_loss = fold_history['val_losses'][-1]
+            final_val_acc = fold_history['val_accuracies'][-1]
+            final_val_f1 = fold_history['val_f1s'][-1]
         
         # Store fold results
         fold_results[f'fold_{fold+1}'] = {
             'history': fold_history,
             'final_val_acc': final_val_acc,
             'final_val_loss': final_val_loss,
+            'final_val_f1': final_val_f1,
             'best_val_acc': max(fold_history['val_accuracies']),
-            'model_state': model.state_dict().copy()  # Save best model if needed
+            'best_val_f1': max(fold_history['val_f1s']),
+            'model_state': model.state_dict().copy(),  # Save best model if needed
+            'class_weights': class_weights.cpu() if use_class_weights else None
         }
         
         final_val_accuracies.append(final_val_acc)
         final_val_losses.append(final_val_loss)
-        
-        print(f"Fold {fold+1} Final - Val Acc: {final_val_acc:.4f}, "
-            f"Val Loss: {final_val_loss:.4f}")
+        final_val_f1s.append(final_val_f1)
     
     # Calculate aggregate statistics
     if aggregate_predictions:
@@ -308,30 +409,24 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         criterion_agg = nn.CrossEntropyLoss()
         aggregated_loss = criterion_agg(all_predictions, all_targets).item()
         
-        # Compute aggregated accuracy
+        # Compute aggregated accuracy and F1
         aggregated_preds = all_predictions.argmax(dim=1)
         aggregated_accuracy = (aggregated_preds == all_targets).float().mean().item()
-        
-        # print(f"\n{'='*60}")
-        # print(f"K-FOLD CROSS VALIDATION RESULTS")
-        # print(f"{'='*60}")
-        # print(f"AGGREGATED METRICS (True Cross-Entropy):")
-        # print(f"  Aggregated Validation Accuracy: {aggregated_accuracy:.4f}")
-        # print(f"  Aggregated Validation Loss: {aggregated_loss:.4f}")
-        # print(f"\nPER-FOLD AVERAGES:")
-        # print(f"  Mean Validation Accuracy: {np.mean(final_val_accuracies):.4f} ± {np.std(final_val_accuracies):.4f}")
-        # print(f"  Mean Validation Loss: {np.mean(final_val_losses):.4f} ± {np.std(final_val_losses):.4f}")
-        # print(f"  Individual Fold Accuracies: {[f'{acc:.4f}' for acc in final_val_accuracies]}")
+        aggregated_f1 = f1_score(all_targets.numpy(), aggregated_preds.numpy(), average='macro', zero_division=0)
         
         summary = {
             'aggregated_accuracy': aggregated_accuracy,
             'aggregated_loss': aggregated_loss,
+            'aggregated_f1': aggregated_f1,
             'mean_val_accuracy': np.mean(final_val_accuracies),
             'std_val_accuracy': np.std(final_val_accuracies),
             'mean_val_loss': np.mean(final_val_losses),
             'std_val_loss': np.std(final_val_losses),
+            'mean_val_f1': np.mean(final_val_f1s),
+            'std_val_f1': np.std(final_val_f1s),
             'individual_accuracies': final_val_accuracies,
-            'individual_losses': final_val_losses
+            'individual_losses': final_val_losses,
+            'individual_f1s': final_val_f1s
         }
     else:
         # Use mean of fold losses (original approach)
@@ -339,21 +434,19 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         std_val_acc = np.std(final_val_accuracies)
         mean_val_loss = np.mean(final_val_losses)
         std_val_loss = np.std(final_val_losses)
-        
-        # print(f"\n{'='*60}")
-        # print(f"K-FOLD CROSS VALIDATION RESULTS")
-        # print(f"{'='*60}")
-        # print(f"Mean Validation Accuracy: {mean_val_acc:.4f} ± {std_val_acc:.4f}")
-        # print(f"Mean Validation Loss: {mean_val_loss:.4f} ± {std_val_loss:.4f}")
-        # print(f"Individual Fold Accuracies: {[f'{acc:.4f}' for acc in final_val_accuracies]}")
+        mean_val_f1 = np.mean(final_val_f1s)
+        std_val_f1 = np.std(final_val_f1s)
         
         summary = {
             'mean_val_accuracy': mean_val_acc,
             'std_val_accuracy': std_val_acc,
             'mean_val_loss': mean_val_loss,
             'std_val_loss': std_val_loss,
+            'mean_val_f1': mean_val_f1,
+            'std_val_f1': std_val_f1,
             'individual_accuracies': final_val_accuracies,
-            'individual_losses': final_val_losses
+            'individual_losses': final_val_losses,
+            'individual_f1s': final_val_f1s
         }
     
     # Compile results
@@ -366,9 +459,135 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
             'batch_size': batch_size,
             'learning_rate': lr,
             'device': str(device),
-            'aggregate_predictions': aggregate_predictions
+            'aggregate_predictions': aggregate_predictions,
+            'use_class_weights': use_class_weights
         }
     }
+    
+    return results
+
+def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
+                        batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
+                        use_class_weights=True, estop_thresh=15):
+    """
+    Perform single fold training with 80-20 split and early stopping.
+    
+    Args:
+        dataset: PyTorch dataset containing all data
+        model_class: Model class to instantiate (e.g., models.BirdCNN)
+        num_classes: Number of output classes
+        num_epochs: Number of epochs to train
+        batch_size: Batch size for data loaders
+        lr: Learning rate
+        test_size: Fraction of data to use for validation (0.2 = 20%)
+        random_state: Random seed for reproducibility
+        use_class_weights: If True, compute and use class weights for CrossEntropyLoss
+        estop_thresh: Number of epochs without improvement before early stopping
+    
+    Returns:
+        Dictionary containing training history and final model
+    """
+    from sklearn.model_selection import train_test_split
+    from torch.utils.data import Subset
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # Create train-validation split
+    indices = list(range(len(dataset)))
+    train_ids, val_ids = train_test_split(
+        indices, test_size=test_size, random_state=random_state, 
+        stratify=[dataset[i][1].item() for i in indices]  # stratify by labels
+    )
+    
+    print(f"Training on {device}")
+    print(f"Dataset size: {len(dataset)}")
+    print(f"Train size: {len(train_ids)}, Val size: {len(val_ids)}")
+    
+    # Create data subsets
+    train_subset = Subset(dataset, train_ids)
+    val_subset = Subset(dataset, val_ids)
+    
+    # Compute class weights if enabled
+    if use_class_weights:
+        train_labels = [dataset[i][1].item() for i in train_ids]
+        unique_classes = np.unique(train_labels)
+        
+        class_weights_array = compute_class_weight(
+            'balanced',
+            classes=unique_classes,
+            y=train_labels
+        )
+        
+        class_weights = torch.ones(num_classes)
+        for i, cls in enumerate(unique_classes):
+            class_weights[cls] = class_weights_array[i]
+        
+        class_weights = class_weights.to(device)
+        print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+        
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+    else:
+        criterion = nn.CrossEntropyLoss()
+    
+    # Create data loaders
+    train_loader = DataLoader(
+        train_subset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=12,
+        pin_memory=True,
+        persistent_workers=True
+    )
+
+    val_loader = DataLoader(
+        val_subset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=12,
+        pin_memory=True,
+        persistent_workers=True
+    )
+    
+    # Initialize model and optimizer
+    model = model_class(num_classes=num_classes).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    
+    # Train the model
+    history = train_single_fold(
+        model, train_loader, val_loader, criterion, optimizer,
+        num_epochs, device, fold_num=None, estop_thresh=estop_thresh
+    )
+    
+    # Get final validation metrics
+    final_val_loss, final_val_acc, final_val_f1 = validate_epoch(
+        model, val_loader, criterion, device
+    )
+    
+    results = {
+        'history': history,
+        'final_val_acc': final_val_acc,
+        'final_val_loss': final_val_loss,
+        'final_val_f1': final_val_f1,
+        'best_val_acc': max(history['val_accuracies']),
+        'best_val_f1': max(history['val_f1s']),
+        'model': model,
+        'model_state': model.state_dict().copy(),
+        'config': {
+            'num_epochs': num_epochs,
+            'batch_size': batch_size,
+            'learning_rate': lr,
+            'test_size': test_size,
+            'device': str(device),
+            'use_class_weights': use_class_weights,
+            'estop_thresh': estop_thresh
+        }
+    }
+    
+    print(f"\nTraining Complete!")
+    if history['early_stopped']:
+        print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
+    print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
+    print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
     
     return results
 
@@ -399,13 +618,79 @@ def plot_mean_curve(results, metric_key, title, ylabel):
     plt.tight_layout()
     plt.show()
 
+def plot_single_fold_curve(results, metric_key, title, ylabel):
+    """
+    Plot a single training curve for single fold training results.
+    
+    Args:
+        results: Dictionary containing training history from single_fold_training
+        metric_key: Key for the metric in history (e.g., 'accuracies', 'losses', 'f1s')
+        title: Title for the plot
+        ylabel: Label for y-axis
+    """
+    import matplotlib.pyplot as plt
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(results['history'][f'train_{metric_key}'], label=f'Train {ylabel}', linestyle='--')
+    plt.plot(results['history'][f'val_{metric_key}'], label=f'Val {ylabel}')
+    plt.title(title)
+    plt.xlabel('Epoch')
+    plt.ylabel(ylabel)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def print_single_fold_results(results):
+    """
+    Print formatted results from single fold training.
+    
+    Args:
+        results: Dictionary containing training results from single_fold_training
+    """
+    print(f"Final Validation Accuracy: {results['final_val_acc']:.4f}")
+    print(f"Final Validation F1 Score: {results['final_val_f1']:.4f}")
+    print(f"Best Validation Accuracy: {results['best_val_acc']:.4f}")
+    print(f"Best Validation F1 Score: {results['best_val_f1']:.4f}")
+
+def print_kfold_best_results(results):
+    """
+    Print best results for each metric from k-fold cross validation alongside the epoch they occurred.
+    
+    Args:
+        results: Dictionary containing k-fold cross validation results
+    """
+    print("K-Fold Cross Validation - Best Results per Fold:")
+    print("="*60)
+    
+    for fold_name, fold_data in results['fold_results'].items():
+        print(f"\n{fold_name.upper()}:")
+        
+        # Find best epochs for each metric
+        best_val_acc_epoch = fold_data['val_accuracies'].index(fold_data['best_val_acc']) + 1
+        best_val_f1_epoch = fold_data['val_f1s'].index(fold_data['best_val_f1']) + 1
+        best_val_loss_epoch = fold_data['val_losses'].index(min(fold_data['val_losses'])) + 1
+        
+        print(f"  Best Val Accuracy: {fold_data['best_val_acc']:.4f} (Epoch {best_val_acc_epoch})")
+        print(f"  Best Val F1 Score: {fold_data['best_val_f1']:.4f} (Epoch {best_val_f1_epoch})")
+        print(f"  Best Val Loss: {min(fold_data['val_losses']):.4f} (Epoch {best_val_loss_epoch})")
+    
+    print(f"\nOVERALL SUMMARY:")
+    print(f"Mean Val Accuracy: {results['summary']['mean_val_acc']:.4f} ± {results['summary']['std_val_acc']:.4f}")
+    print(f"Mean Val F1 Score: {results['summary']['mean_val_f1']:.4f} ± {results['summary']['std_val_f1']:.4f}")
+    
+    if 'aggregated_f1' in results['summary']:
+        print(f"Aggregated F1 Score: {results['summary']['aggregated_f1']:.4f}")
+
 # Model Utils
-def save_model(model, model_name):
-    model_dir = os.path.join('..', 'models')
-    os.makedirs(model_dir, exist_ok=True)
-    model_save_path = os.path.join(model_dir, f"{model_name}.pth")
+def save_model(model, model_name, model_save_path):
     torch.save(model.state_dict(), model_save_path)
     print(f"Model weights saved to: {model_save_path}")
+
+def test_saved_model(save_path):
+    state = torch.load(save_path, map_location='cpu')
+    print(type(state))
+    print(list(state.keys())[:5])  # show first 5 parameter names
+    print(state[list(state.keys())[0]].shape)  # show shape of first tensor
 
 def load_model(model_class, model_name, num_classes=28):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
