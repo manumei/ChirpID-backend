@@ -191,7 +191,7 @@ def validate_epoch(model, val_loader, criterion, device, return_predictions=Fals
         return val_loss / val_total, val_correct / val_total, f1
 
 def train_single_fold(model, train_loader, val_loader, criterion, optimizer, 
-                    num_epochs, device, fold_num=None, estop_thresh=15):
+                    num_epochs, device, fold_num=None, estop=15):
     """Train model on a single fold and return training history including F1 scores."""
     train_losses, val_losses = [], []
     train_accuracies, val_accuracies = [], []
@@ -230,8 +230,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
             epochs_without_improvement += 1
         
         # Check if we should stop early
-        if epochs_without_improvement >= estop_thresh:
-            print(f"\nEarly stopping triggered after {epoch + 1} epochs. Best val loss: {best_val_loss:.4f} at epoch {best_epoch + 1}")
+        if epochs_without_improvement >= estop:
             early_stopped = True
             break
         
@@ -250,7 +249,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
     # Restore best model state
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
-        print(f"Restored model weights from epoch {best_epoch + 1} (best val loss: {best_val_loss:.4f})")
+        # print(f"Restored model weights from epoch {best_epoch + 1} (best val loss: {best_val_loss:.4f})")
     
     return {
         'train_losses': train_losses,
@@ -266,9 +265,8 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
     }
 
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
-                            num_epochs=300, batch_size=32, lr=0.001, 
-                            random_state=435, aggregate_predictions=True, use_class_weights=True,
-                            estop_thresh=15):
+                            num_epochs=300, batch_size=32, lr=0.001, random_state=435, 
+                            aggregate_predictions=True, use_class_weights=True, estop=15):
     """
     Perform K-Fold Cross Validation training with F1 score reporting and early stopping.
     
@@ -284,7 +282,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         aggregate_predictions: If True, compute cross-entropy on aggregated predictions
                                 If False, use mean of individual fold losses
         use_class_weights: If True, compute and use class weights for CrossEntropyLoss
-        estop_thresh: Number of epochs without improvement before early stopping
+        estop: Number of epochs without improvement before early stopping
     
     Returns:
         Dictionary containing results for each fold and aggregated metrics including F1 scores
@@ -369,7 +367,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         # Train the fold
         fold_history = train_single_fold(
             model, train_loader, val_loader, criterion, optimizer,
-            num_epochs, device, fold_num=fold+1, estop_thresh=estop_thresh
+            num_epochs, device, fold_num=fold+1, estop=estop
         )
         
         # Get final predictions if aggregating
@@ -468,7 +466,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
 
 def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
                         batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
-                        use_class_weights=True, estop_thresh=15):
+                        use_class_weights=True, estop=15):
     """
     Perform single fold training with 80-20 split and early stopping.
     
@@ -482,7 +480,7 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
         test_size: Fraction of data to use for validation (0.2 = 20%)
         random_state: Random seed for reproducibility
         use_class_weights: If True, compute and use class weights for CrossEntropyLoss
-        estop_thresh: Number of epochs without improvement before early stopping
+        estop: Number of epochs without improvement before early stopping
     
     Returns:
         Dictionary containing training history and final model
@@ -555,7 +553,7 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
     # Train the model
     history = train_single_fold(
         model, train_loader, val_loader, criterion, optimizer,
-        num_epochs, device, fold_num=None, estop_thresh=estop_thresh
+        num_epochs, device, fold_num=None, estop=estop
     )
     
     # Get final validation metrics
@@ -579,7 +577,7 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
             'test_size': test_size,
             'device': str(device),
             'use_class_weights': use_class_weights,
-            'estop_thresh': estop_thresh
+            'estop': estop
         }
     }
     
