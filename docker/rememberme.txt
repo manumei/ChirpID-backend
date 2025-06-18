@@ -1,0 +1,5 @@
+Refactoricemos los components de docker aca (si no es mucho quilombo cambiar los paths y eso)
+(Aun ni se hizo el deploy anyway, o no?)
+
+Si pasamos deploy.sh a esta misma carpeta habra algun problema? Llama otros archivos? 
+Le decimos a copilot que ajuste los paths y listo. O los ajustamos a mano, tampoco deben ser tantos.
