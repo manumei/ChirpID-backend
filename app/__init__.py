@@ -7,9 +7,9 @@ def create_app():
     
     # Configure CORS for React Native app
     CORS(app, 
-         origins=["*"],  # Allow all origins for development
-         methods=["GET", "POST", "OPTIONS"],
-         allow_headers=["Content-Type", "Authorization"])
+        origins=["*"],  # Allow all origins for development
+        methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization"])
     
     # Add ping route for connection testing
     @app.route("/ping", methods=["GET"])
