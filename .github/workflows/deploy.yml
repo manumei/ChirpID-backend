@@ -36,7 +36,7 @@ jobs:
       - name: Run basic tests
         run: |
           python -c "from app import create_app; app = create_app(); print('App created successfully')"
-          python ~/server/test_server.py
+            python server/test_server.py
 
   build-and-push:
     needs: test
