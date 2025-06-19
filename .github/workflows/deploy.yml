@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/chirpid-backend
+  IMAGE_NAME: chirpid-backend
 
 jobs:
   test:
