@@ -191,7 +191,7 @@ def validate_epoch(model, val_loader, criterion, device, return_predictions=Fals
         return val_loss / val_total, val_correct / val_total, f1
 
 def train_single_fold(model, train_loader, val_loader, criterion, optimizer, 
-                    num_epochs, device, fold_num=None, estop=15):
+                    num_epochs, device, fold_num=None, estop=25):
     """Train model on a single fold and return training history including F1 scores."""
     train_losses, val_losses = [], []
     train_accuracies, val_accuracies = [], []
@@ -266,7 +266,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
 
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
                             num_epochs=300, batch_size=32, lr=0.001, random_state=435, 
-                            aggregate_predictions=True, use_class_weights=True, estop=15):
+                            aggregate_predictions=True, use_class_weights=True, estop=25):
     """
     Perform K-Fold Cross Validation training with F1 score reporting and early stopping.
     
@@ -466,7 +466,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
 
 def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
                         batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
-                        use_class_weights=True, estop=15):
+                        use_class_weights=True, estop=25):
     """
     Perform single fold training with 80-20 split and early stopping.
     
