@@ -485,9 +485,9 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     
     # Create best results dictionary
     best_results = {
-        'best_accs': best_accs,
-        'best_f1s': best_f1s,
-        'best_losses': best_losses
+        'accuracies': best_accs,
+        'f1s': best_f1s,
+        'losses': best_losses
     }
     
     return results, best_results
@@ -617,6 +617,44 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
     
     return results
 
+def plot_best_results(best_results, metric_key, title, ylabel):
+    ''' Given a dictionary of lists with the best results for each fold in 
+    each of the metric keys, plot a bar graph showing the best results for each
+    fold in the given metric key, and the average of all the folds '''
+    
+    # Get the values for the specified metric
+    values = best_results[metric_key]
+    
+    # Calculate the average
+    avg_value = np.mean(values)
+    
+    # Create fold labels
+    fold_labels = [f'Fold {i+1}' for i in range(len(values))]
+    fold_labels.append('Average')
+    
+    # Add average to values for plotting
+    plot_values = values + [avg_value]
+    
+    # Create the bar plot
+    plt.figure(figsize=(12, 6))
+    bars = plt.bar(fold_labels, plot_values, alpha=0.7)
+    
+    # Color the average bar differently
+    bars[-1].set_color('red')
+    bars[-1].set_alpha(0.8)
+    
+    # Add value labels on top of bars
+    for i, (bar, value) in enumerate(zip(bars, plot_values)):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(plot_values)*0.01,
+                f'{value:.4f}', ha='center', va='bottom', fontweight='bold' if i == len(bars)-1 else 'normal')
+    
+    plt.title(title)
+    plt.ylabel(ylabel)
+    plt.xlabel('Fold')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
 def plot_mean_curve(results, metric_key, title, ylabel):
     all_train = []
     all_val = []
@@ -654,6 +692,95 @@ def plot_mean_curve(results, metric_key, title, ylabel):
     plt.ylabel(ylabel)
     plt.legend()
     plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+def plot_kfold_results(results, best_results):
+    """
+    Plot comprehensive K-fold results showing both mean curves and best results
+    for accuracies, F1 scores, and losses in a 3x2 subplot layout.
+    
+    Args:
+        results: Dictionary containing k-fold cross validation results
+        best_results: Dictionary containing best results for each fold
+    """
+    fig, axes = plt.subplots(3, 2, figsize=(16, 12))
+    
+    # Metrics to plot
+    metrics = [
+        ('accuracies', 'Accuracy', 'Accuracy'),
+        ('f1s', 'F1 Score', 'F1 Score'), 
+        ('losses', 'Loss', 'Loss')
+    ]
+    
+    for row, (metric_key, metric_name, ylabel) in enumerate(metrics):
+        # Left column: Mean curves
+        ax1 = axes[row, 0]
+        plt.sca(ax1)
+        
+        # Collect and process curves for mean plotting
+        all_train = []
+        all_val = []
+        max_epochs = 0
+        
+        for fold_data in results['fold_results'].values():
+            history = fold_data['history']
+            train_curve = history[f"train_{metric_key}"]
+            val_curve = history[f"val_{metric_key}"]
+            all_train.append(train_curve)
+            all_val.append(val_curve)
+            max_epochs = max(max_epochs, len(train_curve))
+        
+        # Pad curves to same length
+        for i in range(len(all_train)):
+            current_length = len(all_train[i])
+            if current_length < max_epochs:
+                all_train[i] = all_train[i] + [np.nan] * (max_epochs - current_length)
+                all_val[i] = all_val[i] + [np.nan] * (max_epochs - current_length)
+        
+        # Calculate means
+        all_train = np.array(all_train)
+        all_val = np.array(all_val)
+        mean_train = np.nanmean(all_train, axis=0)
+        mean_val = np.nanmean(all_val, axis=0)
+        
+        # Plot mean curves
+        ax1.plot(mean_train, label="Mean Train", linestyle='--')
+        ax1.plot(mean_val, label="Mean Val")
+        ax1.set_title(f"Mean {metric_name} Curves")
+        ax1.set_xlabel("Epoch")
+        ax1.set_ylabel(ylabel)
+        ax1.legend()
+        ax1.grid(True)
+        
+        # Right column: Best results bar plot
+        ax2 = axes[row, 1]
+        plt.sca(ax2)
+        
+        # Get values for bar plot
+        values = best_results[metric_key]
+        avg_value = np.mean(values)
+        
+        fold_labels = [f'Fold {i+1}' for i in range(len(values))]
+        fold_labels.append('Average')
+        plot_values = values + [avg_value]
+        
+        # Create bar plot
+        bars = ax2.bar(fold_labels, plot_values, alpha=0.7)
+        bars[-1].set_color('red')
+        bars[-1].set_alpha(0.8)
+        
+        # Add value labels
+        for i, (bar, value) in enumerate(zip(bars, plot_values)):
+            ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(plot_values)*0.01,
+                    f'{value:.4f}', ha='center', va='bottom', 
+                    fontweight='bold' if i == len(bars)-1 else 'normal')
+        
+        ax2.set_title(f"Best {metric_name} per Fold")
+        ax2.set_ylabel(ylabel)
+        ax2.set_xlabel('Fold')
+        ax2.grid(True, alpha=0.3)
+    
     plt.tight_layout()
     plt.show()
 
