@@ -81,6 +81,7 @@ docker-compose -f docker-compose.prod.yml up -d --profile production
 Make the script executable and run it:
 
 ```bash
+cd docker/
 chmod +x deploy.sh
 ./deploy.sh build          # For local build and deploy
 ./deploy.sh deploy         # For deploying from registry
