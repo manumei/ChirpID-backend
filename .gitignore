@@ -6,3 +6,4 @@ __pycache__/
 train_data.csv
 train_data2.csv
 final/
+.venv
