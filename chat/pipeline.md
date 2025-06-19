@@ -1,3 +1,7 @@
+# Pipeline
+
+My current processing pipeline for training is:
+
 **Data Fractioning**
 1. Get a fraction of the dataset, keeping only birds in Argentina
 2. Keep only samples where rating > 3
