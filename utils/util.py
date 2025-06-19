@@ -230,7 +230,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
             epochs_without_improvement += 1
         
         # Check if we should stop early
-        if epochs_without_improvement >= estop:
+        if epochs_without_improvement >= estop and epoch > estop + 10:
             early_stopped = True
             break
         
@@ -264,6 +264,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
         'total_epochs': epoch + 1 if early_stopped else num_epochs
     }
 
+from sklearn.model_selection import StratifiedKFold
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
                             num_epochs=300, batch_size=32, lr=0.001, random_state=435, 
                             aggregate_predictions=True, use_class_weights=True, estop=25):
@@ -289,8 +290,11 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # Initialize KFold
-    kfold = KFold(n_splits=k_folds, shuffle=True, random_state=random_state)
+    # Extract all labels for stratification
+    all_labels = [dataset[i][1].item() for i in range(len(dataset))]
+    
+    # Initialize StratifiedKFold
+    skfold = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_state)
     
     # Store results for each fold
     fold_results = {}
@@ -303,10 +307,10 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         all_final_predictions = []
         all_final_targets = []
     
-    print(f"Starting {k_folds}-Fold Cross Validation on {device}")
+    print(f"Starting {k_folds}-Fold Stratified Cross Validation on {device}")
     print(f"Dataset size: {len(dataset)}")
     
-    for fold, (train_ids, val_ids) in enumerate(kfold.split(dataset)):
+    for fold, (train_ids, val_ids) in enumerate(skfold.split(range(len(dataset)), all_labels)):
         print(f"\n{'='*50}")
         print(f"FOLD {fold + 1}/{k_folds}")
         print(f"Train size: {len(train_ids)}, Val size: {len(val_ids)}")
@@ -592,18 +596,31 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
 def plot_mean_curve(results, metric_key, title, ylabel):
     all_train = []
     all_val = []
+    max_epochs = 0
 
+    # First pass: collect all curves and find max epochs
     for fold_data in results['fold_results'].values():
         history = fold_data['history']
-        all_train.append(history[f"train_{metric_key}"])
-        all_val.append(history[f"val_{metric_key}"])
+        train_curve = history[f"train_{metric_key}"]
+        val_curve = history[f"val_{metric_key}"]
+        all_train.append(train_curve)
+        all_val.append(val_curve)
+        max_epochs = max(max_epochs, len(train_curve))
 
-    # Convert to arrays for averaging
+    # Pad shorter curves with NaN to align all curves to max_epochs
+    for i in range(len(all_train)):
+        current_length = len(all_train[i])
+        if current_length < max_epochs:
+            # Pad with NaN values
+            all_train[i] = all_train[i] + [np.nan] * (max_epochs - current_length)
+            all_val[i] = all_val[i] + [np.nan] * (max_epochs - current_length)
+
+    # Convert to arrays for averaging (nanmean will ignore NaN values)
     all_train = np.array(all_train)
     all_val = np.array(all_val)
 
-    mean_train = all_train.mean(axis=0)
-    mean_val = all_val.mean(axis=0)
+    mean_train = np.nanmean(all_train, axis=0)
+    mean_val = np.nanmean(all_val, axis=0)
 
     plt.figure(figsize=(10, 4))
     plt.plot(mean_train, label="Mean Train", linestyle='--')
