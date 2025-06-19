@@ -8,6 +8,7 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader, Subset
+from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
@@ -264,7 +265,6 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
         'total_epochs': epoch + 1 if early_stopped else num_epochs
     }
 
-from sklearn.model_selection import StratifiedKFold
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
                             num_epochs=300, batch_size=32, lr=0.001, random_state=435, 
                             aggregate_predictions=True, use_class_weights=True, estop=25):
@@ -286,7 +286,9 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         estop: Number of epochs without improvement before early stopping
     
     Returns:
-        Dictionary containing results for each fold and aggregated metrics including F1 scores
+        Tuple containing:
+        - Dictionary containing results for each fold and aggregated metrics including F1 scores
+        - Dictionary containing best results for each metric across folds
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -301,6 +303,11 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     final_val_accuracies = []
     final_val_losses = []
     final_val_f1s = []
+    
+    # Store best results for each fold
+    best_accs = []
+    best_f1s = []
+    best_losses = []
     
     # For aggregated predictions
     if aggregate_predictions:
@@ -386,14 +393,24 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
             final_val_acc = fold_history['val_accuracies'][-1]
             final_val_f1 = fold_history['val_f1s'][-1]
         
+        # Calculate best values for this fold
+        fold_best_acc = max(fold_history['val_accuracies'])
+        fold_best_f1 = max(fold_history['val_f1s'])
+        fold_best_loss = min(fold_history['val_losses'])
+        
+        # Store best results
+        best_accs.append(fold_best_acc)
+        best_f1s.append(fold_best_f1)
+        best_losses.append(fold_best_loss)
+        
         # Store fold results
         fold_results[f'fold_{fold+1}'] = {
             'history': fold_history,
             'final_val_acc': final_val_acc,
             'final_val_loss': final_val_loss,
             'final_val_f1': final_val_f1,
-            'best_val_acc': max(fold_history['val_accuracies']),
-            'best_val_f1': max(fold_history['val_f1s']),
+            'best_val_acc': fold_best_acc,
+            'best_val_f1': fold_best_f1,
             'model_state': model.state_dict().copy(),  # Save best model if needed
             'class_weights': class_weights.cpu() if use_class_weights else None
         }
@@ -466,7 +483,14 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         }
     }
     
-    return results
+    # Create best results dictionary
+    best_results = {
+        'best_accs': best_accs,
+        'best_f1s': best_f1s,
+        'best_losses': best_losses
+    }
+    
+    return results, best_results
 
 def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
                         batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
