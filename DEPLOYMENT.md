@@ -62,7 +62,7 @@ ssh-keygen -t ed25519 -C "github-actions-chirpid" -f ~/.ssh/chirpid-deploy
 ssh-copy-id -i ~/.ssh/chirpid-deploy.pub chirpid-deploy@YOUR_UBUNTU_IP
 
 # Or manually:
-cat ~/.ssh/chirpid-deploy.pub | ssh chirpid-deploy@YOUR_UBUNTU_IP "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+cat ~/.ssh/chirpid-deploy.pub | ssh chirpid-deploy@YOUR_UBUNTU_IP "mkdir -p ~/.ssh && **cat** >> ~/.ssh/authorized_keys"
 ```
 
 ### 2.3 Test SSH connection
