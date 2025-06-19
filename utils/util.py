@@ -331,27 +331,34 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         if use_class_weights:
             # Extract training labels for this fold
             train_labels = [dataset[i][1].item() for i in train_ids]
-            unique_classes = np.unique(train_labels)
-            
-            # Compute class weights using sklearn
-            class_weights_array = compute_class_weight(
-                'balanced',
-                classes=unique_classes,
-                y=train_labels
-            )
-            
-            # Create tensor of weights for all classes (fill missing classes with 1.0)
-            class_weights = torch.ones(num_classes)
-            for i, cls in enumerate(unique_classes):
-                class_weights[cls] = class_weights_array[i]
-            
-            class_weights = class_weights.to(device)
-            # print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
-            
-            criterion = nn.CrossEntropyLoss(weight=class_weights)
+            all_classes = np.arange(num_classes)
+            present_classes = set(train_labels)
+            missing_classes = set(all_classes) - present_classes
+
+            if missing_classes:
+                print(f"WARNING: Classes {missing_classes} are missing from training set in this fold. Disabling class weights for this fold.")
+                criterion = nn.CrossEntropyLoss()
+            else:
+                class_weights_array = compute_class_weight(
+                    'balanced',
+                    classes=all_classes,
+                    y=train_labels
+                )
+                class_weights = torch.tensor(class_weights_array, dtype=torch.float32).to(device)
+                unique_classes = np.unique(train_labels)
+
+                # Create tensor of weights for all classes (fill missing classes with 1.0)
+                class_weights = torch.ones(num_classes)
+                for i, cls in enumerate(unique_classes):
+                    class_weights[cls] = class_weights_array[i]
+                
+                class_weights = class_weights.to(device)
+                print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+
+                criterion = nn.CrossEntropyLoss(weight=class_weights)
         else:
             criterion = nn.CrossEntropyLoss()
-        
+
         # Create data loaders
         train_loader = DataLoader(
             train_subset,
