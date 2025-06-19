@@ -54,9 +54,6 @@ standard-chunk==3.13.0
 standard-sunau==3.13.0
 sympy==1.14.0
 threadpoolctl==3.6.0
-torch==2.7.1+cu128
-torchaudio==2.7.1+cu128
-torchvision==0.22.1+cu128
 tqdm==4.67.1
 typing_extensions==4.14.0
 tzdata==2025.2
