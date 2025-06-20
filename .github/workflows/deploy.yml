@@ -183,20 +183,56 @@ jobs:
             if ! docker run --rm $IMAGE_NAME python scripts/test_startup.py; then
               echo "❌ New image failed startup tests"
               exit 1
+            fi            # Handle existing container and port conflicts
+            echo "🔍 Checking for existing containers and port conflicts..."
+            
+            # First, check for any containers using port 5001
+            CONFLICTING_CONTAINERS=$(docker ps --format '{{.Names}} {{.Ports}}' | grep ':5001->' | awk '{print $1}' || true)
+            if [ -n "$CONFLICTING_CONTAINERS" ]; then
+              echo "⚠️  Found containers using port 5001: $CONFLICTING_CONTAINERS"
+              for container in $CONFLICTING_CONTAINERS; do
+                if [ "$container" != "$CONTAINER_NAME" ]; then
+                  echo "🛑 Stopping conflicting container: $container"
+                  docker stop "$container" || true
+                fi
+              done
             fi
-
-            # Create backup of current container if it exists
+            
             if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-              echo "💾 Creating backup of current container..."
+              echo "💾 Found existing container. Creating backup..."
+              
+              # Stop the current container if it's running
+              if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+                echo "� Stopping current container..."
+                docker stop $CONTAINER_NAME || {
+                  echo "❌ Failed to stop current container"
+                  exit 1
+                }
+              fi
+              
+              # Rename to backup (this also frees up the name and port)
               docker rename $CONTAINER_NAME $BACKUP_NAME || {
                 echo "❌ Failed to create backup"
                 exit 1
               }
+                echo "✅ Backup created: $BACKUP_NAME"
             fi
+            
+            # Double-check port 5001 is free
+            if docker ps --format '{{.Names}} {{.Ports}}' | grep -q ':5001->'; then
+              echo "❌ Port 5001 is still in use after cleanup!"
+              docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep ':5001->'
+              exit 1
+            fi
+              echo "✅ Port 5001 is available for deployment"
 
             # Create necessary directories with proper permissions
             echo "📁 Setting up directories..."
             mkdir -p ~/chirpid/{uploads,database,logs}
+
+            # Brief pause to ensure port is fully released
+            echo "⏱️  Waiting for port to be fully released..."
+            sleep 2
 
             # Start new container with health check
             echo "🆕 Starting new container..."
