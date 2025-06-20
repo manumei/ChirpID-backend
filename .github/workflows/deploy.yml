@@ -282,7 +282,9 @@ jobs:
               echo "❌ Timeout waiting for container to become healthy"
               docker logs --tail 20 $CONTAINER_NAME
               rollback
-            fi            # Final verification
+            fi
+
+            # Final verification
             echo "🔍 Final verification..."
             if curl -f -s --connect-timeout 5 --max-time 10 http://localhost:5001/health > /dev/null; then
               echo "✅ External health check passed!"
@@ -292,11 +294,11 @@ jobs:
             fi
 
             # Clean up backup and old images
-            echo "🧹 Cleaning up..."
-            if docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}$"; then
+            echo "🧹 Cleaning up..."            if docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}$"; then
               # Stop the backup container if it's running before removing
               docker stop $BACKUP_NAME >/dev/null 2>&1 || true
-              docker rm $BACKUP_NAME              echo "✅ Backup container removed"
+              docker rm $BACKUP_NAME
+              echo "✅ Backup container removed"
             fi
 
             # Remove old images (keep last 3)
