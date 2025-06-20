@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 class BirdCNN(nn.Module):
-    def __init__(self, num_classes=28, dropout_p=0.3):
+    def __init__(self, num_classes=29, dropout_p=0.3):
         super(BirdCNN, self).__init__()
         self.net = nn.Sequential(
             # Block 1: no early downsampling

@@ -821,7 +821,7 @@ def test_saved_model(save_path):
     print(list(state.keys())[:5])  # show first 5 parameter names
     print(state[list(state.keys())[0]].shape)  # show shape of first tensor
 
-def load_model(model_class, model_name, num_classes=28):
+def load_model(model_class, model_name, num_classes=29):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model_class(num_classes=num_classes).to(device)
     model_path = os.path.join('..', 'models', f"{model_name}.pth")
@@ -830,7 +830,7 @@ def load_model(model_class, model_name, num_classes=28):
     model.eval()
     return model
 
-def reset_model(model_class, lr=0.001, num_classes=28):
+def reset_model(model_class, lr=0.001, num_classes=29):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model_class(num_classes=num_classes).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
