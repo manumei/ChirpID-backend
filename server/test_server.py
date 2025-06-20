@@ -9,7 +9,7 @@ import os
 def test_ping():
     """Test the ping endpoint"""
     try:
-        response = requests.get("http://localhost:5000/ping")
+        response = requests.get("http://localhost:5001/ping")
         print(f"Ping test: {response.status_code}")
         print(f"Response: {response.json()}")
         return response.status_code == 200
@@ -20,7 +20,7 @@ def test_ping():
 def test_health():
     """Test the health endpoint"""
     try:
-        response = requests.get("http://localhost:5000/health")
+        response = requests.get("http://localhost:5001/health")
         print(f"Health test: {response.status_code}")
         print(f"Response: {response.json()}")
         return response.status_code == 200
@@ -39,7 +39,7 @@ def test_upload():
         
         with open(test_file_path, 'rb') as f:
             files = {'file': ('test_audio.wav', f, 'audio/wav')}
-            response = requests.post("http://localhost:5000/api/audio/upload", files=files)
+            response = requests.post("http://localhost:5001/api/audio/upload", files=files)
         
         print(f"Upload test: {response.status_code}")
         print(f"Response: {response.json()}")

@@ -20,5 +20,5 @@ def get_local_ip():
 if __name__ == "__main__":
     ip = get_local_ip()
     print(f"Local IP Address: {ip}")
-    print(f"Your React Native app should use: EXPO_PUBLIC_API_URL=http://{ip}:5000")
+    print(f"Your React Native app should use: EXPO_PUBLIC_API_URL=http://{ip}:5001")
     print("\nUpdate your .env file in the React Native project with this URL.")

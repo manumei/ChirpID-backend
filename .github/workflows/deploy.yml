@@ -125,7 +125,7 @@ jobs:
             docker run -d \
               --name chirpid-backend \
               --restart unless-stopped \
-              -p 5000:5000 \
+              -p 5000:5001 \
               -v ~/chirpid/uploads:/app/app/uploads \
               -v ~/chirpid/database:/app/database \
               -v ~/chirpid/logs:/app/logs \
@@ -143,7 +143,7 @@ jobs:
               
               # Test health endpoint
               for i in {1..30}; do
-                if curl -f http://localhost:5000/health > /dev/null 2>&1; then
+                if curl -f http://localhost:5001/health > /dev/null 2>&1; then
                   echo "Health check passed! Service is ready."
                   break
                 elif [ $i -eq 30 ]; then
@@ -189,7 +189,7 @@ jobs:
             docker ps --filter name=chirpid-backend --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
             echo -e "\nService Health:"
-            curl -s http://localhost:5000/health || echo "Health check failed"
+            curl -s http://localhost:5001/health || echo "Health check failed"
 
             echo -e "\nDisk Usage:"
             df -h | grep -E "(Filesystem|/dev/)"
@@ -197,4 +197,4 @@ jobs:
             echo -e "\nDocker Images:"
             docker images | grep chirpid
 
-            echo -e "\nService URL: http://${{ secrets.SSH_HOST }}:5000"
+            echo -e "\nService URL: http://${{ secrets.SSH_HOST }}:5001"

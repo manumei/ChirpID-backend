@@ -131,24 +131,24 @@ Once the workflow completes:
 
 ```bash
 # Check if the service is running
-curl http://YOUR_UBUNTU_IP:5000/health
+curl http://YOUR_UBUNTU_IP:5001/health
 
 # Or from your Ubuntu server
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 ```
 
 ## Step 6: Access Your Application
 
 Your ChirpID backend will be available at:
 
-- **Local access**: `http://localhost:5000`
-- **Network access**: `http://YOUR_UBUNTU_IP:5000`
+- **Local access**: `http://localhost:5001`
+- **Network access**: `http://YOUR_UBUNTU_IP:5001`
 
 ### Important endpoints:
 
-- Health check: `http://YOUR_UBUNTU_IP:5000/health`
-- Ping: `http://YOUR_UBUNTU_IP:5000/ping`
-- API: `http://YOUR_UBUNTU_IP:5000/api/audio/*`
+- Health check: `http://YOUR_UBUNTU_IP:5001/health`
+- Ping: `http://YOUR_UBUNTU_IP:5001/ping`
+- API: `http://YOUR_UBUNTU_IP:5001/api/audio/*`
 
 ## Troubleshooting
 
@@ -218,7 +218,7 @@ ssh chirpid-deploy@YOUR_UBUNTU_IP
 docker pull ghcr.io/YOUR_USERNAME/chirpid-backend/chirpid-backend:latest
 docker stop chirpid-backend || true
 docker rm chirpid-backend || true
-docker run -d --name chirpid-backend --restart unless-stopped -p 5000:5000 \
+docker run -d --name chirpid-backend --restart unless-stopped -p 5000:5001 \
   -v ~/chirpid/uploads:/app/app/uploads \
   -v ~/chirpid/database:/app/database \
   ghcr.io/YOUR_USERNAME/chirpid-backend/chirpid-backend:latest

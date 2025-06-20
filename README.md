@@ -38,7 +38,7 @@ A Flask-based backend service for the ChirpID bird sound identification applicat
    python run.py
    ```
 
-The server will start on `http://localhost:5000`
+The server will start on `http://localhost:5001`
 
 ## Deployment
 
@@ -58,7 +58,7 @@ For complete deployment instructions including SSH deployment to Ubuntu servers,
    ```bash
    docker run -d \
      --name chirpid-backend \
-     -p 5000:5000 \
+     -p 5001:5001 \
      -v $(pwd)/app/uploads:/app/app/uploads \
      -v $(pwd)/database:/app/database \
      chirpid-backend
@@ -160,7 +160,7 @@ docker logs -f chirpid-backend
 ### Health check:
 
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 ```
 
 ## Development
