@@ -8,18 +8,18 @@ This guide helps you validate the connection between the React Native frontend a
 
 Run this from the ChirpID-backend repository root:
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
 
 ##### React Native Frontend Setup
 
 Make sure you have cloned the [chirpid front-end repository](https://github.com/manudelp/chirpid.git).
 Run this from the chirpid/ root:
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
 ## Step 1: Get Your Local IP Address
 
@@ -32,7 +32,7 @@ python get_ip.py
 Go to the front-end repository, and update the `.env` file:
 
 ```bash
-EXPO_PUBLIC_API_URL=http://YOUR_IP_ADDRESS:5000
+EXPO_PUBLIC_API_URL=http://YOUR_IP_ADDRESS:5001
 ```
 
 If the file does not exist, create it at the chirpid/ root and just add that line.
@@ -48,8 +48,8 @@ You should see:
 
 ```bash
 Starting ChirpID Backend Server...
-Server will be available at: http://0.0.0.0:5000
-Local network access at: http://<your-ip>:5000
+Server will be available at: http://0.0.0.0:5001
+Local network access at: http://<your-ip>:5001
 ```
 
 ## Step 3: Test Backend Endpoints
@@ -132,7 +132,7 @@ npx expo start
 
 **For LAN Access**:
 
-- Backend binds to `0.0.0.0:5000` (all interfaces)
+- Backend binds to `0.0.0.0:5001` (all interfaces)
 - CORS allows all origins for development
 - React Native uses absolute URI with local IP
 
@@ -149,7 +149,7 @@ npx expo start
 
 ## Features Implemented
 
-✅ Flask server binds to 0.0.0.0:5000  
+✅ Flask server binds to 0.0.0.0:5001  
 ✅ CORS enabled for all origins  
 ✅ React Native uses correct local IP via EXPO_PUBLIC_API_URL  
 ✅ /ping route implemented in Flask  

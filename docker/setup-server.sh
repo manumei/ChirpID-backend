@@ -144,8 +144,8 @@ show_network_info() {
     echo ""
     print_status "To access your ChirpID backend after deployment:"
     LOCAL_IP=$(hostname -I | awk '{print $1}')
-    echo "  - Local: http://localhost:5000"
-    echo "  - Network: http://$LOCAL_IP:5000"
+    echo "  - Local: http://localhost:5001"
+    echo "  - Network: http://$LOCAL_IP:5001"
 }
 
 # Function to create a sample systemd service (optional)
@@ -161,7 +161,7 @@ After=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/bin/docker run -d --name chirpid-backend --restart unless-stopped -p 5000:5000 -v %h/chirpid/uploads:/app/app/uploads -v %h/chirpid/database:/app/database -v %h/chirpid/logs:/app/logs ghcr.io/your-username/chirpid-backend/chirpid-backend:latest
+ExecStart=/usr/bin/docker run -d --name chirpid-backend --restart unless-stopped -p 5000:5001 -v %h/chirpid/uploads:/app/app/uploads -v %h/chirpid/database:/app/database -v %h/chirpid/logs:/app/logs ghcr.io/your-username/chirpid-backend/chirpid-backend:latest
 ExecStop=/usr/bin/docker stop chirpid-backend
 ExecStopPost=/usr/bin/docker rm chirpid-backend
 

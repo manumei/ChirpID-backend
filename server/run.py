@@ -7,4 +7,6 @@ app = create_app()
 
 if __name__ == "__main__":
     print("Starting ChirpID Backend Server...")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    debug_mode = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+    port = int(os.getenv('PORT', 5001))
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)

@@ -58,7 +58,7 @@ start_container() {
     print_status "Starting new container: $CONTAINER_NAME"
     docker run -d \
         --name $CONTAINER_NAME \
-        -p 5000:5000 \
+        -p 5000:5001 \
         -v $(pwd)/app/uploads:/app/app/uploads \
         -v $(pwd)/database:/app/database \
         --restart unless-stopped \
@@ -73,7 +73,7 @@ check_health() {
     if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
         # Wait for the service to be ready
         for i in {1..30}; do
-            if curl -f http://localhost:5000/health > /dev/null 2>&1; then
+            if curl -f http://localhost:5001/health > /dev/null 2>&1; then
                 print_status "Container is healthy and responding!"
                 return 0
             fi
@@ -105,8 +105,8 @@ deploy() {
     show_logs
     
     print_status "Deployment completed successfully!"
-    print_status "Service is available at: http://localhost:5000"
-    print_status "Health check: http://localhost:5000/health"
+    print_status "Service is available at: http://localhost:5001"
+    print_status "Health check: http://localhost:5001/health"
 }
 
 # Function to deploy with docker-compose
@@ -157,7 +157,7 @@ build_and_deploy() {
     print_status "Starting new container with local image..."
     docker run -d \
         --name $CONTAINER_NAME \
-        -p 5000:5000 \
+        -p 5000:5001 \
         -v $(pwd)/app/uploads:/app/app/uploads \
         -v $(pwd)/database:/app/database \
         --restart unless-stopped \
@@ -212,7 +212,7 @@ case "${1:-deploy}" in
         docker ps -f name=$CONTAINER_NAME
         echo ""
         print_status "Service health:"
-        curl -s http://localhost:5000/health | python -m json.tool 2>/dev/null || echo "Service not responding"
+        curl -s http://localhost:5001/health | python -m json.tool 2>/dev/null || echo "Service not responding"
         ;;
     help)
         usage

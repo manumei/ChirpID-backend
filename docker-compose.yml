@@ -4,22 +4,22 @@ services:
   chirpid-backend:
     build: .
     ports:
-      - "5000:5000"
+      - "5001:5001"
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=False
+      - PORT=5001
     volumes:
       # Mount uploads directory for persistence
-      - ./app/uploads:/app/app/uploads
-      # Mount database for persistence (adjust path as needed)
+      - ./app/uploads:/app/app/uploads      # Mount database for persistence (adjust path as needed)
       - ./database:/app/database
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
 
   # Optional: Add nginx reverse proxy for production
   nginx:
