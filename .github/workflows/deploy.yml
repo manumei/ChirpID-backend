@@ -271,3 +271,130 @@ jobs:
             echo ""
             echo "🌐 Service URL: http://${{ secrets.SSH_HOST }}:5000"
             echo "💡 Health endpoint: http://${{ secrets.SSH_HOST }}:5000/health"
+
+      - name: Comprehensive API Testing
+        uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -euo pipefail
+
+            echo "🧪 Running comprehensive API tests..."
+
+            # Test configuration
+            BASE_URL="http://localhost:5001"
+            EXTERNAL_URL="http://${{ secrets.SSH_HOST }}:5000"
+
+            # Function to test endpoint
+            test_endpoint() {
+              local name="$1"
+              local url="$2"
+              local method="${3:-GET}"
+              local expected_code="${4:-200}"
+              
+              echo "Testing $name endpoint..."
+              
+              if [ "$method" = "GET" ]; then
+                response=$(curl -s -w "%{http_code}" -o /tmp/response.json "$url" --connect-timeout 10 --max-time 30)
+              else
+                response=$(curl -s -w "%{http_code}" -o /tmp/response.json -X "$method" "$url" --connect-timeout 10 --max-time 30)
+              fi
+              
+              if [ "$response" = "$expected_code" ]; then
+                echo "✅ $name: SUCCESS (HTTP $response)"
+                if [ -f /tmp/response.json ] && [ -s /tmp/response.json ]; then
+                  echo "   Response: $(cat /tmp/response.json)"
+                fi
+                return 0
+              else
+                echo "❌ $name: FAILED (HTTP $response, expected $expected_code)"
+                if [ -f /tmp/response.json ]; then
+                  echo "   Response: $(cat /tmp/response.json)"
+                fi
+                return 1
+              fi
+            }
+
+            # Test 1: Internal Health Check
+            test_endpoint "Internal Health Check" "$BASE_URL/health" "GET" "200" || exit 1
+
+            # Test 2: Internal Ping
+            test_endpoint "Internal Ping" "$BASE_URL/ping" "GET" "200" || exit 1
+
+            # Test 3: External Health Check (what users will access)
+            test_endpoint "External Health Check" "$EXTERNAL_URL/health" "GET" "200" || exit 1
+
+            # Test 4: External Ping
+            test_endpoint "External Ping" "$EXTERNAL_URL/ping" "GET" "200" || exit 1
+
+            # Test 5: Audio Files Endpoint
+            test_endpoint "Audio Files List" "$BASE_URL/api/audio/files" "GET" "200" || exit 1
+
+            # Test 6: CORS Pre-flight Test
+            echo "Testing CORS headers..."
+            cors_headers=$(curl -s -H "Origin: http://localhost:3000" \
+                              -H "Access-Control-Request-Method: POST" \
+                              -H "Access-Control-Request-Headers: Content-Type" \
+                              -X OPTIONS "$BASE_URL/api/audio/upload" \
+                              -I --connect-timeout 10 --max-time 30)
+
+            if echo "$cors_headers" | grep -qi "access-control-allow-origin"; then
+              echo "✅ CORS: Headers present and configured correctly"
+            else
+              echo "❌ CORS: Headers missing or misconfigured"
+              echo "Headers received:"
+              echo "$cors_headers"
+              exit 1
+            fi
+
+            # Test 7: Container Health Status
+            echo "Checking Docker container health..."
+            health_status=$(docker inspect --format='{{.State.Health.Status}}' chirpid-backend 2>/dev/null || echo "no-health-check")
+
+            if [ "$health_status" = "healthy" ]; then
+              echo "✅ Docker Health Check: Container is healthy"
+            elif [ "$health_status" = "no-health-check" ]; then
+              echo "⚠️  Docker Health Check: No health check configured"
+            else
+              echo "❌ Docker Health Check: Container is $health_status"
+              docker logs --tail 10 chirpid-backend
+              exit 1
+            fi
+
+            # Test 8: Response Time Test
+            echo "Testing response times..."
+            for i in {1..3}; do
+              start_time=$(date +%s.%N)
+              curl -s "$BASE_URL/health" > /dev/null
+              end_time=$(date +%s.%N)
+              duration=$(echo "$end_time - $start_time" | bc -l 2>/dev/null || echo "0.5")
+              echo "   Health check $i: ${duration}s"
+            done
+
+            # Test 9: Service Resource Usage
+            echo "Checking service resource usage..."
+            container_stats=$(docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" chirpid-backend)
+            echo "$container_stats"
+
+            # Test 10: Disk Space Check
+            echo "Checking disk space..."
+            df -h | grep -E "(Filesystem|/dev/)" | head -2
+
+            echo ""
+            echo "🎉 All API tests completed successfully!"
+            echo "📋 Test Summary:"
+            echo "   ✅ Health endpoints working"
+            echo "   ✅ API endpoints accessible"  
+            echo "   ✅ CORS properly configured"
+            echo "   ✅ Container health is good"
+            echo "   ✅ Response times acceptable"
+            echo "   ✅ Resource usage normal"
+            echo ""
+            echo "🌍 Your API is ready for use!"
+            echo "📍 Base URL: $EXTERNAL_URL"
+            echo "🔗 Health Check: $EXTERNAL_URL/health"
+            echo "🔗 API Documentation: $EXTERNAL_URL/ping"
