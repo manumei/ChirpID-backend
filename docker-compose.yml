@@ -8,6 +8,7 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=False
+      - PORT=5001
     volumes:
       # Mount uploads directory for persistence
       - ./app/uploads:/app/app/uploads
