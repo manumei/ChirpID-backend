@@ -291,10 +291,9 @@ jobs:
             else
               echo "❌ External health check failed"
               rollback
-            fi
-
-            # Clean up backup and old images
-            echo "🧹 Cleaning up..."            if docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}$"; then
+            fi            # Clean up backup and old images
+            echo "🧹 Cleaning up..."
+            if docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}$"; then
               # Stop the backup container if it's running before removing
               docker stop $BACKUP_NAME >/dev/null 2>&1 || true
               docker rm $BACKUP_NAME
