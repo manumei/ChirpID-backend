@@ -251,11 +251,11 @@ jobs:
             else
               echo "❌ External health check failed"
               rollback
-            fi
-
-            # Clean up backup and old images
+            fi            # Clean up backup and old images
             echo "🧹 Cleaning up..."
             if docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}$"; then
+              # Stop the backup container if it's running before removing
+              docker stop $BACKUP_NAME >/dev/null 2>&1 || true
               docker rm $BACKUP_NAME
               echo "✅ Backup container removed"
             fi
@@ -267,10 +267,9 @@ jobs:
             echo ""
             echo "🎉 Deployment completed successfully!"
             echo "📊 Container Status:"
-            docker ps --filter name=$CONTAINER_NAME --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.RunningFor}}"
-            echo ""
-            echo "🌐 Service URL: http://${{ secrets.SSH_HOST }}:5000"
-            echo "💡 Health endpoint: http://${{ secrets.SSH_HOST }}:5000/health"
+            docker ps --filter name=$CONTAINER_NAME --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.RunningFor}}"            echo ""
+            echo "🌐 Service URL: http://${{ secrets.SSH_HOST }}:5001"
+            echo "💡 Health endpoint: http://${{ secrets.SSH_HOST }}:5001/health"
 
       - name: Comprehensive API Testing
         uses: appleboy/ssh-action@v1.0.3
@@ -283,11 +282,9 @@ jobs:
           script: |
             set -euo pipefail
 
-            echo "🧪 Running comprehensive API tests..."
-
-            # Test configuration
+            echo "🧪 Running comprehensive API tests..."            # Test configuration
             BASE_URL="http://localhost:5001"
-            EXTERNAL_URL="http://${{ secrets.SSH_HOST }}:5000"
+            EXTERNAL_URL="http://${{ secrets.SSH_HOST }}:5001"
 
             # Function to test endpoint
             test_endpoint() {
