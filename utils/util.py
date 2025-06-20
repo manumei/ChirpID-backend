@@ -8,6 +8,7 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader, Subset
+from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
@@ -230,7 +231,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
             epochs_without_improvement += 1
         
         # Check if we should stop early
-        if epochs_without_improvement >= estop:
+        if epochs_without_improvement >= estop and epoch > estop + 10:
             early_stopped = True
             break
         
@@ -285,12 +286,17 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         estop: Number of epochs without improvement before early stopping
     
     Returns:
-        Dictionary containing results for each fold and aggregated metrics including F1 scores
+        Tuple containing:
+        - Dictionary containing results for each fold and aggregated metrics including F1 scores
+        - Dictionary containing best results for each metric across folds
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # Initialize KFold
-    kfold = KFold(n_splits=k_folds, shuffle=True, random_state=random_state)
+    # Extract all labels for stratification
+    all_labels = [dataset[i][1].item() for i in range(len(dataset))]
+    
+    # Initialize StratifiedKFold
+    skfold = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=random_state)
     
     # Store results for each fold
     fold_results = {}
@@ -298,15 +304,20 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     final_val_losses = []
     final_val_f1s = []
     
+    # Store best results for each fold
+    best_accs = []
+    best_f1s = []
+    best_losses = []
+    
     # For aggregated predictions
     if aggregate_predictions:
         all_final_predictions = []
         all_final_targets = []
     
-    print(f"Starting {k_folds}-Fold Cross Validation on {device}")
+    print(f"Starting {k_folds}-Fold Stratified Cross Validation on {device}")
     print(f"Dataset size: {len(dataset)}")
     
-    for fold, (train_ids, val_ids) in enumerate(kfold.split(dataset)):
+    for fold, (train_ids, val_ids) in enumerate(skfold.split(range(len(dataset)), all_labels)):
         print(f"\n{'='*50}")
         print(f"FOLD {fold + 1}/{k_folds}")
         print(f"Train size: {len(train_ids)}, Val size: {len(val_ids)}")
@@ -320,27 +331,34 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         if use_class_weights:
             # Extract training labels for this fold
             train_labels = [dataset[i][1].item() for i in train_ids]
-            unique_classes = np.unique(train_labels)
-            
-            # Compute class weights using sklearn
-            class_weights_array = compute_class_weight(
-                'balanced',
-                classes=unique_classes,
-                y=train_labels
-            )
-            
-            # Create tensor of weights for all classes (fill missing classes with 1.0)
-            class_weights = torch.ones(num_classes)
-            for i, cls in enumerate(unique_classes):
-                class_weights[cls] = class_weights_array[i]
-            
-            class_weights = class_weights.to(device)
-            # print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
-            
-            criterion = nn.CrossEntropyLoss(weight=class_weights)
+            all_classes = np.arange(num_classes)
+            present_classes = set(train_labels)
+            missing_classes = set(all_classes) - present_classes
+
+            if missing_classes:
+                print(f"WARNING: Classes {missing_classes} are missing from training set in this fold. Disabling class weights for this fold.")
+                criterion = nn.CrossEntropyLoss()
+            else:
+                class_weights_array = compute_class_weight(
+                    'balanced',
+                    classes=all_classes,
+                    y=train_labels
+                )
+                class_weights = torch.tensor(class_weights_array, dtype=torch.float32).to(device)
+                unique_classes = np.unique(train_labels)
+
+                # Create tensor of weights for all classes (fill missing classes with 1.0)
+                class_weights = torch.ones(num_classes)
+                for i, cls in enumerate(unique_classes):
+                    class_weights[cls] = class_weights_array[i]
+                
+                class_weights = class_weights.to(device)
+                print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+
+                criterion = nn.CrossEntropyLoss(weight=class_weights)
         else:
             criterion = nn.CrossEntropyLoss()
-        
+
         # Create data loaders
         train_loader = DataLoader(
             train_subset,
@@ -382,14 +400,24 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
             final_val_acc = fold_history['val_accuracies'][-1]
             final_val_f1 = fold_history['val_f1s'][-1]
         
+        # Calculate best values for this fold
+        fold_best_acc = max(fold_history['val_accuracies'])
+        fold_best_f1 = max(fold_history['val_f1s'])
+        fold_best_loss = min(fold_history['val_losses'])
+        
+        # Store best results
+        best_accs.append(fold_best_acc)
+        best_f1s.append(fold_best_f1)
+        best_losses.append(fold_best_loss)
+        
         # Store fold results
         fold_results[f'fold_{fold+1}'] = {
             'history': fold_history,
             'final_val_acc': final_val_acc,
             'final_val_loss': final_val_loss,
             'final_val_f1': final_val_f1,
-            'best_val_acc': max(fold_history['val_accuracies']),
-            'best_val_f1': max(fold_history['val_f1s']),
+            'best_val_acc': fold_best_acc,
+            'best_val_f1': fold_best_f1,
             'model_state': model.state_dict().copy(),  # Save best model if needed
             'class_weights': class_weights.cpu() if use_class_weights else None
         }
@@ -462,7 +490,14 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         }
     }
     
-    return results
+    # Create best results dictionary
+    best_results = {
+        'accuracies': best_accs,
+        'f1s': best_f1s,
+        'losses': best_losses
+    }
+    
+    return results, best_results
 
 def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
                         batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
@@ -589,30 +624,125 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
     
     return results
 
-def plot_mean_curve(results, metric_key, title, ylabel):
+
+# Display Results
+def plot_best_results(best_results, metric_key, title, ylabel, ax=None):
+    ''' Given a dictionary of lists with the best results for each fold in 
+    each of the metric keys, plot a bar graph showing the best results for each
+    fold in the given metric key, and the average of all the folds '''
+    
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 6))
+        show_plot = True
+    else:
+        show_plot = False
+    
+    # Get the values for the specified metric
+    values = best_results[metric_key]
+    
+    # Calculate the average
+    avg_value = np.mean(values)
+    
+    # Create fold labels
+    fold_labels = [f'Fold {i+1}' for i in range(len(values))]
+    fold_labels.append('Average')
+    
+    # Add average to values for plotting
+    plot_values = values + [avg_value]
+    
+    # Create the bar plot
+    bars = ax.bar(fold_labels, plot_values, alpha=0.7)
+    
+    # Color the average bar differently
+    bars[-1].set_color('red')
+    bars[-1].set_alpha(0.8)
+    
+    # Add value labels on top of bars
+    for i, (bar, value) in enumerate(zip(bars, plot_values)):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(plot_values)*0.01,
+                f'{value:.4f}', ha='center', va='bottom', fontweight='bold' if i == len(bars)-1 else 'normal')
+    
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel('Fold')
+    ax.grid(True, alpha=0.3)
+    
+    if show_plot:
+        plt.tight_layout()
+        plt.show()
+
+def plot_mean_curve(results, metric_key, title, ylabel, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        show_plot = True
+    else:
+        show_plot = False
+    
     all_train = []
     all_val = []
+    max_epochs = 0
 
+    # First pass: collect all curves and find max epochs
     for fold_data in results['fold_results'].values():
         history = fold_data['history']
-        all_train.append(history[f"train_{metric_key}"])
-        all_val.append(history[f"val_{metric_key}"])
+        train_curve = history[f"train_{metric_key}"]
+        val_curve = history[f"val_{metric_key}"]
+        all_train.append(train_curve)
+        all_val.append(val_curve)
+        max_epochs = max(max_epochs, len(train_curve))
 
-    # Convert to arrays for averaging
+    # Pad shorter curves with NaN to align all curves to max_epochs
+    for i in range(len(all_train)):
+        current_length = len(all_train[i])
+        if current_length < max_epochs:
+            # Pad with NaN values
+            all_train[i] = all_train[i] + [np.nan] * (max_epochs - current_length)
+            all_val[i] = all_val[i] + [np.nan] * (max_epochs - current_length)
+
+    # Convert to arrays for averaging (nanmean will ignore NaN values)
     all_train = np.array(all_train)
     all_val = np.array(all_val)
 
-    mean_train = all_train.mean(axis=0)
-    mean_val = all_val.mean(axis=0)
+    mean_train = np.nanmean(all_train, axis=0)
+    mean_val = np.nanmean(all_val, axis=0)
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(mean_train, label="Mean Train", linestyle='--')
-    plt.plot(mean_val, label="Mean Val")
-    plt.title(title)
-    plt.xlabel("Epoch")
-    plt.ylabel(ylabel)
-    plt.legend()
-    plt.grid(True)
+    ax.plot(mean_train, label="Mean Train", linestyle='--')
+    ax.plot(mean_val, label="Mean Val")
+    ax.set_title(title)
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel(ylabel)
+    ax.legend()
+    ax.grid(True)
+    
+    if show_plot:
+        plt.tight_layout()
+        plt.show()
+
+def plot_kfold_results(results, best_results):
+    """
+    Plot comprehensive K-fold cross validation results in a 3x2 grid.
+    Left column shows mean curves over epochs, right column shows best results per fold.
+    
+    Args:
+        results: Dictionary containing k-fold cross validation results
+        best_results: Dictionary containing best results for each fold
+    """
+    # Create figure with subplots
+    fig, axes = plt.subplots(3, 2, figsize=(16, 12))
+    fig.suptitle("K-Fold Cross Validation Results", fontsize=16, y=0.98)
+    
+    # Row 1: Accuracies
+    plot_mean_curve(results, "accuracies", "Accuracy Curves Across Folds", "Accuracy", ax=axes[0, 0])
+    plot_best_results(best_results, "accuracies", "Best Accuracy per Fold", "Accuracy", ax=axes[0, 1])
+    
+    # Row 2: F1 Scores
+    plot_mean_curve(results, "f1s", "F1 Score Curves Across Folds", "Macro F1 Score", ax=axes[1, 0])
+    plot_best_results(best_results, "f1s", "Best F1 Score per Fold", "F1 Score", ax=axes[1, 1])
+    
+    # Row 3: Losses
+    plot_mean_curve(results, "losses", "Loss Curves Across Folds", "Cross Entropy Loss", ax=axes[2, 0])
+    plot_best_results(best_results, "losses", "Best Loss per Fold", "Loss", ax=axes[2, 1])
+    
     plt.tight_layout()
     plt.show()
 
@@ -678,6 +808,7 @@ def print_kfold_best_results(results):
     
     if 'aggregated_f1' in results['summary']:
         print(f"Aggregated F1 Score: {results['summary']['aggregated_f1']:.4f}")
+
 
 # Model Utils
 def save_model(model, model_name, model_save_path):

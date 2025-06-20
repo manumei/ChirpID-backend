@@ -7,3 +7,6 @@ train_data.csv
 train_data2.csv
 final/
 .venv
+.pyc
+util.cpython-313.pyc
+*.pyc
