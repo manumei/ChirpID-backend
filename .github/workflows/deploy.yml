@@ -208,7 +208,7 @@ jobs:
               --health-timeout=10s \
               --health-retries=3 \
               --health-start-period=40s \
-              -p 5000:5001 \
+              -p 5001:5001 \
               -v ~/chirpid/uploads:/app/app/uploads \
               -v ~/chirpid/database:/app/database \
               -v ~/chirpid/logs:/app/logs \
