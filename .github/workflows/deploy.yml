@@ -180,7 +180,7 @@ jobs:
 
             # Test the new image before deployment
             echo "🧪 Testing new Docker image..."
-            if ! docker run --rm --timeout 60 $IMAGE_NAME python scripts/test_startup.py; then
+            if ! docker run --rm $IMAGE_NAME python scripts/test_startup.py; then
               echo "❌ New image failed startup tests"
               exit 1
             fi
