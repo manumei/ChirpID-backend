@@ -1,9 +1,17 @@
 from flask import Blueprint, request, jsonify
 import os
 import uuid
+import logging
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from app.services.audio_processing import process_audio
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 audio_bp = Blueprint("audio", __name__)
 
@@ -38,20 +46,22 @@ def generate_unique_filename(original_filename):
 @audio_bp.route("/upload", methods=["POST"])
 def upload_audio():
     try:
-        print("Received upload request")
-        print("Files in request:", list(request.files.keys()))
+        client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
+        logger.info(f"Upload request received from {client_ip}")
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Files in request: {list(request.files.keys())}")
         
         if "file" not in request.files:
-            print("No file part in request")
+            logger.warning("No file part in request")
             return jsonify({"error": "No file part"}), 400
 
         file = request.files["file"]
         if file.filename == "":
-            print("No selected file")
+            logger.warning("No selected file")
             return jsonify({"error": "No selected file"}), 400
 
         if not allowed_file(file.filename):
-            print(f"File type not allowed: {file.filename}")
+            logger.warning(f"File type not allowed: {file.filename}")
             return jsonify({"error": "File type not allowed. Supported formats: wav, mp3, ogg, flac, m4a"}), 400
 
         # Generate unique filename to prevent conflicts
@@ -63,26 +73,28 @@ def upload_audio():
             os.makedirs(uploads_dir)
         save_path = os.path.join(uploads_dir, unique_filename)
         
-        print(f"Original filename: {original_filename}")
-        print(f"Unique filename: {unique_filename}")
-        print(f"Saving file to: {save_path}")
+        logger.info(f"Saving file: {original_filename} -> {unique_filename}")
+        logger.info(f"Save path: {save_path}")
+        
         file.save(save_path)
         
-        print("Processing audio...")
+        logger.info("Processing audio...")
         result = process_audio(save_path)
         
-        print("Audio processing completed successfully")
-        return jsonify({
+        logger.info("Audio processing completed successfully")
+        response_data = {
             "success": True,
             "message": "Audio uploaded and processed successfully",
             "result": result,
             "original_filename": original_filename,
             "unique_filename": unique_filename,
             "upload_id": str(uuid.uuid4())
-        })
+        }
+        logger.info(f"Sending response: {response_data}")
+        return jsonify(response_data)
         
     except Exception as e:
-        print(f"Error processing upload: {str(e)}")
+        logger.error(f"Error processing upload: {str(e)}", exc_info=True)
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 @audio_bp.route("/files", methods=["GET"])
