@@ -308,15 +308,18 @@ def save_test_audio(segment_info, test_audios_dir):
     test_path = os.path.join(test_audios_dir, test_filename)
     sf.write(test_path, segment_info['audio_data'], segment_info['sr'])
 
-def print_summary(final_df, output_csv_path):
-    """Print summary of spectrogram generation."""
-    print(f"\nSpectrogram generation complete!")
-    print(f"Total spectrograms created: {len(final_df)}")
-    print("Spectrograms per class:")
+def plot_summary(final_df, output_csv_path):
+    """Plot summary histogram of spectrogram generation showing samples per class."""
     class_counts = final_df['class_id'].value_counts().sort_index()
-    for class_id, count in class_counts.items():
-        print(f"  Class {class_id}: {count}")
-    print(f"Output saved to: {output_csv_path}")
+    # Create histogram plot
+    plt.figure(figsize=(12, 6))
+    plt.bar(class_counts.index, class_counts.values, alpha=0.7)
+    plt.xlabel('Class ID')
+    plt.ylabel('Number of Samples')
+    plt.title('Distribution of Samples per Class')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 
 def get_spect_matrix(image_path):
     img = Image.open(image_path).convert('L')
