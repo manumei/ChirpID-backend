@@ -100,12 +100,14 @@ def save_audio_segments_to_disk(segments, segments_output_dir):
         
         # Save audio segment to disk
         sf.write(segment_path, segment_info['audio_data'], segment_info['sr'])
+        og_filename = segment_info['original_filename']
+        og_audio_name = os.path.splitext(og_filename)[0] if og_filename else 'unknown'
         
         # Create record for CSV
         segment_records.append({
             'filename': segment_filename,
             'class_id': segment_info['class_id'],
-            'original_filename': segment_info['original_filename'],
+            'original_audio': og_audio_name,
             'segment_index': segment_info['segment_index'],
             'species_segments': segment_info['class_total_segments']
         })
