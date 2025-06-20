@@ -28,7 +28,7 @@ def count_files_in_dir(dir_path):
         return 0
     return len([f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))])
 
-# Audio Processing Aux
+# Data Processing Utils
 import librosa as lbrs
 import noisereduce as nr
 from PIL import Image
@@ -75,7 +75,249 @@ def save_test_audios(segment, sr, test_audios_dir, filename, start, saved_audios
         test_audio_path = os.path.join(test_audios_dir, test_audio_filename)
         sf.write(test_audio_path, segment, sr)
 
-# Data Processing Aux
+def save_audio_segments_to_disk(segments, segments_output_dir):
+    """
+    Save extracted audio segments to disk as .wav files.
+    
+    Args:
+        segments (list): List of segment dictionaries from extract_audio_segments
+        segments_output_dir (str): Directory to save the audio segment files
+        
+    Returns:
+        pd.DataFrame: DataFrame with segment metadata for later use
+    """
+    import soundfile as sf
+    
+    os.makedirs(segments_output_dir, exist_ok=True)
+    
+    segment_records = []
+    
+    for i, segment_info in enumerate(segments):
+        # Create filename for the segment
+        base_filename = os.path.splitext(segment_info['original_filename'])[0]
+        segment_filename = f"{base_filename}_{segment_info['segment_index']}.wav"
+        segment_path = os.path.join(segments_output_dir, segment_filename)
+        
+        # Save audio segment to disk
+        sf.write(segment_path, segment_info['audio_data'], segment_info['sr'])
+        
+        # Create record for CSV
+        segment_records.append({
+            'filename': segment_filename,
+            'class_id': segment_info['class_id'],
+            'original_filename': segment_info['original_filename'],
+            'segment_index': segment_info['segment_index'],
+            'species_segments': segment_info['class_total_segments']
+        })
+    
+    return pd.DataFrame(segment_records)
+
+def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
+    """
+    Load audio segments from disk using metadata CSV.
+    
+    Args:
+        segments_csv_path (str): Path to CSV file with segment metadata
+        segments_dir (str): Directory containing the audio segment files
+        sr (int): Target sampling rate
+        
+    Returns:
+        list: List of segment dictionaries ready for spectrogram creation
+    """
+    import soundfile as sf
+    
+    # Read metadata
+    segments_df = pd.read_csv(segments_csv_path)
+    
+    segments = []
+    
+    for _, row in segments_df.iterrows():
+        segment_path = os.path.join(segments_dir, row['filename'])
+        
+        try:
+            # Load audio data
+            audio_data, file_sr = sf.read(segment_path)
+            
+            if file_sr != sr:
+                print(f"Warning: Sample rate mismatch for {row['filename']}: expected {sr}, got {file_sr}")
+                # Could resample here if needed
+            
+            # Create segment dictionary
+            segment_info = {
+                'audio_data': audio_data,
+                'class_id': row['class_id'],
+                'original_filename': row['original_filename'],
+                'segment_index': row['segment_index'],
+                'sr': file_sr,
+                'class_total_segments': row['species_segments']
+            }
+            
+            segments.append(segment_info)
+            
+        except Exception as e:
+            print(f"Error loading segment {row['filename']}: {e}")
+            continue
+    
+    print(f"Loaded {len(segments)} audio segments from disk")
+    return segments
+
+def load_audio_files(segments_df, segments_dir, sr, segment_sec, threshold_factor):
+    """Load and prepare audio files with metadata."""
+    audio_files = []
+    samples_per_segment = int(sr * segment_sec)
+    
+    for _, row in segments_df.iterrows():
+        filename = row['filename']
+        class_id = row['class_id']
+        audio_path = os.path.join(segments_dir, filename)
+        
+        try:
+            y, srate = lbrs_loading(audio_path, sr=sr, mono=True)
+            threshold = get_rmsThreshold(y, frame_len=2048, hop_len=512, thresh_factor=threshold_factor)
+            max_segments = len(y) // samples_per_segment
+            
+            if max_segments > 0:
+                audio_files.append({
+                    'audio_data': y,
+                    'class_id': class_id,
+                    'filename': filename,
+                    'max_segments': max_segments,
+                    'threshold': threshold,
+                    'sr': srate,
+                    'samples_per_segment': samples_per_segment
+                })
+                
+        except Exception as e:
+            print(f"Error loading {filename}: {e}")
+            continue
+    
+    return audio_files
+
+def calculate_class_totals(audio_files):
+    """Calculate total possible segments per class."""
+    class_total_segments = {}
+    for audio_info in audio_files:
+        class_id = audio_info['class_id']
+        if class_id not in class_total_segments:
+            class_total_segments[class_id] = 0
+        class_total_segments[class_id] += audio_info['max_segments']
+    return class_total_segments
+
+def extract_balanced_segments(audio_files, cap_per_class, segment_sec, sr, class_total_segments):
+    """Extract segments with balanced sampling across classes."""
+    segments = []
+    class_counts = {}
+    active_audios = audio_files.copy()
+    segment_index = 0
+    
+    while active_audios:
+        audios_to_remove = []
+        
+        for i, audio_info in enumerate(active_audios):
+            class_id = audio_info['class_id']
+            
+            # Initialize class counter
+            if class_id not in class_counts:
+                class_counts[class_id] = 0
+            
+            # Check if class has reached cap or audio is exhausted
+            if class_counts[class_id] >= cap_per_class:
+                audios_to_remove.append(i)
+                continue
+                
+            if segment_index >= audio_info['max_segments']:
+                audios_to_remove.append(i)
+                continue
+            
+            # Extract and validate segment
+            segment_data = extract_single_segment(audio_info, segment_index)
+            
+            if segment_data is not None:
+                segment_data['class_total_segments'] = class_total_segments[class_id]
+                segments.append(segment_data)
+                class_counts[class_id] += 1
+        
+        # Remove exhausted audios
+        for i in sorted(audios_to_remove, reverse=True):
+            active_audios.pop(i)
+        
+        segment_index += 1
+        
+        if not active_audios:
+            break
+    
+    return segments
+
+def extract_single_segment(audio_info, segment_index):
+    """Extract a single segment from audio data if it passes RMS threshold."""
+    start_sample = segment_index * audio_info['samples_per_segment']
+    end_sample = start_sample + audio_info['samples_per_segment']
+    segment = audio_info['audio_data'][start_sample:end_sample]
+    
+    # Check RMS threshold
+    seg_rms = np.mean(lbrs.feature.rms(y=segment)[0])
+    if seg_rms < audio_info['threshold']:
+        return None
+    
+    return {
+        'audio_data': segment,
+        'class_id': audio_info['class_id'],
+        'original_filename': audio_info['filename'],
+        'segment_index': segment_index,
+        'sr': audio_info['sr']
+    }
+
+def create_single_spectrogram(segment_info, spectrogram_dir, mels, hoplen, nfft):
+    """Create a single spectrogram from segment data."""
+    try:
+        # Generate spectrogram filename
+        base_filename = os.path.splitext(segment_info['original_filename'])[0]
+        segment_filename = f"{base_filename}_{segment_info['segment_index']}.wav"
+        
+        # Create spectrogram image
+        img, spec_path, spec_name = get_spec_image(
+            segment_info['audio_data'], 
+            sr=segment_info['sr'], 
+            mels=mels, 
+            hoplen=hoplen, 
+            nfft=nfft,
+            filename=segment_filename, 
+            start=segment_info['segment_index'], 
+            spectrogram_dir=spectrogram_dir
+        )
+        
+        # Save spectrogram image
+        Image.fromarray(img).save(spec_path)
+        
+        return {
+            'filename': spec_name,
+            'class_id': segment_info['class_id'],
+            'species_segments': segment_info['class_total_segments']
+        }
+        
+    except Exception as e:
+        print(f"Error creating spectrogram for segment {segment_info['segment_index']} "
+              f"of {segment_info['original_filename']}: {e}")
+        return None
+
+def save_test_audio(segment_info, test_audios_dir):
+    """Save a segment as test audio file."""
+    import soundfile as sf
+    base_filename = os.path.splitext(segment_info['original_filename'])[0]
+    test_filename = f"{base_filename}_{segment_info['segment_index']}_test.wav"
+    test_path = os.path.join(test_audios_dir, test_filename)
+    sf.write(test_path, segment_info['audio_data'], segment_info['sr'])
+
+def print_summary(final_df, output_csv_path):
+    """Print summary of spectrogram generation."""
+    print(f"\nSpectrogram generation complete!")
+    print(f"Total spectrograms created: {len(final_df)}")
+    print("Spectrograms per class:")
+    class_counts = final_df['class_id'].value_counts().sort_index()
+    for class_id, count in class_counts.items():
+        print(f"  Class {class_id}: {count}")
+    print(f"Output saved to: {output_csv_path}")
+
 def get_spect_matrix(image_path):
     img = Image.open(image_path).convert('L')
     pixels = np.array(img)
@@ -911,89 +1153,4 @@ def reset_model(model_class, lr=0.001, num_classes=29):
     criterion = nn.CrossEntropyLoss()
     return model, optimizer, criterion, device
 
-def save_audio_segments_to_disk(segments, segments_output_dir):
-    """
-    Save extracted audio segments to disk as .wav files.
-    
-    Args:
-        segments (list): List of segment dictionaries from extract_audio_segments
-        segments_output_dir (str): Directory to save the audio segment files
-        
-    Returns:
-        pd.DataFrame: DataFrame with segment metadata for later use
-    """
-    import soundfile as sf
-    
-    os.makedirs(segments_output_dir, exist_ok=True)
-    
-    segment_records = []
-    
-    for i, segment_info in enumerate(segments):
-        # Create filename for the segment
-        base_filename = os.path.splitext(segment_info['original_filename'])[0]
-        segment_filename = f"{base_filename}_{segment_info['segment_index']}.wav"
-        segment_path = os.path.join(segments_output_dir, segment_filename)
-        
-        # Save audio segment to disk
-        sf.write(segment_path, segment_info['audio_data'], segment_info['sr'])
-        
-        # Create record for CSV
-        segment_records.append({
-            'filename': segment_filename,
-            'class_id': segment_info['class_id'],
-            'original_filename': segment_info['original_filename'],
-            'segment_index': segment_info['segment_index'],
-            'species_segments': segment_info['class_total_segments']
-        })
-    
-    return pd.DataFrame(segment_records)
-
-def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
-    """
-    Load audio segments from disk using metadata CSV.
-    
-    Args:
-        segments_csv_path (str): Path to CSV file with segment metadata
-        segments_dir (str): Directory containing the audio segment files
-        sr (int): Target sampling rate
-        
-    Returns:
-        list: List of segment dictionaries ready for spectrogram creation
-    """
-    import soundfile as sf
-    
-    # Read metadata
-    segments_df = pd.read_csv(segments_csv_path)
-    
-    segments = []
-    
-    for _, row in segments_df.iterrows():
-        segment_path = os.path.join(segments_dir, row['filename'])
-        
-        try:
-            # Load audio data
-            audio_data, file_sr = sf.read(segment_path)
-            
-            if file_sr != sr:
-                print(f"Warning: Sample rate mismatch for {row['filename']}: expected {sr}, got {file_sr}")
-                # Could resample here if needed
-            
-            # Create segment dictionary
-            segment_info = {
-                'audio_data': audio_data,
-                'class_id': row['class_id'],
-                'original_filename': row['original_filename'],
-                'segment_index': row['segment_index'],
-                'sr': file_sr,
-                'class_total_segments': row['species_segments']
-            }
-            
-            segments.append(segment_info)
-            
-        except Exception as e:
-            print(f"Error loading segment {row['filename']}: {e}")
-            continue
-    
-    print(f"Loaded {len(segments)} audio segments from disk")
-    return segments
 
