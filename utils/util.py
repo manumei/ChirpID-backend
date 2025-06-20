@@ -3,6 +3,7 @@ import os
 import shutil
 import torch
 import torch.nn as nn
+import pandas as pd
 import torch.optim as optim
 from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
@@ -268,7 +269,8 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
 
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5, 
                             num_epochs=300, batch_size=32, lr=0.001, random_state=435, 
-                            aggregate_predictions=True, use_class_weights=True, estop=25):
+                            aggregate_predictions=True, use_class_weights=True, estop=25,
+                            standardize=False):
     """
     Perform K-Fold Cross Validation training with F1 score reporting and early stopping.
     
@@ -285,6 +287,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
                                 If False, use mean of individual fold losses
         use_class_weights: If True, compute and use class weights for CrossEntropyLoss
         estop: Number of epochs without improvement before early stopping
+        standardize: If True, standardize features using training data statistics
     
     Returns:
         Tuple containing:
@@ -317,6 +320,8 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
     
     print(f"Starting {k_folds}-Fold Stratified Cross Validation on {device}")
     print(f"Dataset size: {len(dataset)}")
+    if standardize:
+        print("Using standardization based on training data statistics")
     
     for fold, (train_ids, val_ids) in enumerate(skfold.split(range(len(dataset)), all_labels)):
         print(f"\n{'='*50}")
@@ -324,9 +329,38 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
         print(f"Train size: {len(train_ids)}, Val size: {len(val_ids)}")
         print(f"{'='*50}")
         
-        # Create data subsets
-        train_subset = Subset(dataset, train_ids)
-        val_subset = Subset(dataset, val_ids)
+        # Apply standardization if requested
+        if standardize:
+            # Calculate standardization statistics from training data only
+            train_data = torch.stack([dataset[i][0] for i in train_ids])
+            train_mean = train_data.mean()
+            train_std = train_data.std()
+            
+            print(f"Training data statistics - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
+            
+            # Create standardized datasets
+            standardized_train_data = []
+            standardized_val_data = []
+            
+            # Standardize training data
+            for i in train_ids:
+                x, y = dataset[i]
+                x_standardized = (x - train_mean) / (train_std + 1e-8)  # Add small epsilon to avoid division by zero
+                standardized_train_data.append((x_standardized, y))
+            
+            # Standardize validation data using training statistics
+            for i in val_ids:
+                x, y = dataset[i]
+                x_standardized = (x - train_mean) / (train_std + 1e-8)
+                standardized_val_data.append((x_standardized, y))
+            
+            # Create subsets with standardized data
+            train_subset = standardized_train_data
+            val_subset = standardized_val_data
+        else:
+            # Create data subsets without standardization
+            train_subset = Subset(dataset, train_ids)
+            val_subset = Subset(dataset, val_ids)
         
         # Compute class weights for this fold if enabled
         if use_class_weights:
@@ -361,23 +395,58 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
             criterion = nn.CrossEntropyLoss()
 
         # Create data loaders
-        train_loader = DataLoader(
-            train_subset,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=12,
-            pin_memory=True,
-            persistent_workers=True
-        )
+        if standardize:
+            # For standardized data, we need custom DataLoader handling
+            from torch.utils.data import Dataset
+            
+            class StandardizedDataset(Dataset):
+                def __init__(self, data_list):
+                    self.data = data_list
+                
+                def __len__(self):
+                    return len(self.data)
+                
+                def __getitem__(self, idx):
+                    return self.data[idx]
+            
+            train_dataset = StandardizedDataset(train_subset)
+            val_dataset = StandardizedDataset(val_subset)
+            
+            train_loader = DataLoader(
+                train_dataset,
+                batch_size=batch_size,
+                shuffle=True,
+                num_workers=12,
+                pin_memory=True,
+                persistent_workers=True
+            )
 
-        val_loader = DataLoader(
-            val_subset,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=12,
-            pin_memory=True,
-            persistent_workers=True
-        )
+            val_loader = DataLoader(
+                val_dataset,
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=12,
+                pin_memory=True,
+                persistent_workers=True
+            )
+        else:
+            train_loader = DataLoader(
+                train_subset,
+                batch_size=batch_size,
+                shuffle=True,
+                num_workers=12,
+                pin_memory=True,
+                persistent_workers=True
+            )
+
+            val_loader = DataLoader(
+                val_subset,
+                batch_size=batch_size,
+                shuffle=False,
+                num_workers=12,
+                pin_memory=True,
+                persistent_workers=True
+            )
         
         # Initialize model and optimizer
         model = model_class(num_classes=num_classes).to(device)
@@ -422,6 +491,10 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=5,
             'model_state': model.state_dict().copy(),  # Save best model if needed
             'class_weights': class_weights.cpu() if use_class_weights else None
         }
+        
+        if standardize:
+            fold_results[f'fold_{fold+1}']['train_mean'] = train_mean.item()
+            fold_results[f'fold_{fold+1}']['train_std'] = train_std.item()
         
         final_val_accuracies.append(final_val_acc)
         final_val_losses.append(final_val_loss)
@@ -837,4 +910,90 @@ def reset_model(model_class, lr=0.001, num_classes=29):
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
     return model, optimizer, criterion, device
+
+def save_audio_segments_to_disk(segments, segments_output_dir):
+    """
+    Save extracted audio segments to disk as .wav files.
+    
+    Args:
+        segments (list): List of segment dictionaries from extract_audio_segments
+        segments_output_dir (str): Directory to save the audio segment files
+        
+    Returns:
+        pd.DataFrame: DataFrame with segment metadata for later use
+    """
+    import soundfile as sf
+    
+    os.makedirs(segments_output_dir, exist_ok=True)
+    
+    segment_records = []
+    
+    for i, segment_info in enumerate(segments):
+        # Create filename for the segment
+        base_filename = os.path.splitext(segment_info['original_filename'])[0]
+        segment_filename = f"{base_filename}_{segment_info['segment_index']}.wav"
+        segment_path = os.path.join(segments_output_dir, segment_filename)
+        
+        # Save audio segment to disk
+        sf.write(segment_path, segment_info['audio_data'], segment_info['sr'])
+        
+        # Create record for CSV
+        segment_records.append({
+            'filename': segment_filename,
+            'class_id': segment_info['class_id'],
+            'original_filename': segment_info['original_filename'],
+            'segment_index': segment_info['segment_index'],
+            'species_segments': segment_info['class_total_segments']
+        })
+    
+    return pd.DataFrame(segment_records)
+
+def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
+    """
+    Load audio segments from disk using metadata CSV.
+    
+    Args:
+        segments_csv_path (str): Path to CSV file with segment metadata
+        segments_dir (str): Directory containing the audio segment files
+        sr (int): Target sampling rate
+        
+    Returns:
+        list: List of segment dictionaries ready for spectrogram creation
+    """
+    import soundfile as sf
+    
+    # Read metadata
+    segments_df = pd.read_csv(segments_csv_path)
+    
+    segments = []
+    
+    for _, row in segments_df.iterrows():
+        segment_path = os.path.join(segments_dir, row['filename'])
+        
+        try:
+            # Load audio data
+            audio_data, file_sr = sf.read(segment_path)
+            
+            if file_sr != sr:
+                print(f"Warning: Sample rate mismatch for {row['filename']}: expected {sr}, got {file_sr}")
+                # Could resample here if needed
+            
+            # Create segment dictionary
+            segment_info = {
+                'audio_data': audio_data,
+                'class_id': row['class_id'],
+                'original_filename': row['original_filename'],
+                'segment_index': row['segment_index'],
+                'sr': file_sr,
+                'class_total_segments': row['species_segments']
+            }
+            
+            segments.append(segment_info)
+            
+        except Exception as e:
+            print(f"Error loading segment {row['filename']}: {e}")
+            continue
+    
+    print(f"Loaded {len(segments)} audio segments from disk")
+    return segments
 
