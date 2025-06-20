@@ -120,9 +120,9 @@ def list_uploaded_files():
 
 @audio_bp.route("/cleanup", methods=["POST"])
 def cleanup_old_files():
-    """Remove uploaded files older than specified days (default: 7)"""
+    """Remove uploaded files older than specified days (default: 1)"""
     try:
-        days = request.json.get("days", 7) if request.json else 7
+        days = request.json.get("days", 1) if request.json else 1
         uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
         
         if not os.path.exists(uploads_dir):
