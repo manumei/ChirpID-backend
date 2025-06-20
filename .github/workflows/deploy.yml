@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
 
 env:
   REGISTRY: ghcr.io
@@ -13,15 +22,25 @@ env:
 
 jobs:
   test:
+    name: Run Tests
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install system dependencies
         run: |
@@ -33,21 +52,35 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run basic tests
+      - name: Run startup tests
         run: |
-          python -c "from app import create_app; app = create_app(); print('App created successfully')"
-          python server/test_server.py
+          python scripts/test_startup.py
+
+      - name: Run unit tests (if they exist)
+        run: |
+          if [ -f "tests/test_app.py" ]; then
+            python -m pytest tests/ -v
+          else
+            echo "No unit tests found, skipping..."
+          fi
 
   build-and-push:
+    name: Build and Push Docker Image
     needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tags: ${{ steps.meta.outputs.tags }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -66,75 +99,115 @@ jobs:
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
+      - name: Test Docker image
+        run: |
+          # Test if the image can run our startup tests
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest python scripts/test_startup.py
   deploy:
+    name: Deploy to Server
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    timeout-minutes: 15
 
     steps:
-      - name: Deploy to Ubuntu Server via SSH
+      - name: Deploy and Verify
         uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 10
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
+          command_timeout: 5m
           script: |
-            echo "Starting deployment to Ubuntu server..."
+            set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
-            # Update system packages (skip if sudo requires password)
-            if sudo -n true 2>/dev/null; then
-              sudo apt-get update
-            else
-              echo "Skipping apt-get update (sudo requires password)"
-            fi
+            echo "🚀 Starting ChirpID Backend deployment..."
 
-            # Install Docker if not present
-            if ! command -v docker &> /dev/null; then
-              echo "Installing Docker..."
-              curl -fsSL https://get.docker.com -o get-docker.sh
-              if sudo -n true 2>/dev/null; then
-                sudo sh get-docker.sh
-                sudo usermod -aG docker $USER
-                sudo systemctl start docker
-                sudo systemctl enable docker
+            # Set deployment variables
+            CONTAINER_NAME="chirpid-backend"
+            IMAGE_NAME="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            BACKUP_NAME="chirpid-backend-backup-$(date +%Y%m%d-%H%M%S)"
+
+            # Function to rollback on failure
+            rollback() {
+              echo "❌ Deployment failed. Attempting rollback..."
+              if docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}$"; then
+                echo "🔄 Rolling back to previous version..."
+                docker stop $CONTAINER_NAME || true
+                docker rm $CONTAINER_NAME || true
+                docker rename $BACKUP_NAME $CONTAINER_NAME
+                docker start $CONTAINER_NAME
+                echo "✅ Rollback completed"
               else
-                echo "Cannot install Docker without sudo access"
-                exit 1
+                echo "❌ No backup available for rollback"
               fi
+              exit 1
+            }
+
+            # Ensure Docker is available
+            if ! command -v docker &> /dev/null; then
+              echo "❌ Docker is not installed on this server"
+              exit 1
             fi
 
-            # Login to GitHub Container Registry
-            echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Login to GitHub Container Registry (suppress output for security)
+            echo "🔑 Logging into container registry..."
+            echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin > /dev/null 2>&1
 
             # Pull the latest image
-            echo "Pulling latest image..."
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            echo "📥 Pulling latest image: $IMAGE_NAME"
+            if ! docker pull $IMAGE_NAME; then
+              echo "❌ Failed to pull Docker image"
+              exit 1
+            fi
 
-            # Stop and remove existing container
-            echo "Stopping existing container..."
-            docker stop chirpid-backend || true
-            docker rm chirpid-backend || true
+            # Test the new image before deployment
+            echo "🧪 Testing new Docker image..."
+            if ! docker run --rm --timeout 60 $IMAGE_NAME python scripts/test_startup.py; then
+              echo "❌ New image failed startup tests"
+              exit 1
+            fi
 
-            # Create necessary directories
-            mkdir -p ~/chirpid/uploads
-            mkdir -p ~/chirpid/database
-            mkdir -p ~/chirpid/logs
+            # Create backup of current container if it exists
+            if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+              echo "💾 Creating backup of current container..."
+              docker rename $CONTAINER_NAME $BACKUP_NAME || {
+                echo "❌ Failed to create backup"
+                exit 1
+              }
+            fi
 
-            # Start new container
-            echo "Starting new container..."
+            # Create necessary directories with proper permissions
+            echo "📁 Setting up directories..."
+            mkdir -p ~/chirpid/{uploads,database,logs}
+
+            # Start new container with health check
+            echo "🆕 Starting new container..."
             docker run -d \
-              --name chirpid-backend \
+              --name $CONTAINER_NAME \
               --restart unless-stopped \
+              --health-cmd="curl -f http://localhost:5001/health || exit 1" \
+              --health-interval=30s \
+              --health-timeout=10s \
+              --health-retries=3 \
+              --health-start-period=40s \
               -p 5000:5001 \
               -v ~/chirpid/uploads:/app/app/uploads \
               -v ~/chirpid/database:/app/database \
@@ -142,70 +215,59 @@ jobs:
               -e FLASK_ENV=production \
               -e FLASK_DEBUG=False \
               -e PORT=5001 \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+              $IMAGE_NAME || rollback
 
-            # Wait for container to start
-            echo "Waiting for container to start..."
-            sleep 10
+            # Wait for container to be ready
+            echo "⏳ Waiting for service to be ready..."
+            TIMEOUT=120  # 2 minutes timeout
+            ELAPSED=0
+            INTERVAL=5
 
-            # Check if container is running
-            if docker ps | grep -q chirpid-backend; then
-              echo "Container started successfully!"
-              
-              # Test health endpoint
-              for i in {1..30}; do
-                if curl -f http://localhost:5001/health > /dev/null 2>&1; then
-                  echo "Health check passed! Service is ready."
-                  break
-                elif [ $i -eq 30 ]; then
-                  echo "Health check failed after 30 attempts"
-                  docker logs chirpid-backend
-                  exit 1
-                else
-                  echo "Health check attempt $i/30..."
-                  sleep 2
-                fi
-              done
-              
-              # Show container status
-              echo "Container status:"
-              docker ps | grep chirpid-backend
-              
-              # Show recent logs
-              echo "Recent logs:"
-              docker logs --tail 10 chirpid-backend
-              
-            else
-              echo "Failed to start container!"
-              docker logs chirpid-backend
-              exit 1
+            while [ $ELAPSED -lt $TIMEOUT ]; do
+              if docker ps --filter "name=$CONTAINER_NAME" --filter "health=healthy" --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+                echo "✅ Container is healthy!"
+                break
+              elif docker ps --filter "name=$CONTAINER_NAME" --filter "health=unhealthy" --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+                echo "❌ Container health check failed"
+                docker logs --tail 20 $CONTAINER_NAME
+                rollback
+              else
+                echo "⏳ Health check in progress... (${ELAPSED}s/${TIMEOUT}s)"
+                sleep $INTERVAL
+                ELAPSED=$((ELAPSED + INTERVAL))
+              fi
+            done
+
+            if [ $ELAPSED -ge $TIMEOUT ]; then
+              echo "❌ Timeout waiting for container to become healthy"
+              docker logs --tail 20 $CONTAINER_NAME
+              rollback
             fi
 
-            # Clean up old images to save disk space
-            echo "Cleaning up old images..."
-            docker image prune -f
+            # Final verification
+            echo "🔍 Final verification..."
+            if curl -f -s --connect-timeout 5 --max-time 10 http://localhost:5001/health > /dev/null; then
+              echo "✅ External health check passed!"
+            else
+              echo "❌ External health check failed"
+              rollback
+            fi
 
-            echo "Deployment completed successfully!"
+            # Clean up backup and old images
+            echo "🧹 Cleaning up..."
+            if docker ps -a --format '{{.Names}}' | grep -q "^${BACKUP_NAME}$"; then
+              docker rm $BACKUP_NAME
+              echo "✅ Backup container removed"
+            fi
 
-      - name: Verify Deployment
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            echo "=== Deployment Verification ==="
-            echo "Container Status:"
-            docker ps --filter name=chirpid-backend --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            # Remove old images (keep last 3)
+            docker images ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --format "{{.Repository}}:{{.Tag}}" | tail -n +4 | xargs -r docker rmi || true
 
-            echo -e "\nService Health:"
-            curl -s http://localhost:5001/health || echo "Health check failed"
-
-            echo -e "\nDisk Usage:"
-            df -h | grep -E "(Filesystem|/dev/)"
-
-            echo -e "\nDocker Images:"
-            docker images | grep chirpid
-
-            echo -e "\nService URL: http://${{ secrets.SSH_HOST }}:5000"
+            # Show deployment summary
+            echo ""
+            echo "🎉 Deployment completed successfully!"
+            echo "📊 Container Status:"
+            docker ps --filter name=$CONTAINER_NAME --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.RunningFor}}"
+            echo ""
+            echo "🌐 Service URL: http://${{ secrets.SSH_HOST }}:5000"
+            echo "💡 Health endpoint: http://${{ secrets.SSH_HOST }}:5000/health"
