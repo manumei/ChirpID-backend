@@ -41,7 +41,7 @@ User cares about final predictions, not cross-entropy loss. Cuando me ponga a co
 - como hacer que recortemos muestras repetidas, pero sin darle overrepresentation a las que tienen pocas unicas y muchas repetidas (dar ejemplo de palomas & robins)
 - si hay muchas repetidas, consider elegir la de highest rating
 
-- Add feature to the original metadata, 'recorder'. Being the autor but with numerical IDs instead of names.
-- Siempre tener las grabaciones del mismo recorder en el mismo set asi no hay leaking.
+- Add feature to the original metadata, 'author'. Being the autor but with numerical IDs instead of names.
+- Siempre tener las grabaciones del mismo author en el mismo set asi no hay leaking.
 - Siempre tener los segmentos del mismo original_audio en el mismo set asi no hay leaking.
-- Al CSV final, agregarle 2 features extra para filtrar: 'og_audio', 'recorder' para hacer esto.
+- Al CSV final, agregarle 2 features extra para filtrar: 'og_audio', 'author' para hacer esto.
