@@ -4,45 +4,43 @@
 
 ### Data Processing
 
-**Data Selection**<br>
+##### Data Selection
+
 Make the cutoffs with Regions & Ratings. Load the selected .ogg files into database/raw/
 Reload the metadata CSV to keep only the selected samples
 
-**Metadata Loading**<br>
+##### Metadata Loading
+
 Map the bird_name to integers, class IDs
 Create list of (filename, clas_id) entries
 
-**OGG to WAV**<br>
-For better work with transforms, place the wavs in database/assets/wav
+##### Train Test Split
 
-**Train Test Split**<br>
-Split data into Train & Test, *with stratify* so all classes get in both, using SK-Learn modules.<br>
-Final data should be lists of tuples [(filename1, class_id1), (filename2, class_id2), ...]. Ensure to use stratify for not missing classes.
+Split data into Train & Test, *with stratify* so all classes get in both, using SK-Learn modules. Final data should be lists of tuples [(filename1, class_id1), (filename2, class_id2), ...].
 
-**Load the Audios**<br>
+##### Load the Audios
+
 Using torchaudio.load or librosa.load, setting frequencies to standard 32kHz (librosa o torchaduil.transforms ambos lo hacen)
 
-**Silence Filtering**<br>
-Filter out the low-energy background noise and silence, to only keep the relevant bird songs.<br>
-However, fijarse de que pueda servir cuando se le de una grabacion con cierto silencio o ruido entrelazado. Audio energy (testingLibrosa.py).<br>
-Ask ChatGPT &/ Santi Pierini, and check the papers how that second part would work.
+##### Silence Filtering
 
-**Duration Handling**<br>
-Decide fixed duration window (hay que ver cuantos segundos)
-Cut the longer audios, chose windows that contain enough audio energy/amplitude (to ensure bird sound)
+Filter out the low-energy background noise and silence, to only keep the relevant bird chirp parts, using segments and rms thresholds.
+Decide fixed duration window in seconds. Choose windows that contain enough audio energy/amplitude (to ensure bird sound).
 
-**Spectrograms**<br>
-Apply Fourier to get the Spectrograms, amplitude to decibels, etc.<br>
-Creemos una carpeta con las imagenes de los spectrograms asi no tenemos que seguir lidiando con los audios.<br>
-Then gt the matrix for the grayscale of the spectrogram for the model. testingLibrosa.py
+##### Spectrograms
 
-**Normalize Data**<br>
+Apply Fourier to get the Spectrograms, amplitude to decibels, etc. Creemos una carpeta con las imagenes de los spectrograms asi no tenemos que seguir lidiando con los audios. Then get the matrix for the grayscale of the spectrogram for the model. testingLibrosa.py
+
+##### Normalize Data
+
 Fijarse despues bien como hacerlo. Pregunta perfecta para hacerle a Santi Pierini honestly, or just ask Chat and check in the papers to see how they do it, and on what data (maybe standardize the final vectors)
 
-**Pass the Data**<br>
+##### Pass the Data
+
 Convert to PyTorch tensors, check the shapes and such. Then create DataLoader, do shuffle=True and consider mini-batching via batch_size and stuff, and get on to Training Time
 
-**Final DataProcessing()**<br>
+#### Final DataProcessing()
+
 Once every function is finished, reset the changes (the .wav folder and such variables)
 
 ---
@@ -51,24 +49,22 @@ Once every function is finished, reset the changes (the .wav folder and such var
 
 ### Data & Training
 
-**Splits might miss some classes**
+##### Splits might miss some classes
 
 Use stratify, ask ChatGPT, use sklearn split with stratify. Stratify ensures classes areproportionally represented
 
-**Amount of samples across species is unbalanced**
+##### Amount of samples across species is unbalanced
 
 Set a fixed amount of samples per species target.
 For species exceeding that target, undersample (cut samples).
 For species below that target, instead of SMOTE or duplication techniques, just take chrip samples from long audios if possible.
 
-**Cross Validation es medio quilombo**
+##### Cross Validation es medio quilombo
 
 SK-Learn Modules for K-Fold, turn into torch.tensors for the model
 
-**Windows might be taken of full noise/silence**
+##### Testing & Inference Samples have varying durations and might be full of noise/silence segments
 
-Choose a fixed time interval (eg. SILENCE_CUT= 2.5 seconds), and then Cut & RePaste the .wav files, but having removed from each audio, every section where there are 2.5s+ of noise / silence.<br>
-Analyze with the spectrograms, check with ChatGPT how to do it optimally. Reload the audios with the silence/noise parts cut. So now data augmentation can be done comfortably.<br>
-Make sure that the window chosen later is longer than the SILENCE_CUT chosen here. For example, try SILENCE_CUT = 3, AUDIO_WINDOW = 5 so that no windows are mostly noise/silence.<br>
+When doing inference and prediction, the model just receives an unprocessed .ogg file. The model then processes this .ogg file, it loads it at 32kHz, divides into all the high-energy segments (of the fixed duration), then for each segment, gets the spectrogram of the given fourier window, and turns each spectrogram into data matrix format, and gives each matrix to the model for inference. If there is more than 1 segment to predict from, then the model receives all the matrices and calculates the probabilities for each. With these probabilities, doing a mean softmax aggregation of each $p_i$ to get the final probabilities, combining all the segments as part of the inference. So the longer the audio, the more it segments it gets to predict. 
 
 ---

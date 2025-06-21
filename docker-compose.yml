@@ -1,0 +1,26 @@
+services:
+  backend:
+    image: ${DOCKERHUB_USERNAME:-username}/chirpid-backend:latest
+    container_name: chirpid-backend
+    restart: always
+    expose:
+      - "5001"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+      - PORT=5001
+    volumes:
+      - ./app/uploads:/app/app/uploads
+      - ./database:/app/database
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+
+networks:
+  app-network:
+    external: true

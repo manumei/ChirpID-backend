@@ -1,0 +1,1 @@
+Why limit samples from the same author to same sets? Same author might mean same microphone / recording device, which might act as data leaking, we dont leak it into our val or test.

@@ -1,4 +1,0 @@
-wavs
-procesados
-sin ruido
-etc.

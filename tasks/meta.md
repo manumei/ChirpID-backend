@@ -2,8 +2,7 @@
 
 ### info.md
 
-Info.md: Detalles/apuntes, de como hacer las cosas. Aca va lo que nos cuenten los tutores, lo que buscamos en google, lo que fuimos armando de como hacer esto y como hacer lo otro, aca van las soluciones que se nos ocurrieron para los problemas, etc. Asi cualquier cosa que estemos haciendo, podemos chequear aca si tenemos anotado ya como hacerlo, o algun tip o algo
-Info.md es medio tirado asi nomas, siempre con titulitos y eso, pero armando on the go, como unos apuntes
+Info.md: Detalles/apuntes, de como hacer las cosas. Aca va lo que nos cuenten los tutores, lo que buscamos en google, lo que fuimos armando de como hacer esto y como hacer lo otro, aca van las soluciones que se nos ocurrieron para los problemas, etc. Asi cualquier cosa que estemos haciendo, podemos chequear aca si tenemos anotado ya como hacerlo, o algun tip o algo. Organizado, pero con partes medio armadas on the go, apuntes de lo que hay que hacer.
 
 ### instructions.md
 
@@ -12,8 +11,12 @@ Instructions.md es claro y conciso, estructurado con numeros y pasos, y para des
 
 ### todo.md
 
-Lo que estamos actually haciendo, en el orden que lo estamos haciendo, para ver que las cosas funcionen a menor escala, despues mayor, etc.). Referenciando a los otros markdowns if necessary. todo.md estaria bueno tenerlo organizado, pero tampoco tiene que ser tan estricto, ni numeros o asi hacen falta. Tambien podriamos agregarle "(MANU)" y "(LARA)" a ciertas subpartes si alguno se va haciendo cargo por su cuenta de subpartes
+Reminders and things to-do, no real order, ideas y cosas para tener ahi so we dont forget. Has some doubts and stuff too.
 
 ### notebooks.md
 
 Information about each of the notebooks, showing the order they come in, what each of them uses, what it does with it, and the changes it executes during its utility
+
+### targets.md
+
+Set targets and objectives with deadlines for the task, can be especifically assigned to a collaborator, or just tenerlos ahi y los vamos haciendo. Importante para mantener bien el rumbo de las cosas.

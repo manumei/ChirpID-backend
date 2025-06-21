@@ -1,0 +1,2 @@
+models/bird_cnn.pth filter=lfs diff=lfs merge=lfs -text
+database/meta/mini_train_data.csv filter=lfs diff=lfs merge=lfs -text
