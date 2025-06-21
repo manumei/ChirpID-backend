@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import pandas as pd
 import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 from sklearn.utils.class_weight import compute_class_weight
@@ -464,7 +465,7 @@ def validate_epoch(model, val_loader, criterion, device, return_predictions=Fals
         return val_loss / val_total, val_correct / val_total, f1
 
 def train_single_fold(model, train_loader, val_loader, criterion, optimizer, 
-                    num_epochs, device, fold_num=None, estop=25):
+                    num_epochs, device, fold_num=None, estop=25, scheduler=None):
     """Train model on a single fold and return training history including F1 scores."""
     train_losses, val_losses = [], []
     train_accuracies, val_accuracies = [], []
@@ -493,6 +494,10 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
         val_accuracies.append(val_acc)
         val_f1s.append(val_f1)
         
+        # Step scheduler if provided
+        if scheduler is not None:
+            scheduler.step(val_loss)
+        
         # Early stopping logic
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -507,6 +512,9 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
             early_stopped = True
             break
         
+        # Get current learning rate for display
+        current_lr = optimizer.param_groups[0]['lr']
+        
         pbar.set_description(f"{desc} - Epoch {epoch+1}/{num_epochs}")
         pbar.set_postfix(
             train_acc=f"{train_acc:.3f}", 
@@ -516,7 +524,8 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
             val_loss=f"{val_loss:.4f}",
             val_f1=f"{val_f1:.3f}",
             best_val_loss=f"{best_val_loss:.4f}",
-            no_improve=epochs_without_improvement
+            no_improve=epochs_without_improvement,
+            lr=f"{current_lr:.2e}"
         )
     
     # Restore best model state
@@ -693,8 +702,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=4,
             class_weights_array = compute_class_weight(
                 'balanced',
                 classes=all_classes,
-                y=train_labels
-            )
+                y=train_labels            )
             class_weights = torch.tensor(class_weights_array, dtype=torch.float32).to(device)
             print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
             criterion = nn.CrossEntropyLoss(weight=class_weights)
@@ -746,11 +754,12 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=4,
         # Initialize model and optimizer
         model = model_class(num_classes=num_classes).to(device)
         optimizer = optim.Adam(model.parameters(), lr=lr)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
         
         # Train the fold
         fold_history = train_single_fold(
             model, train_loader, val_loader, criterion, optimizer,
-            num_epochs, device, fold_num=fold+1, estop=estop
+            num_epochs, device, fold_num=fold+1, estop=estop, scheduler=scheduler
         )
         
         # Get final predictions if aggregating
@@ -1021,15 +1030,15 @@ def k_fold_cross_validation_with_predefined_folds(dataset, fold_indices, model_c
                 pin_memory=True,
                 persistent_workers=True
             )
-        
-        # Initialize model and optimizer
+          # Initialize model and optimizer
         model = model_class(num_classes=num_classes).to(device)
         optimizer = optim.Adam(model.parameters(), lr=lr)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
         
         # Train the fold
         fold_history = train_single_fold(
             model, train_loader, val_loader, criterion, optimizer,
-            num_epochs, device, fold_num=fold+1, estop=estop
+            num_epochs, device, fold_num=fold+1, estop=estop, scheduler=scheduler
         )
         
         # Get final predictions if aggregating
@@ -1229,15 +1238,15 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
         pin_memory=True,
         persistent_workers=True
     )
-    
-    # Initialize model and optimizer
+      # Initialize model and optimizer
     model = model_class(num_classes=num_classes).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
     
     # Train the model
     history = train_single_fold(
         model, train_loader, val_loader, criterion, optimizer,
-        num_epochs, device, fold_num=None, estop=estop
+        num_epochs, device, fold_num=None, estop=estop, scheduler=scheduler
     )
     
     # Get final validation metrics
