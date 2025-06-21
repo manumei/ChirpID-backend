@@ -4,10 +4,9 @@ from app.routes.audio import audio_bp
 
 def create_app():
     app = Flask(__name__)
-    
-    # Configure CORS for React Native app
+      # Configure CORS for React Native app
     CORS(app, 
-        origins=["*"],  # Allow all origins for development
+        origins=["*", "https://chirpid.utictactoe.online"],  # Allow all origins for development + production domain
         methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"])
     
