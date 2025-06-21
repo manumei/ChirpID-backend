@@ -3,6 +3,7 @@ import numpy as np
 from tabulate import tabulate
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
 
 def try_split_with_seed(df, test_size, seed, min_test_segments, target_test_segments):
     """
@@ -104,9 +105,9 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
                 print(f"New best split found! Seed: {seed}, Score: {score:.3f}")
     
     if best_dev_df is None:
-        if min_test_segments < 10:
+        if min_test_segments < 8:
             raise ValueError("No valid split found with current constraints. Consider relaxing min_test_segments.")
-        return group_split_with_stratification_search(df, test_size, max_attempts, min_test_segments=10)
+        return search_best_group_seed(df, test_size, max_attempts, min_test_segments=8)
     
     print(f"\nBest split found:")
     print(f"Seed: {best_seed}")
@@ -135,11 +136,6 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
     print(tabulate(comparison_df, headers=comparison_df.columns, tablefmt='grid'))
     
     return best_dev_df, best_test_df, best_score
-
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
-from collections import Counter
 
 def try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_segments):
     """
@@ -177,24 +173,27 @@ def try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_s
             else:
                 train_df = df.iloc[train_indices]
                 val_df = df.iloc[val_indices]
-            
-            # Check if all classes are in both train and val
+                # Check if all classes are in training set (validation can have missing classes)
             train_classes = set(train_df['class_id'])
             val_classes = set(val_df['class_id'])
             all_classes = set(df['class_id'])
             
-            if not (all_classes <= train_classes and all_classes <= val_classes):
-                return None  # Skip if missing classes in either set
-            
-            # Check minimum validation segments per class
+            if not (all_classes <= train_classes):
+                return None  # Skip if missing classes in training set
+                # Check minimum validation segments per class (only for classes present in validation)
             val_segments_per_class = val_df.groupby('class_id')['usable_segments'].sum()
-            if val_segments_per_class.min() < min_val_segments:
-                return None  # Skip if any class has too few validation segments
-            
-            # Calculate stratification score for this fold
+            if len(val_segments_per_class) > 0 and val_segments_per_class.min() < min_val_segments:
+                return None  # Skip if any present class has too few validation segments
+                # Calculate stratification score for this fold (only for classes present in validation)
             actual_val_segments = val_df.groupby('class_id')['usable_segments'].sum().sort_index()
-            fold_score = np.mean(np.abs(actual_val_segments.values - target_val_segments.values) / 
-                                np.maximum(target_val_segments.values, 1))  # Avoid division by zero
+            
+            # Only compare classes that are actually present in validation set
+            if len(actual_val_segments) > 0:
+                target_val_segments_present = target_val_segments.loc[actual_val_segments.index]
+                fold_score = np.mean(np.abs(actual_val_segments.values - target_val_segments_present.values) / 
+                                    np.maximum(target_val_segments_present.values, 1))  # Avoid division by zero
+            else:
+                fold_score = 0  # No classes in validation set
             
             folds.append((train_df.copy(), val_df.copy()))
             fold_scores.append(fold_score)
@@ -207,7 +206,7 @@ def try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_s
     except Exception as e:
         return None
 
-def search_best_group_seed_kfold(df, n_splits=5, max_attempts=100, min_val_segments=30):
+def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
     """
     Search for the best stratified K-fold split while maintaining author grouping.
     Based on total usable segments per class.
@@ -248,10 +247,10 @@ def search_best_group_seed_kfold(df, n_splits=5, max_attempts=100, min_val_segme
                 print(f"New best {n_splits}-fold split found! Seed: {seed}, Avg Score: {avg_score:.3f}")
     
     if best_folds is None:
-        if min_val_segments < 10:
+        if min_val_segments < 6:
             raise ValueError("No valid split found with current constraints. Consider relaxing min_val_segments.")
         print("Warning: No valid split found with current constraints. Relaxing min_val_segments...")
-        return group_kfold_with_stratification_search(df, n_splits, max_attempts, min_val_segments=10)
+        return search_best_group_seed_kfold(df, n_splits, max_attempts, min_val_segments=6)
     
     print(f"\nBest {n_splits}-fold split found:")
     print(f"Seed: {best_seed}")
