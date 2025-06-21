@@ -107,6 +107,7 @@ def save_audio_segments_to_disk(segments, segments_output_dir):
         segment_records.append({
             'filename': segment_filename,
             'class_id': segment_info['class_id'],
+            'author': segment_info['author'],
             'original_audio': og_audio_name,
             'segment_index': segment_info['segment_index'],
             'species_segments': segment_info['class_total_segments']
@@ -146,6 +147,7 @@ def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
             segment_info = {
                 'audio_data': audio_data,
                 'class_id': row['class_id'],
+                'author': row['author'],
                 'original_filename': row['original_audio'] + '.wav',  # Reconstruct original filename
                 'segment_index': row['segment_index'],
                 'sr': file_sr,
@@ -169,6 +171,7 @@ def load_audio_files(segments_df, segments_dir, sr, segment_sec, threshold_facto
     for _, row in segments_df.iterrows():
         filename = row['filename']
         class_id = row['class_id']
+        author = row['author']
         audio_path = os.path.join(segments_dir, filename)
         
         try:
@@ -180,6 +183,7 @@ def load_audio_files(segments_df, segments_dir, sr, segment_sec, threshold_facto
                 audio_files.append({
                     'audio_data': y,
                     'class_id': class_id,
+                    'author': author,
                     'filename': filename,
                     'max_segments': max_segments,
                     'threshold': threshold,
@@ -262,6 +266,7 @@ def extract_single_segment(audio_info, segment_index):
     return {
         'audio_data': segment,
         'class_id': audio_info['class_id'],
+        'author': audio_info['author'],
         'original_filename': audio_info['filename'],
         'segment_index': segment_index,
         'sr': audio_info['sr']
@@ -292,6 +297,7 @@ def create_single_spectrogram(segment_info, spectrogram_dir, mels, hoplen, nfft)
         return {
             'filename': spec_name,
             'class_id': segment_info['class_id'],
+            'author': segment_info['author'],
             'species_segments': segment_info['class_total_segments']
         }
         
