@@ -8,12 +8,23 @@ import torch.optim as optim
 from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 from sklearn.utils.class_weight import compute_class_weight
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, Dataset
 from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from utils.util import *
+
+# Custom dataset class for standardized data (needed for multiprocessing)
+class StandardizedDataset(Dataset):
+    def __init__(self, data_list):
+        self.data = data_list
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        return self.data[idx]
 
 def clean_dir(dest_dir):
     ''' Deletes the raw audio files in the dest_dir.'''
@@ -693,18 +704,6 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=4,
         # Create data loaders
         if standardize:
             # For standardized data, we need custom DataLoader handling
-            from torch.utils.data import Dataset
-            
-            class StandardizedDataset(Dataset):
-                def __init__(self, data_list):
-                    self.data = data_list
-                
-                def __len__(self):
-                    return len(self.data)
-                
-                def __getitem__(self, idx):
-                    return self.data[idx]
-            
             train_dataset = StandardizedDataset(train_subset)
             val_dataset = StandardizedDataset(val_subset)
             
@@ -981,23 +980,9 @@ def k_fold_cross_validation_with_predefined_folds(dataset, fold_indices, model_c
                 criterion = nn.CrossEntropyLoss(weight=class_weights)
                 print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
         else:
-            criterion = nn.CrossEntropyLoss()
-
-        # Create data loaders
+            criterion = nn.CrossEntropyLoss()        # Create data loaders
         if standardize:
             # For standardized data, we need custom DataLoader handling
-            from torch.utils.data import Dataset
-            
-            class StandardizedDataset(Dataset):
-                def __init__(self, data_list):
-                    self.data = data_list
-                
-                def __len__(self):
-                    return len(self.data)
-                
-                def __getitem__(self, idx):
-                    return self.data[idx]
-            
             train_dataset = StandardizedDataset(train_subset)
             val_dataset = StandardizedDataset(val_subset)
             

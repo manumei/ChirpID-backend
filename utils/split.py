@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from tabulate import tabulate
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.model_selection import train_test_split
@@ -235,6 +236,8 @@ def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
     best_seed = None
     
     for seed in range(max_attempts):
+        if seed % 5000 == 0:
+            print(f"Attempt {seed}/{max_attempts - 1}...")
         result = try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_segments)
         
         if result is not None:
@@ -247,10 +250,10 @@ def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
                 print(f"New best {n_splits}-fold split found! Seed: {seed}, Avg Score: {avg_score:.3f}")
     
     if best_folds is None:
-        if min_val_segments < 6:
+        if min_val_segments <= 4:
             raise ValueError("No valid split found with current constraints. Consider relaxing min_val_segments.")
         print("Warning: No valid split found with current constraints. Relaxing min_val_segments...")
-        return search_best_group_seed_kfold(df, n_splits, max_attempts, min_val_segments=6)
+        return search_best_group_seed_kfold(df, max_attempts, min_val_segments=5, n_splits=n_splits)
     
     print(f"\nBest {n_splits}-fold split found:")
     print(f"Seed: {best_seed}")
@@ -267,5 +270,27 @@ def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
         author_overlap = set(train_df['author']) & set(val_df['author'])
         if author_overlap:
             print(f"WARNING: Author overlap in fold {i+1}: {author_overlap}")
-    
+
+    if n_splits == 4 and best_folds is not None:
+        plot_fold_splits(best_folds)
+
     return best_folds, best_score, best_seed
+
+def plot_fold_splits(folds):
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    for fold_idx, (train_df, val_df) in enumerate(folds):
+        ax = axes[fold_idx // 2, fold_idx % 2]
+        train_counts = train_df['class_id'].value_counts().sort_index()
+        val_counts = val_df['class_id'].value_counts().sort_index()
+        all_classes = sorted(set(train_counts.index) | set(val_counts.index))
+        train_y = [train_counts.get(cls, 0) for cls in all_classes]
+        val_y = [val_counts.get(cls, 0) for cls in all_classes]
+        ax.plot(all_classes, train_y, label="Train", color="tab:blue")
+        ax.plot(all_classes, val_y, label="Val", color="tab:orange")
+        ax.set_title(f"Fold {fold_idx+1}")
+        ax.set_xlabel("class_id")
+        ax.set_ylabel("Num samples")
+        ax.legend()
+        ax.grid(True)
+    plt.tight_layout()
+    plt.show()
