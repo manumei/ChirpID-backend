@@ -142,13 +142,11 @@ def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
             
             if file_sr != sr:
                 print(f"Warning: Sample rate mismatch for {row['filename']}: expected {sr}, got {file_sr}")
-                # Could resample here if needed
-            
-            # Create segment dictionary
+                # Could resample here if needed              # Create segment dictionary
             segment_info = {
                 'audio_data': audio_data,
                 'class_id': row['class_id'],
-                'original_filename': row['original_filename'],
+                'original_filename': row['original_audio'] + '.wav',  # Reconstruct original filename
                 'segment_index': row['segment_index'],
                 'sr': file_sr,
                 'class_total_segments': row['species_segments']
@@ -299,7 +297,7 @@ def create_single_spectrogram(segment_info, spectrogram_dir, mels, hoplen, nfft)
         
     except Exception as e:
         print(f"Error creating spectrogram for segment {segment_info['segment_index']} "
-              f"of {segment_info['original_filename']}: {e}")
+                f"of {segment_info['original_filename']}: {e}")
         return None
 
 def save_test_audio(segment_info, test_audios_dir):
@@ -312,6 +310,14 @@ def save_test_audio(segment_info, test_audios_dir):
 
 def plot_summary(final_df, output_csv_path):
     """Plot summary histogram of spectrogram generation showing samples per class."""
+    if len(final_df) == 0:
+        print("No spectrograms were created - empty DataFrame!")
+        return
+        
+    if 'class_id' not in final_df.columns:
+        print(f"Warning: 'class_id' column not found in DataFrame. Columns: {list(final_df.columns)}")
+        return
+        
     class_counts = final_df['class_id'].value_counts().sort_index()
     # Create histogram plot
     plt.figure(figsize=(12, 6))
