@@ -72,6 +72,25 @@ class BirdCNN(nn.Module):
         x = self.classifier(x)
         
         return x
+    
+    def predict_proba(self, x):
+        """
+        Forward pass with softmax applied for inference.
+        Returns probabilities instead of raw logits.
+        """
+        with torch.no_grad():
+            logits = self.forward(x)
+            probabilities = F.softmax(logits, dim=1)
+            return probabilities
+    
+    def predict(self, x):
+        """
+        Forward pass returning predicted class indices.
+        """
+        with torch.no_grad():
+            logits = self.forward(x)
+            predictions = torch.argmax(logits, dim=1)
+            return predictions
 
 # Alternative: ResNet-style with skip connections
 class BirdResNet(nn.Module):
@@ -112,6 +131,25 @@ class BirdResNet(nn.Module):
         x = self.fc(x)
 
         return x
+    
+    def predict_proba(self, x):
+        """
+        Forward pass with softmax applied for inference.
+        Returns probabilities instead of raw logits.
+        """
+        with torch.no_grad():
+            logits = self.forward(x)
+            probabilities = F.softmax(logits, dim=1)
+            return probabilities
+    
+    def predict(self, x):
+        """
+        Forward pass returning predicted class indices.
+        """
+        with torch.no_grad():
+            logits = self.forward(x)
+            predictions = torch.argmax(logits, dim=1)
+            return predictions
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
