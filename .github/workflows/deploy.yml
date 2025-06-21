@@ -38,8 +38,13 @@ jobs:
           echo "✅ Network app-network is ready"
 
       - name: Deploy backend service
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           echo "🚀 Deploying ChirpID backend..."
+
+          # Create .env file for docker-compose
+          echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" > .env
 
           echo "Attempting to pull latest image..."
           if docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chirpid-backend:latest 2>/dev/null; then
@@ -86,4 +91,8 @@ jobs:
         run: |
           echo "🧹 Cleaning up old Docker images..."
           docker image prune -af --filter "until=24h" || true
+
+          # Clean up .env file if it exists
+          rm -f .env
+
           echo "✅ Cleanup completed"
