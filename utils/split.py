@@ -64,6 +64,7 @@ def try_split_with_seed(df, test_size, seed, min_test_segments, target_test_segm
         return dev_df.copy(), test_df.copy(), score
     
     except Exception as e:
+        raise ValueError(f"Error during split with seed {seed}: {e}") from e
         return None
 
 def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
