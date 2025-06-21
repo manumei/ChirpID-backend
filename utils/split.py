@@ -64,7 +64,7 @@ def try_split_with_seed(df, test_size, seed, min_test_segments, target_test_segm
     except Exception as e:
         return None
 
-def group_split_with_stratification_search(df, test_size, max_attempts, min_test_segments):
+def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
     """
     Search for the best stratified split while maintaining author grouping.
     Based on total usable segments per class rather than sample counts.
@@ -136,3 +136,137 @@ def group_split_with_stratification_search(df, test_size, max_attempts, min_test
     
     return best_dev_df, best_test_df, best_score
 
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
+from collections import Counter
+
+def try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_segments):
+    """
+    Try a single K-fold split with a given seed and evaluate its quality.
+    
+    Parameters:
+    - df: DataFrame with 'class_id', 'author', and 'usable_segments' columns
+    - n_splits: Number of folds for cross-validation
+    - seed: Random seed for the split
+    - min_val_segments: Minimum total segments per class in each validation fold
+    - target_val_segments: Target segments per class for validation folds
+    
+    Returns:
+    - (folds, avg_score) if split is valid, None otherwise
+    """
+    try:
+        # Try StratifiedGroupKFold first (better for stratification)
+        try:
+            skf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+            splits = list(skf.split(df, df['class_id'], df['author']))
+        except:
+            # Fall back to GroupKFold if StratifiedGroupKFold fails
+            gkf = GroupKFold(n_splits=n_splits)
+            # Shuffle the dataframe for randomness
+            df_shuffled = df.sample(frac=1, random_state=seed).reset_index(drop=True)
+            splits = list(gkf.split(df_shuffled, df_shuffled['class_id'], df_shuffled['author']))
+        
+        folds = []
+        fold_scores = []
+        
+        for fold_idx, (train_indices, val_indices) in enumerate(splits):
+            if 'df_shuffled' in locals():
+                train_df = df_shuffled.iloc[train_indices]
+                val_df = df_shuffled.iloc[val_indices]
+            else:
+                train_df = df.iloc[train_indices]
+                val_df = df.iloc[val_indices]
+            
+            # Check if all classes are in both train and val
+            train_classes = set(train_df['class_id'])
+            val_classes = set(val_df['class_id'])
+            all_classes = set(df['class_id'])
+            
+            if not (all_classes <= train_classes and all_classes <= val_classes):
+                return None  # Skip if missing classes in either set
+            
+            # Check minimum validation segments per class
+            val_segments_per_class = val_df.groupby('class_id')['usable_segments'].sum()
+            if val_segments_per_class.min() < min_val_segments:
+                return None  # Skip if any class has too few validation segments
+            
+            # Calculate stratification score for this fold
+            actual_val_segments = val_df.groupby('class_id')['usable_segments'].sum().sort_index()
+            fold_score = np.mean(np.abs(actual_val_segments.values - target_val_segments.values) / 
+                                np.maximum(target_val_segments.values, 1))  # Avoid division by zero
+            
+            folds.append((train_df.copy(), val_df.copy()))
+            fold_scores.append(fold_score)
+        
+        # Average score across all folds
+        avg_score = np.mean(fold_scores)
+        
+        return folds, avg_score
+    
+    except Exception as e:
+        return None
+
+def search_best_group_seed_kfold(df, n_splits=5, max_attempts=100, min_val_segments=30):
+    """
+    Search for the best stratified K-fold split while maintaining author grouping.
+    Based on total usable segments per class.
+    
+    Parameters:
+    - df: DataFrame with 'class_id', 'author', and 'usable_segments' columns
+    - n_splits: Number of folds for cross-validation
+    - max_attempts: Maximum number of random seeds to try
+    - min_val_segments: Minimum total segments per class in each validation fold
+    
+    Returns:
+    - best_folds: List of (train_df, val_df) tuples for each fold
+    - best_score: Average stratification quality score across all folds
+    - best_seed: Random seed that produced the best split
+    """
+    
+    # Calculate target distribution for validation (1/n_splits of total)
+    total_segments_per_class = df.groupby('class_id')['usable_segments'].sum().sort_index()
+    target_val_segments = (total_segments_per_class / n_splits).round().astype(int)
+    
+    print(f"Searching for best stratified {n_splits}-fold split across {max_attempts} attempts...")
+    print(f"Target validation segments per class per fold: {target_val_segments.to_dict()}")
+    
+    best_score = float('inf')
+    best_folds = None
+    best_seed = None
+    
+    for seed in range(max_attempts):
+        result = try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_segments)
+        
+        if result is not None:
+            folds, avg_score = result
+            
+            if avg_score < best_score:
+                best_score = avg_score
+                best_folds = folds
+                best_seed = seed
+                print(f"New best {n_splits}-fold split found! Seed: {seed}, Avg Score: {avg_score:.3f}")
+    
+    if best_folds is None:
+        if min_val_segments < 10:
+            raise ValueError("No valid split found with current constraints. Consider relaxing min_val_segments.")
+        print("Warning: No valid split found with current constraints. Relaxing min_val_segments...")
+        return group_kfold_with_stratification_search(df, n_splits, max_attempts, min_val_segments=10)
+    
+    print(f"\nBest {n_splits}-fold split found:")
+    print(f"Seed: {best_seed}")
+    print(f"Average stratification score: {best_score:.3f}")
+    
+    # Print fold statistics
+    print(f"\nFold statistics:")
+    for i, (train_df, val_df) in enumerate(best_folds):
+        train_segments = train_df['usable_segments'].sum()
+        val_segments = val_df['usable_segments'].sum()
+        print(f"Fold {i+1}: Train={train_segments} segments, Val={val_segments} segments")
+        
+        # Check for author overlap (should be empty)
+        author_overlap = set(train_df['author']) & set(val_df['author'])
+        if author_overlap:
+            print(f"WARNING: Author overlap in fold {i+1}: {author_overlap}")
+    
+    return best_folds, best_score, best_seed
