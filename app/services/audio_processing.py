@@ -6,28 +6,28 @@ def process_audio(file_path):
     
     mock_birds = [
         {
-            "species": "American Robin",
-            "scientificName": "Turdus migratorius",
-            "confidence": 0.87
+            "species": "Rufous Hornero",
+            "scientificName": "Furnarius rufus",
+            "confidence": 0.89
         },
         {
-            "species": "House Sparrow",
-            "scientificName": "Passer domesticus", 
+            "species": "Toco Toucan",
+            "scientificName": "Ramphastos toco", 
             "confidence": 0.92
         },
         {
-            "species": "Northern Cardinal",
-            "scientificName": "Cardinalis cardinalis",
+            "species": "Andean Condor",
+            "scientificName": "Vultur gryphus",
             "confidence": 0.78
         },
         {
-            "species": "Blue Jay",
-            "scientificName": "Cyanocitta cristata",
+            "species": "Southern Lapwing",
+            "scientificName": "Vanellus chilensis",
             "confidence": 0.85
         },
         {
-            "species": "Song Sparrow",
-            "scientificName": "Melospiza melodia",
+            "species": "Great Kiskadee",
+            "scientificName": "Pitangus sulphuratus",
             "confidence": 0.91
         }
     ]

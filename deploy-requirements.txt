@@ -1,0 +1,41 @@
+# Production requirements for ChirpID backend
+# Core dependencies for runtime inference
+
+# Web framework
+Flask==3.0.0
+Flask-Cors==4.0.0
+Werkzeug==3.0.1
+gunicorn==21.2.0
+
+# Data processing
+pandas==2.3.0
+numpy==2.2.6
+
+# Audio processing
+librosa==0.11.0
+soundfile==0.13.1
+audioread==3.0.1
+
+# PyTorch for model inference (CPU-only, smaller downloads)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.0+cpu --only-binary=torch
+torchvision==0.16.0+cpu --only-binary=torchvision
+torchaudio==2.1.0+cpu --only-binary=torchaudio
+
+# Required dependencies for librosa and audio processing
+joblib==1.5.1
+numba==0.61.2
+llvmlite==0.44.0
+scipy==1.15.3
+decorator==5.2.1
+packaging==25.0
+lazy_loader==0.4
+msgpack==1.1.1
+soxr==0.5.0.post1
+cffi==1.17.1
+pycparser==2.22
+
+# Utility packages
+requests==2.32.4
+python-dotenv==1.1.0
+click==8.2.1
