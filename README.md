@@ -64,17 +64,19 @@ For complete deployment instructions including SSH deployment to Ubuntu servers,
      chirpid-backend
    ```
 
-#### Option 2: Using docker-compose (Development)
+#### Option 2: Using docker-compose
+
+**⚠️ IMPORTANTE**: Este proyecto ahora usa una infraestructura nginx centralizada. El archivo `docker-compose.yml` solo ejecuta el backend y se conecta a la red externa `app-network` donde el nginx central maneja el proxy y SSL.
 
 ```bash
+# Asegúrate de que la red externa exista
+docker network create app-network
+
+# Ejecutar solo el backend
 docker-compose up -d
 ```
 
-#### Option 3: Using docker-compose (Production with Nginx)
-
-```bash
-docker-compose -f docker-compose.prod.yml up -d --profile production
-```
+Para configurar el nginx central, ve al repositorio `server-nginx` y sigue las instrucciones allí.
 
 #### Option 4: Using the deployment script
 
@@ -193,12 +195,23 @@ curl http://localhost:5001/health
 
 ### Performance Tuning
 
-For production deployments:
+Para deployments de producción:
 
-1. **Increase worker processes** in the Flask configuration
-2. **Use a reverse proxy** like Nginx (included in docker-compose.prod.yml)
-3. **Configure proper logging** and monitoring
-4. **Set up SSL certificates** for HTTPS
+1. **Aumento de worker processes** en la configuración de Flask
+2. **Usar el nginx centralizado** del repositorio `server-nginx` (ya configurado)
+3. **Configurar logging y monitoreo** apropiados
+4. **Los certificados SSL** son manejados automáticamente por el nginx central
+
+## Arquitectura de Deployment
+
+Este proyecto forma parte de una infraestructura nginx centralizada:
+
+- **Backend ChirpID**: Corre en puerto interno 5001, contenedor `chirpid-backend`
+- **Nginx Central**: Repositorio `server-nginx` maneja proxy, SSL y dominios
+- **Red Compartida**: `app-network` conecta todos los servicios
+- **Dominio**: `api.chirpid.com` (manejado por nginx central)
+
+Para cambios en la configuración de proxy o SSL, edita los archivos en el repositorio `server-nginx`.
 
 ## Contributing
 
