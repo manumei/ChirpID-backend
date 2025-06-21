@@ -1,0 +1,104 @@
+name: Deploy ChirpID Backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub (if needed)
+        if: env.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Create .env file
+        run: |
+          echo "Creating environment configuration..."
+          # Create .env file with any required environment variables
+          # Modify this section to add the actual secrets needed by ChirpID-backend
+          touch .env
+          echo "Environment file created"
+
+      - name: Ensure app-network exists
+        run: |
+          echo "🔗 Ensuring app-network exists..."
+          docker network create app-network 2>/dev/null || true
+          echo "✅ Network app-network is ready"
+
+      - name: Deploy backend service
+        run: |
+          echo "🚀 Deploying ChirpID backend..."
+
+          # Stop existing container
+          echo "Stopping existing services..."
+          docker-compose down || true
+
+          # Build and start with latest changes
+          echo "Building and starting services..."
+          docker-compose up -d --build
+
+          # Wait for backend to be ready
+          echo "Waiting for backend to initialize..."
+          sleep 15
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying deployment..."
+
+          # Check if container is running
+          if ! docker ps | grep -q "chirpid-backend"; then
+            echo "❌ Backend container is not running"
+            echo "Container logs:"
+            docker-compose logs backend
+            exit 1
+          fi
+
+          echo "✅ Backend container is running"
+
+          # Test health endpoint (if available)
+          echo "Testing backend connectivity..."
+          if docker exec chirpid-backend curl -f http://localhost:5001/health > /dev/null 2>&1; then
+            echo "✅ Backend health check passed"
+          elif docker exec chirpid-backend curl -f http://localhost:5001/ > /dev/null 2>&1; then
+            echo "✅ Backend is responding on root endpoint"
+          else
+            echo "⚠️ Backend health check failed or endpoint not available"
+            echo "Backend might still be starting up or health endpoint might not exist"
+          fi
+
+          # Show final status
+          echo "📊 Deployment Summary:"
+          docker ps | grep chirpid-backend || echo "Container not found in ps output"
+
+          echo "✅ ChirpID backend deployment completed"
+
+      - name: Clean up old images
+        run: |
+          echo "🧹 Cleaning up old Docker images..."
+          docker image prune -af --filter "until=24h" || true
+          echo "✅ Cleanup completed"
+
+      - name: Display deployment info
+        run: |
+          echo "🎉 Deployment Summary:"
+          echo "Repository: ChirpID-backend"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Deployed at: $(date)"
+          echo ""
+          echo "🔗 Backend should be accessible via:"
+          echo "- Internal network: http://chirpid-backend:5001"
+          echo "- Through nginx proxy: https://api.chirpid.com"
