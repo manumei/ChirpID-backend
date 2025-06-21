@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class BirdCNN(nn.Module):
-    def __init__(self, num_classes=29, dropout_p=0.5):
+    def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN, self).__init__()
         
         # More gradual channel progression
@@ -75,7 +75,7 @@ class BirdCNN(nn.Module):
 
 # Alternative: ResNet-style with skip connections
 class BirdResNet(nn.Module):
-    def __init__(self, num_classes=29, dropout_p=0.5):
+    def __init__(self, num_classes, dropout_p=0.5):
         super(BirdResNet, self).__init__()
         
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
