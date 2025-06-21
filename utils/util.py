@@ -465,7 +465,7 @@ def validate_epoch(model, val_loader, criterion, device, return_predictions=Fals
         return val_loss / val_total, val_correct / val_total, f1
 
 def train_single_fold(model, train_loader, val_loader, criterion, optimizer, 
-                    num_epochs, device, fold_num=None, estop=25, scheduler=None):
+                    num_epochs, device, fold_num=None, estop=35, scheduler=None):
     """Train model on a single fold and return training history including F1 scores."""
     train_losses, val_losses = [], []
     train_accuracies, val_accuracies = [], []
@@ -548,7 +548,7 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
 
 def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=4, 
                             num_epochs=300, batch_size=32, lr=0.001, random_state=435, 
-                            aggregate_predictions=True, use_class_weights=True, estop=25,
+                            aggregate_predictions=True, use_class_weights=True, estop=35,
                             standardize=False):
     """
     Perform K-Fold Cross Validation training with F1 score reporting and early stopping.
@@ -881,7 +881,7 @@ def k_fold_cross_validation(dataset, model_class, num_classes, k_folds=4,
 def k_fold_cross_validation_with_predefined_folds(dataset, fold_indices, model_class, num_classes, 
                                                     num_epochs=300, batch_size=32, lr=0.001, 
                                                     aggregate_predictions=True, use_class_weights=True, 
-                                                    estop=25, standardize=False):
+                                                    estop=35, standardize=False):
     """
     Perform K-Fold Cross Validation training with predefined fold indices.
     
@@ -1159,7 +1159,7 @@ def k_fold_cross_validation_with_predefined_folds(dataset, fold_indices, model_c
 
 def single_fold_training_with_predefined_split(dataset, train_indices, val_indices, model_class, num_classes, 
                                                 num_epochs=250, batch_size=48, lr=0.001, 
-                                                use_class_weights=True, estop=25, standardize=False):
+                                                use_class_weights=True, estop=35, standardize=False):
     """
     Perform single fold training with predefined train/validation indices and standardization.
     
@@ -1332,7 +1332,7 @@ def single_fold_training_with_predefined_split(dataset, train_indices, val_indic
 
 def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
                         batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
-                        use_class_weights=True, estop=25):
+                        use_class_weights=True, estop=35):
     """
     Perform single fold training with 80-20 split and early stopping.
     
