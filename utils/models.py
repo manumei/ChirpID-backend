@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class ImprovedBirdCNN(nn.Module):
+class BirdCNN(nn.Module):
     def __init__(self, num_classes=29, dropout_p=0.5):
-        super(ImprovedBirdCNN, self).__init__()
+        super(BirdCNN, self).__init__()
         
         # More gradual channel progression
         self.block1 = self._make_block(1, 32, dropout_p=0.2)      # [32, 313, 224]

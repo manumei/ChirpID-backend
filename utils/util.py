@@ -1157,6 +1157,179 @@ def k_fold_cross_validation_with_predefined_folds(dataset, fold_indices, model_c
     
     return results, best_results
 
+def single_fold_training_with_predefined_split(dataset, train_indices, val_indices, model_class, num_classes, 
+                                                num_epochs=250, batch_size=48, lr=0.001, 
+                                                use_class_weights=True, estop=25, standardize=False):
+    """
+    Perform single fold training with predefined train/validation indices and standardization.
+    
+    Args:
+        dataset: PyTorch dataset containing all data
+        train_indices: Indices for training set
+        val_indices: Indices for validation set
+        model_class: Model class to instantiate (e.g., models.BirdCNN)
+        num_classes: Number of output classes
+        num_epochs: Number of epochs to train
+        batch_size: Batch size for data loaders
+        lr: Learning rate
+        use_class_weights: If True, compute and use class weights for CrossEntropyLoss
+        estop: Number of epochs without improvement before early stopping
+        standardize: If True, standardize features using training data statistics
+    
+    Returns:
+        Dictionary containing training history and final model
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    print(f"Training on {device}")
+    print(f"Dataset size: {len(dataset)}")
+    print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
+    if standardize:
+        print("Using standardization based on training data statistics")
+        # Calculate standardization statistics from training data only
+        train_data = torch.stack([dataset[i][0] for i in train_indices])
+        train_mean = train_data.mean()
+        train_std = train_data.std()
+        
+        print(f"Training data statistics - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
+        
+        # Create standardized datasets
+        standardized_train_data = []
+        standardized_val_data = []
+        
+        # Standardize training data
+        for i in train_indices:
+            x, y = dataset[i]
+            x_standardized = (x - train_mean) / (train_std + 1e-8)
+            standardized_train_data.append((x_standardized, y))
+        
+        # Standardize validation data using training statistics
+        for i in val_indices:
+            x, y = dataset[i]
+            x_standardized = (x - train_mean) / (train_std + 1e-8)
+            standardized_val_data.append((x_standardized, y))
+        
+        # Create subsets with standardized data
+        train_subset = standardized_train_data
+        val_subset = standardized_val_data
+    else:
+        # Create data subsets without standardization
+        train_subset = Subset(dataset, train_indices)
+        val_subset = Subset(dataset, val_indices)
+    
+    # Compute class weights if enabled
+    if use_class_weights:
+        train_labels = [dataset[i][1].item() for i in train_indices]
+        unique_classes = np.unique(train_labels)
+        
+        class_weights_array = compute_class_weight(
+            'balanced',
+            classes=unique_classes,
+            y=train_labels
+        )
+        
+        class_weights = torch.ones(num_classes)
+        for i, cls in enumerate(unique_classes):
+            class_weights[cls] = class_weights_array[i]
+        
+        class_weights = class_weights.to(device)
+        print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+        
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+    else:
+        criterion = nn.CrossEntropyLoss()
+    
+    # Create data loaders
+    if standardize:
+        # For standardized data, we need custom DataLoader handling
+        train_dataset = StandardizedDataset(train_subset)
+        val_dataset = StandardizedDataset(val_subset)
+        
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=12,
+            pin_memory=True,
+            persistent_workers=True
+        )
+
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=12,
+            pin_memory=True,
+            persistent_workers=True
+        )
+    else:
+        train_loader = DataLoader(
+            train_subset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=12,
+            pin_memory=True,
+            persistent_workers=True
+        )
+
+        val_loader = DataLoader(
+            val_subset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=12,
+            pin_memory=True,
+            persistent_workers=True
+        )
+    
+    # Initialize model and optimizer
+    model = model_class(num_classes=num_classes).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
+    
+    # Train the model
+    history = train_single_fold(
+        model, train_loader, val_loader, criterion, optimizer,
+        num_epochs, device, fold_num=None, estop=estop, scheduler=scheduler
+    )
+    
+    # Get final validation metrics
+    final_val_loss, final_val_acc, final_val_f1 = validate_epoch(
+        model, val_loader, criterion, device
+    )
+    
+    results = {
+        'history': history,
+        'final_val_acc': final_val_acc,
+        'final_val_loss': final_val_loss,
+        'final_val_f1': final_val_f1,
+        'best_val_acc': max(history['val_accuracies']),
+        'best_val_f1': max(history['val_f1s']),
+        'model': model,
+        'model_state': model.state_dict().copy(),
+        'config': {
+            'num_epochs': num_epochs,
+            'batch_size': batch_size,
+            'learning_rate': lr,
+            'device': str(device),
+            'use_class_weights': use_class_weights,
+            'estop': estop,
+            'standardize': standardize,
+            'predefined_split': True
+        }
+    }
+    
+    if standardize:
+        results['train_mean'] = train_mean.item()
+        results['train_std'] = train_std.item()
+    
+    print(f"\nTraining Complete!")
+    if history['early_stopped']:
+        print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
+    print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
+    print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
+    
+    return results
+
 def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
                         batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
                         use_class_weights=True, estop=25):
