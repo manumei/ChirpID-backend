@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   backend:
-    build: .
+    image: ${DOCKERHUB_USERNAME:-username}/chirpid-backend:latest
     container_name: chirpid-backend
-    restart: unless-stopped
+    restart: always
     expose:
       - "5001"
     environment:
