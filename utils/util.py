@@ -402,6 +402,79 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
 
 
 # Training and Validation Functions
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+
+def get_confusion_matrix(model, data_loader, device, num_classes):
+    """
+    Generate confusion matrix for model predictions.
+    
+    Args:
+        model: Trained PyTorch model
+        data_loader: DataLoader for the dataset
+        device: Device to run inference on
+        num_classes: Number of classes
+    
+    Returns:
+        confusion_matrix: numpy array of shape (num_classes, num_classes)
+        all_predictions: numpy array of predictions
+        all_targets: numpy array of true labels
+    """
+    model.eval()
+    all_predictions = []
+    all_targets = []
+    
+    with torch.no_grad():
+        for X_batch, y_batch in data_loader:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            outputs = model(X_batch)
+            predictions = outputs.argmax(dim=1)
+            
+            all_predictions.extend(predictions.cpu().numpy())
+            all_targets.extend(y_batch.cpu().numpy())
+    
+    cm = confusion_matrix(all_targets, all_predictions, labels=range(num_classes))
+    return cm, np.array(all_predictions), np.array(all_targets)
+
+def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(10, 8)):
+    """
+    Plot confusion matrix using seaborn heatmap or matplotlib if seaborn not available.
+    
+    Args:
+        cm: Confusion matrix numpy array
+        class_names: List of class names (optional)
+        title: Title for the plot
+        figsize: Figure size tuple
+    """
+    plt.figure(figsize=figsize)
+    
+    # Normalize confusion matrix to percentages
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
+    
+    if class_names is None:
+        class_names = [f'Class {i}' for i in range(cm.shape[0])]
+
+    # Create labels that show both count and percentage
+    labels = np.empty_like(cm).astype(str)
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            labels[i, j] = f'{cm[i, j]}\n({cm_normalized[i, j]:.1f}%)'
+    
+    # Plot heatmap with seaborn
+    sns.heatmap(cm_normalized, 
+                annot=labels, 
+                fmt='', 
+                cmap='Blues',
+                xticklabels=class_names,
+                yticklabels=class_names,
+                cbar_kws={'label': 'Percentage'})
+
+    plt.title(title)
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.tight_layout()
+    plt.show()
+
 def train_epoch(model, train_loader, criterion, optimizer, device):
     """Train model for one epoch and return loss, accuracy, and F1 score."""
     model.train()
@@ -1030,7 +1103,8 @@ def k_fold_cross_validation_with_predefined_folds(dataset, fold_indices, model_c
                 pin_memory=True,
                 persistent_workers=True
             )
-          # Initialize model and optimizer
+        
+        # Initialize model and optimizer
         model = model_class(num_classes=num_classes).to(device)
         optimizer = optim.Adam(model.parameters(), lr=lr)
         scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
@@ -1112,7 +1186,7 @@ def k_fold_cross_validation_with_predefined_folds(dataset, fold_indices, model_c
             'individual_f1s': final_val_f1s
         }
     else:
-        # Use mean of fold losses
+        # Use mean of fold losses (original approach)
         mean_val_acc = np.mean(final_val_accuracies)
         std_val_acc = np.std(final_val_accuracies)
         mean_val_loss = np.mean(final_val_losses)
@@ -1162,6 +1236,7 @@ def single_fold_training_with_predefined_split(dataset, train_indices, val_indic
                                                 use_class_weights=True, estop=35, standardize=False):
     """
     Perform single fold training with predefined train/validation indices and standardization.
+    Now includes confusion matrix generation.
     
     Args:
         dataset: PyTorch dataset containing all data
@@ -1177,7 +1252,7 @@ def single_fold_training_with_predefined_split(dataset, train_indices, val_indic
         standardize: If True, standardize features using training data statistics
     
     Returns:
-        Dictionary containing training history and final model
+        Dictionary containing training history, final model, and confusion matrix
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -1297,6 +1372,12 @@ def single_fold_training_with_predefined_split(dataset, train_indices, val_indic
         model, val_loader, criterion, device
     )
     
+    # Generate confusion matrix
+    print("Generating confusion matrix...")
+    val_confusion_matrix, val_predictions, val_targets = get_confusion_matrix(
+        model, val_loader, device, num_classes
+    )
+    
     results = {
         'history': history,
         'final_val_acc': final_val_acc,
@@ -1306,6 +1387,9 @@ def single_fold_training_with_predefined_split(dataset, train_indices, val_indic
         'best_val_f1': max(history['val_f1s']),
         'model': model,
         'model_state': model.state_dict().copy(),
+        'confusion_matrix': val_confusion_matrix,
+        'val_predictions': val_predictions,
+        'val_targets': val_targets,
         'config': {
             'num_epochs': num_epochs,
             'batch_size': batch_size,
@@ -1335,6 +1419,7 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
                         use_class_weights=True, estop=35):
     """
     Perform single fold training with 80-20 split and early stopping.
+    Now includes confusion matrix generation.
     
     Args:
         dataset: PyTorch dataset containing all data
@@ -1349,7 +1434,7 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
         estop: Number of epochs without improvement before early stopping
     
     Returns:
-        Dictionary containing training history and final model
+        Dictionary containing training history, final model, and confusion matrix
     """
     from sklearn.model_selection import train_test_split
     from torch.utils.data import Subset
@@ -1411,7 +1496,8 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
         pin_memory=True,
         persistent_workers=True
     )
-      # Initialize model and optimizer
+    
+    # Initialize model and optimizer
     model = model_class(num_classes=num_classes).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
@@ -1427,6 +1513,12 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
         model, val_loader, criterion, device
     )
     
+    # Generate confusion matrix
+    print("Generating confusion matrix...")
+    val_confusion_matrix, val_predictions, val_targets = get_confusion_matrix(
+        model, val_loader, device, num_classes
+    )
+    
     results = {
         'history': history,
         'final_val_acc': final_val_acc,
@@ -1436,6 +1528,9 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
         'best_val_f1': max(history['val_f1s']),
         'model': model,
         'model_state': model.state_dict().copy(),
+        'confusion_matrix': val_confusion_matrix,
+        'val_predictions': val_predictions,
+        'val_targets': val_targets,
         'config': {
             'num_epochs': num_epochs,
             'batch_size': batch_size,
@@ -1610,6 +1705,34 @@ def print_single_fold_results(results):
     print(f"Final Validation F1 Score: {results['final_val_f1']:.4f}")
     print(f"Best Validation Accuracy: {results['best_val_acc']:.4f}")
     print(f"Best Validation F1 Score: {results['best_val_f1']:.4f}")
+
+def print_confusion_matrix_stats(results):
+    """
+    Print statistics from confusion matrix.
+    
+    Args:
+        results: Dictionary containing training results with confusion matrix
+    """
+    cm = results['confusion_matrix']
+    
+    # Calculate per-class precision, recall, and F1
+    num_classes = cm.shape[0]
+    
+    print("\nPer-Class Performance:")
+    print("=" * 50)
+    
+    for i in range(num_classes):
+        # True positives, false positives, false negatives
+        tp = cm[i, i]
+        fp = cm[:, i].sum() - tp
+        fn = cm[i, :].sum() - tp
+        
+        # Calculate precision, recall, F1
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        
+        print(f"Class {i:2d}: Precision={precision:.3f}, Recall={recall:.3f}, F1={f1:.3f} (Support={tp + fn})")
 
 def print_kfold_best_results(results):
     """
