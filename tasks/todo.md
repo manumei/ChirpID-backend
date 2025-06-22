@@ -29,3 +29,5 @@ Try varying the threshold_factor, the segment durations, and maybe even some oth
 
 User cares about final predictions, not cross-entropy loss. Cuando me ponga a correr los barridos y grid search, uso la cross-entropy loss para entrenar y penalizar al modelo, pero para elegir el modelo final para deploy, evaluar el que tenga mejor F1 Score.
 
+**Save Models to models/ and their mappings to maps/**
+Save the model weights as pth files, and, (important!) save the respective mappings too. Since class_mapping.csv changes dynamically. We must preserve the current state of the mappings for each saved model.
