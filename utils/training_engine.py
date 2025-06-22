@@ -138,10 +138,13 @@ class TrainingEngine:
         Returns:
             dict: Training results
         """
-        print(f"\\nStarting single fold training with predefined split...")
+        print(f"\\nStarting single fold training...")
         print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
         
-        return self._train_single_fold_with_indices(dataset, train_indices, val_indices)
+        # Use the existing single fold training logic
+        return self._train_single_fold_with_indices(
+            dataset, train_indices, val_indices, fold_num=1
+        )
     
     def run_single_fold_stratified(self, dataset):
         """
@@ -153,24 +156,28 @@ class TrainingEngine:
         Returns:
             dict: Training results
         """
-        print(f"\\nStarting single fold training with stratified split...")
+        from sklearn.model_selection import train_test_split
         
         # Extract labels for stratification
-        labels = [dataset[i][1].item() for i in range(len(dataset))]
-        indices = list(range(len(dataset)))
+        labels = dataset.tensors[1].numpy()
+        indices = np.arange(len(dataset))
         
-        # Create stratified split
+        # Stratified split
         train_indices, val_indices = train_test_split(
             indices, 
-            test_size=self.config['test_size'],
-            random_state=self.config['random_state'],
-            stratify=labels
+            test_size=self.config.get('test_size', 0.2),
+            stratify=labels,
+            random_state=self.config.get('random_state', 42)
         )
         
+        print(f"\\nStarting single fold training (stratified split)...")
         print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
         
-        return self._train_single_fold_with_indices(dataset, train_indices, val_indices)
-    
+        # Use the existing single fold training logic
+        return self._train_single_fold_with_indices(
+            dataset, train_indices, val_indices, fold_num=1
+        )
+
     def _train_single_fold_with_indices(self, dataset, train_indices, val_indices, fold_num=None):
         """
         Internal method to train a single fold with given indices.
@@ -292,35 +299,42 @@ class TrainingEngine:
                 use_spec_augment=False,
                 use_gaussian_noise=False,
                 training=False
-            )
-        
+            )        
         return train_subset, val_subset
     
     def _create_data_loaders(self, train_subset, val_subset):
-        """Create optimized data loaders."""
-        # Determine optimal worker count
-        use_augmentation = self.config.get('spec_augment', False) or self.config.get('gaussian_noise', False)
-        num_workers = 0 if (self.config.get('standardize', False) or use_augmentation) else min(4, os.cpu_count() or 1)
+        """Create optimized data loaders using the factory."""
+        from utils.dataloader_factory import OptimalDataLoaderFactory, DataLoaderConfigLogger
         
-        train_loader = DataLoader(
+        # Determine dataset characteristics
+        has_augmentation = self.config.get('spec_augment', False) or self.config.get('gaussian_noise', False)
+        has_standardization = self.config.get('standardize', False)
+        
+        # Log configuration for debugging
+        if self.config.get('debug_dataloaders', False):
+            print(f"\\nDataLoader Configuration:")
+            print(f"  Has augmentation: {has_augmentation}")
+            print(f"  Has standardization: {has_standardization}")
+            print(f"  Train dataset size: {len(train_subset)}")
+            print(f"  Val dataset size: {len(val_subset)}")
+        
+        train_loader = OptimalDataLoaderFactory.create_training_loader(
             train_subset,
             batch_size=self.config['batch_size'],
-            shuffle=True,
-            num_workers=num_workers,
-            pin_memory=True if self.device.type == 'cuda' else False,
-            persistent_workers=num_workers > 0,
-            prefetch_factor=2 if num_workers > 0 else None
+            has_augmentation=has_augmentation,
+            has_standardization=has_standardization
         )
         
-        val_loader = DataLoader(
+        val_loader = OptimalDataLoaderFactory.create_validation_loader(
             val_subset,
             batch_size=self.config['batch_size'],
-            shuffle=False,
-            num_workers=num_workers,
-            pin_memory=True if self.device.type == 'cuda' else False,
-            persistent_workers=num_workers > 0,
-            prefetch_factor=2 if num_workers > 0 else None
+            has_standardization=has_standardization
         )
+        
+        # Log configurations if debugging enabled
+        if self.config.get('debug_dataloaders', False):
+            DataLoaderConfigLogger.log_config("Training", train_loader.__dict__, len(train_subset))
+            DataLoaderConfigLogger.log_config("Validation", val_loader.__dict__, len(val_subset))
         
         return train_loader, val_loader
     

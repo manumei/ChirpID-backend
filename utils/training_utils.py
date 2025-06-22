@@ -19,6 +19,7 @@ from utils.dataset_utils import (
     create_augmented_dataset_wrapper
 )
 from utils.evaluation_utils import get_confusion_matrix
+from utils.dataloader_factory import OptimalDataLoaderFactory
 
 # Core Training Functions
 def train_epoch(model, train_loader, criterion, optimizer, device):

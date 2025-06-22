@@ -35,8 +35,7 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
     print("=" * 60)
     print("CROSS-VALIDATION TRAINING")
     print("=" * 60)
-    
-    # Set default configuration
+      # Set default configuration
     default_config = {
         'k_folds': 4,
         'num_epochs': 220,
@@ -49,7 +48,11 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         'max_split_attempts': 30000,
         'min_val_segments': 0,
         'spec_augment': spec_augment,
-        'gaussian_noise': gaussian_noise
+        'gaussian_noise': gaussian_noise,
+        # New optimization settings
+        'optimize_dataloaders': True,
+        'debug_dataloaders': False,  # Set to True for debugging
+        'benchmark_performance': False  # Set to True for performance testing
     }
     config = {**default_config, **(config or {})}
     
@@ -123,8 +126,7 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
     print("=" * 60)
     print("SINGLE FOLD TRAINING")
     print("=" * 60)
-    
-    # Set default configuration
+      # Set default configuration
     default_config = {
         'num_epochs': 250,
         'batch_size': 48,
@@ -137,7 +139,11 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         'max_split_attempts': 10000,
         'min_test_segments': 5,
         'spec_augment': spec_augment,
-        'gaussian_noise': gaussian_noise
+        'gaussian_noise': gaussian_noise,
+        # New optimization settings
+        'optimize_dataloaders': True,
+        'debug_dataloaders': False,  # Set to True for debugging
+        'benchmark_performance': False  # Set to True for performance testing
     }
     config = {**default_config, **(config or {})}
     
@@ -184,6 +190,95 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         
     print("\\n" + "=" * 60)
     print("SINGLE FOLD TRAINING COMPLETED")
+    print("=" * 60)
+    
+    return results
+
+
+def single_fold_training(data_path=None, features=None, labels=None, authors=None, 
+                        model_class=None, num_classes=None, config=None,
+                        spec_augment=False, gaussian_noise=False):
+    """
+    Top-level function for single-fold training with optimized DataLoaders.
+    
+    Args:
+        data_path (str, optional): Path to CSV file with training data
+        features (np.ndarray, optional): Pre-loaded feature array  
+        labels (np.ndarray, optional): Pre-loaded labels array
+        authors (np.ndarray, optional): Pre-loaded authors array
+        model_class: PyTorch model class to train
+        num_classes (int): Number of output classes
+        config (dict, optional): Training configuration parameters
+        spec_augment (bool): Whether to apply SpecAugment during training
+        gaussian_noise (bool): Whether to apply Gaussian noise during training
+    
+    Returns:
+        dict: Complete training results
+    """
+    print("=" * 60)
+    print("SINGLE-FOLD TRAINING")
+    print("=" * 60)
+    
+    # Set default configuration
+    default_config = {
+        'num_epochs': 220,
+        'batch_size': 24,
+        'learning_rate': 0.001,
+        'use_class_weights': False,
+        'early_stopping': 35,
+        'standardize': True,
+        'test_size': 0.2,
+        'random_state': 42,
+        'spec_augment': spec_augment,
+        'gaussian_noise': gaussian_noise,
+        # New optimization settings
+        'optimize_dataloaders': True,
+        'debug_dataloaders': False,
+        'benchmark_performance': False
+    }
+    config = {**default_config, **(config or {})}
+    
+    # Prepare training data
+    features, labels, authors = prepare_training_data(data_path, features, labels, authors)
+    dataset = TensorDataset(
+        torch.tensor(features, dtype=torch.float32),
+        torch.tensor(labels, dtype=torch.long)
+    )
+    
+    # Create metadata for splitting
+    metadata_df = create_metadata_dataframe(labels, authors)
+    
+    # Find optimal train/validation split with author grouping
+    print(f"Finding best train/validation split with author grouping...")
+    from utils.split import search_best_group_seed
+    
+    train_df, val_df, best_seed = search_best_group_seed(
+        df=metadata_df,
+        test_size=config['test_size'],
+        max_attempts=config.get('max_split_attempts', 30000),
+        min_val_segments=config.get('min_val_segments', 0)
+    )
+    
+    print(f"Best split found with seed {best_seed}")
+    
+    # Convert to indices
+    train_indices = train_df['sample_idx'].values
+    val_indices = val_df['sample_idx'].values
+    
+    # Initialize training engine
+    engine = TrainingEngine(
+        model_class=model_class,
+        num_classes=num_classes,
+        config=config
+    )
+    
+    # Execute single-fold training
+    results = engine._train_single_fold_with_indices(
+        dataset, train_indices, val_indices, fold_num=1
+    )
+    
+    print("\\n" + "=" * 60)
+    print("SINGLE-FOLD TRAINING COMPLETED")
     print("=" * 60)
     
     return results

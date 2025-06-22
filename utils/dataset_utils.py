@@ -22,12 +22,12 @@ class StandardizedDataset(Dataset):
         return self.data[idx]
 
 class StandardizedSubset(Dataset):
-    """Dataset subset with on-the-fly standardization using training statistics."""
+    """Worker-safe dataset subset with on-the-fly standardization using training statistics."""
     def __init__(self, original_dataset, indices, mean, std):
         self.dataset = original_dataset
-        self.indices = indices
-        self.mean = mean
-        self.std = std + 1e-8  # Add epsilon to avoid division by zero
+        self.indices = list(indices)  # Convert to list for pickling
+        self.mean = float(mean)  # Store as primitive types for worker safety
+        self.std = float(std + 1e-8)  # Add epsilon to avoid division by zero
     
     def __len__(self):
         return len(self.indices)
@@ -35,16 +35,17 @@ class StandardizedSubset(Dataset):
     def __getitem__(self, idx):
         real_idx = self.indices[idx]
         x, y = self.dataset[real_idx]
+        # Apply standardization with primitive operations only
         x_standardized = (x - self.mean) / self.std
         return x_standardized, y
 
 class FastStandardizedSubset(Dataset):
-    """Optimized standardized subset class for faster training."""
+    """Worker-safe optimized standardized subset class for faster training."""
     def __init__(self, original_dataset, indices, mean, std):
         self.dataset = original_dataset
-        self.indices = indices
-        self.mean = mean
-        self.std = std + 1e-8
+        self.indices = list(indices)  # Convert to list for pickling
+        self.mean = float(mean)  # Store as primitive types for worker safety
+        self.std = float(std + 1e-8)
     
     def __len__(self):
         return len(self.indices)
@@ -52,31 +53,28 @@ class FastStandardizedSubset(Dataset):
     def __getitem__(self, idx):
         real_idx = self.indices[idx]
         x, y = self.dataset[real_idx]
+        # Apply standardization with primitive operations only
         x_standardized = (x - self.mean) / self.std
         return x_standardized, y
 
 class AugmentedDataset(Dataset):
-    """Dataset wrapper that applies on-the-fly augmentation during training."""
+    """Worker-safe dataset wrapper that applies on-the-fly augmentation during training."""
     def __init__(self, base_dataset, use_spec_augment=False, use_gaussian_noise=False, 
                  augment_params=None, training=True):
         self.base_dataset = base_dataset
         self.training = training
+        self.use_spec_augment = use_spec_augment
+        self.use_gaussian_noise = use_gaussian_noise
         
-        # Import augmentation here to avoid circular imports
-        from utils.specaugment import OnTheFlyAugmentation, get_augmentation_params
-        
+        # Store augmentation parameters as primitive types for worker safety
         if augment_params is None and (use_spec_augment or use_gaussian_noise):
-            # Get default params based on dataset size
+            # Import here to avoid circular imports
+            from utils.specaugment import get_augmentation_params
             augment_params = get_augmentation_params(len(base_dataset), 31)
         
-        # Initialize augmentation pipeline
-        self.augmentation = OnTheFlyAugmentation(
-            use_spec_augment=use_spec_augment,
-            use_gaussian_noise=use_gaussian_noise,
-            spec_augment_params=augment_params.get('spec_augment_params') if augment_params else None,
-            gaussian_noise_params=augment_params.get('gaussian_noise_params') if augment_params else None,
-            training=training
-        )
+        # Store parameters as simple dictionaries (picklable)
+        self.spec_augment_params = augment_params.get('spec_augment_params') if augment_params else None
+        self.gaussian_noise_params = augment_params.get('gaussian_noise_params') if augment_params else None
     
     def __len__(self):
         return len(self.base_dataset)
@@ -86,14 +84,24 @@ class AugmentedDataset(Dataset):
         
         # Apply augmentation only during training
         if self.training:
-            x = self.augmentation(x)
+            # Import augmentation classes inside __getitem__ to avoid worker issues
+            from utils.specaugment import SpecAugment, GaussianNoise
+            
+            # Apply SpecAugment if enabled
+            if self.use_spec_augment and self.spec_augment_params:
+                spec_augment = SpecAugment(**self.spec_augment_params)
+                x = spec_augment(x)
+            
+            # Apply Gaussian noise if enabled
+            if self.use_gaussian_noise and self.gaussian_noise_params:
+                gaussian_noise = GaussianNoise(**self.gaussian_noise_params)
+                x = gaussian_noise(x)
         
         return x, y
     
     def set_training(self, training):
         """Set training mode for augmentation."""
         self.training = training
-        self.augmentation.set_training(training)
 
 # Data Loading Functions
 def get_spect_matrix_list(spects_source_dir, spects_meta_df):
