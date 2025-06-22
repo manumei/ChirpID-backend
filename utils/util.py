@@ -15,6 +15,7 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from utils.util import *
+from utils.specaugment import SpecAugment, PILSpecAugment, get_recommended_params, visualize_specaugment
 
 # Custom dataset class for standardized data (needed for multiprocessing)
 class StandardizedDataset(Dataset):
@@ -1552,6 +1553,230 @@ def fast_single_fold_training_with_predefined_split(dataset, train_indices, val_
         results['train_std'] = train_std.item()
     
     print(f"\nTraining Complete!")
+    if history['early_stopped']:
+        print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
+    print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
+    print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
+    
+    return results
+
+
+# Add these new functions before the existing training functions
+
+def create_augmented_dataset_wrapper(dataset, augment_params=None, training=True):
+    """
+    Create a dataset wrapper that applies SpecAugment during training.
+    
+    Args:
+        dataset: Original PyTorch dataset
+        augment_params (dict): SpecAugment parameters
+        training (bool): Whether to apply augmentation
+    
+    Returns:
+        AugmentedDataset: Dataset with augmentation applied
+    """
+    if augment_params is None:
+        # Use default parameters
+        augment_params = {
+            'time_mask_param': 40,
+            'freq_mask_param': 15,
+            'num_time_masks': 1,
+            'num_freq_masks': 1,
+            'mask_value': 0.0,
+            'p': 0.8
+        }
+    
+    return AugmentedDataset(dataset, augment_params, training)
+
+class AugmentedDataset(torch.utils.data.Dataset):
+    """
+    Dataset wrapper that applies SpecAugment during training.
+    """
+    
+    def __init__(self, dataset, augment_params, training=True):
+        self.dataset = dataset
+        self.training = training
+        if training:
+            self.augmenter = SpecAugment(**augment_params)
+        else:
+            self.augmenter = None
+    
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, idx):
+        x, y = self.dataset[idx]
+        
+        if self.training and self.augmenter is not None:
+            x = self.augmenter(x)
+        
+        return x, y
+    
+    def set_training(self, training):
+        """Set training mode to enable/disable augmentation."""
+        self.training = training
+
+# Add augmented training function
+def fast_single_fold_training_with_augmentation(dataset, train_indices, val_indices, model_class, num_classes, 
+                                                num_epochs=250, batch_size=48, lr=0.001, 
+                                                use_class_weights=True, estop=35, standardize=False,
+                                                augment_params=None):
+    """
+    Optimized single fold training with SpecAugment data augmentation.
+    
+    Args:
+        dataset: PyTorch dataset containing all data
+        train_indices: Indices for training set
+        val_indices: Indices for validation set
+        model_class: Model class to instantiate
+        num_classes: Number of output classes
+        num_epochs: Number of epochs to train
+        batch_size: Batch size for data loaders
+        lr: Learning rate
+        use_class_weights: If True, compute and use class weights
+        estop: Number of epochs without improvement before early stopping
+        standardize: If True, standardize features
+        augment_params: Dictionary of SpecAugment parameters
+    
+    Returns:
+        Dictionary containing training history and results
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    print(f"Training with SpecAugment on {device}")
+    print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
+    
+    # Get recommended augmentation parameters if not provided
+    if augment_params is None:
+        augment_params = get_recommended_params(
+            num_samples=len(train_indices), 
+            num_classes=num_classes, 
+            input_size=(224, 313)
+        )
+        print(f"Using recommended SpecAugment params: {augment_params}")
+    else:
+        print(f"Using custom SpecAugment params: {augment_params}")
+    
+    # Step 1: Standardization setup (same as before)
+    if standardize:
+        print("Quick standardization computation...")
+        # Use only a small sample for statistics - much faster
+        sample_size = min(200, len(train_indices))
+        sample_indices = np.random.choice(train_indices, sample_size, replace=False)
+        
+        # Efficient batched computation
+        sample_tensors = []
+        for i in range(0, len(sample_indices), 32):  # Process in small batches
+            batch_indices = sample_indices[i:i+32]
+            batch_data = torch.stack([dataset[idx][0] for idx in batch_indices])
+            sample_tensors.append(batch_data)
+        
+        sample_data = torch.cat(sample_tensors, dim=0)
+        train_mean = sample_data.mean()
+        train_std = sample_data.std() + 1e-8
+        
+        print(f"Standardization computed from {len(sample_data)} samples - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
+        
+        # Create standardized subsets
+        base_train_subset = FastStandardizedSubset(dataset, train_indices, train_mean, train_std)
+        val_subset = FastStandardizedSubset(dataset, val_indices, train_mean, train_std)
+    else:
+        base_train_subset = Subset(dataset, train_indices)
+        val_subset = Subset(dataset, val_indices)
+    
+    # Step 2: Add augmentation to training set only
+    train_subset = create_augmented_dataset_wrapper(base_train_subset, augment_params, training=True)
+    
+    # Step 3: Class weights computation (same as before)
+    criterion = nn.CrossEntropyLoss()
+    if use_class_weights:
+        print("Computing class weights...")
+        train_labels_tensor = torch.tensor([dataset[i][1].item() for i in train_indices[:min(len(train_indices), 1000)]])
+        unique_classes, counts = torch.unique(train_labels_tensor, return_counts=True)
+        
+        total_samples = len(train_labels_tensor)
+        weights = total_samples / (len(unique_classes) * counts.float())
+        
+        class_weights = torch.ones(num_classes, device=device)
+        class_weights[unique_classes] = weights.to(device)
+        
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+        print(f"Class weights: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+    
+    # Step 4: DataLoaders
+    print("Creating data loaders with augmentation...")
+    
+    train_loader = DataLoader(
+        train_subset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=0,
+        pin_memory=False,
+        persistent_workers=False
+    )
+
+    val_loader = DataLoader(
+        val_subset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=False,
+        persistent_workers=False
+    )
+    
+    # Step 5: Model initialization and training (same as before)
+    print("Initializing model...")
+    model = model_class(num_classes=num_classes).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
+    
+    print("Starting training with SpecAugment...")
+    history = train_single_fold(
+        model, train_loader, val_loader, criterion, optimizer,
+        num_epochs, device, fold_num=None, estop=estop, scheduler=scheduler
+    )
+    
+    # Final metrics and confusion matrix
+    final_val_loss, final_val_acc, final_val_f1 = validate_epoch(
+        model, val_loader, criterion, device
+    )
+    
+    print("Generating confusion matrix...")
+    val_confusion_matrix, val_predictions, val_targets = get_confusion_matrix(
+        model, val_loader, device, num_classes
+    )
+    
+    results = {
+        'history': history,
+        'final_val_acc': final_val_acc,
+        'final_val_loss': final_val_loss,
+        'final_val_f1': final_val_f1,
+        'best_val_acc': max(history['val_accuracies']),
+        'best_val_f1': max(history['val_f1s']),
+        'model': model,
+        'model_state': model.state_dict().copy(),
+        'confusion_matrix': val_confusion_matrix,
+        'val_predictions': val_predictions,
+        'val_targets': val_targets,
+        'augment_params': augment_params,
+        'config': {
+            'num_epochs': num_epochs,
+            'batch_size': batch_size,
+            'learning_rate': lr,
+            'device': str(device),
+            'use_class_weights': use_class_weights,
+            'estop': estop,
+            'standardize': standardize,
+            'specaugment': True,
+            'predefined_split': True
+        }
+    }
+    
+    if standardize:
+        results['train_mean'] = train_mean.item()
+        results['train_std'] = train_std.item()
+    
+    print(f"\nTraining with SpecAugment Complete!")
     if history['early_stopped']:
         print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
     print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
