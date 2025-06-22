@@ -27,6 +27,23 @@ class StandardizedDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
+# Global standardized subset class for pickling compatibility
+class StandardizedSubset(Dataset):
+    def __init__(self, original_dataset, indices, mean, std):
+        self.dataset = original_dataset
+        self.indices = indices
+        self.mean = mean
+        self.std = std + 1e-8  # Add epsilon to avoid division by zero
+    
+    def __len__(self):
+        return len(self.indices)
+    
+    def __getitem__(self, idx):
+        real_idx = self.indices[idx]
+        x, y = self.dataset[real_idx]
+        x_standardized = (x - self.mean) / self.std
+        return x_standardized, y
+
 def clean_dir(dest_dir):
     ''' Deletes the raw audio files in the dest_dir.'''
     print(f"Resetting {dest_dir} directory...")
@@ -1260,40 +1277,29 @@ def single_fold_training_with_predefined_split(dataset, train_indices, val_indic
     print(f"Dataset size: {len(dataset)}")
     print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
     if standardize:
-        print("Using standardization based on training data statistics")
-        # Calculate standardization statistics from training data only
-        train_data = torch.stack([dataset[i][0] for i in train_indices])
-        train_mean = train_data.mean()
-        train_std = train_data.std()
+        print("Computing standardization statistics...")
+        # More efficient standardization computation using sampling
+        sample_size = min(1000, len(train_indices))  # Sample subset for statistics
+        sample_indices = np.random.choice(train_indices, sample_size, replace=False)
         
-        print(f"Training data statistics - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
+        # Stack sample data efficiently
+        sample_data = torch.stack([dataset[i][0] for i in sample_indices])
+        train_mean = sample_data.mean()
+        train_std = sample_data.std()
         
-        # Create standardized datasets
-        standardized_train_data = []
-        standardized_val_data = []
+        print(f"Training data statistics (from {sample_size} samples) - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
         
-        # Standardize training data
-        for i in train_indices:
-            x, y = dataset[i]
-            x_standardized = (x - train_mean) / (train_std + 1e-8)
-            standardized_train_data.append((x_standardized, y))
-        
-        # Standardize validation data using training statistics
-        for i in val_indices:
-            x, y = dataset[i]
-            x_standardized = (x - train_mean) / (train_std + 1e-8)
-            standardized_val_data.append((x_standardized, y))
-        
-        # Create subsets with standardized data
-        train_subset = standardized_train_data
-        val_subset = standardized_val_data
+        # Create standardized dataset wrapper that applies normalization on-the-fly
+        train_subset = StandardizedSubset(dataset, train_indices, train_mean, train_std)
+        val_subset = StandardizedSubset(dataset, val_indices, train_mean, train_std)
+        print("Created standardized dataset wrappers")
     else:
         # Create data subsets without standardization
         train_subset = Subset(dataset, train_indices)
         val_subset = Subset(dataset, val_indices)
-    
     # Compute class weights if enabled
     if use_class_weights:
+        print("Computing class weights...")
         train_labels = [dataset[i][1].item() for i in train_indices]
         unique_classes = np.unique(train_labels)
         
@@ -1313,48 +1319,36 @@ def single_fold_training_with_predefined_split(dataset, train_indices, val_indic
         criterion = nn.CrossEntropyLoss(weight=class_weights)
     else:
         criterion = nn.CrossEntropyLoss()
+      # Create data loaders
+    print("Creating data loaders...")
     
-    # Create data loaders
+    # Use single-threaded loading for custom datasets to avoid pickling issues
     if standardize:
-        # For standardized data, we need custom DataLoader handling
-        train_dataset = StandardizedDataset(train_subset)
-        val_dataset = StandardizedDataset(val_subset)
-        
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=12,
-            pin_memory=True,
-            persistent_workers=True
-        )
-
-        val_loader = DataLoader(
-            val_dataset,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=12,
-            pin_memory=True,
-            persistent_workers=True
-        )
+        # Custom standardized datasets need single-threaded loading
+        num_workers = 0
     else:
-        train_loader = DataLoader(
-            train_subset,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=12,
-            pin_memory=True,
-            persistent_workers=True
-        )
+        # Regular subsets can use multiple workers
+        num_workers = min(4, os.cpu_count() or 1)
+    
+    train_loader = DataLoader(
+        train_subset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=True if device.type == 'cuda' else False,
+        persistent_workers=False,  # Disable for faster startup
+        prefetch_factor=2 if num_workers > 0 else None
+    )
 
-        val_loader = DataLoader(
-            val_subset,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=12,
-            pin_memory=True,
-            persistent_workers=True
-        )
+    val_loader = DataLoader(
+        val_subset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True if device.type == 'cuda' else False,
+        persistent_workers=False,  # Disable for faster startup
+        prefetch_factor=2 if num_workers > 0 else None
+    )
     
     # Initialize model and optimizer
     model = model_class(num_classes=num_classes).to(device)
@@ -1414,94 +1408,116 @@ def single_fold_training_with_predefined_split(dataset, train_indices, val_indic
     
     return results
 
-def single_fold_training(dataset, model_class, num_classes, num_epochs=250, 
-                        batch_size=48, lr=0.001, test_size=0.2, random_state=435, 
-                        use_class_weights=True, estop=35):
+# Fast Training Utils
+def fast_single_fold_training_with_predefined_split(dataset, train_indices, val_indices, model_class, num_classes, 
+                                                    num_epochs=250, batch_size=48, lr=0.001, 
+                                                    use_class_weights=True, estop=35, standardize=False):
     """
-    Perform single fold training with 80-20 split and early stopping.
-    Now includes confusion matrix generation.
+    Optimized version of single fold training with minimal startup overhead.
     
-    Args:
-        dataset: PyTorch dataset containing all data
-        model_class: Model class to instantiate (e.g., models.BirdCNN)
-        num_classes: Number of output classes
-        num_epochs: Number of epochs to train
-        batch_size: Batch size for data loaders
-        lr: Learning rate
-        test_size: Fraction of data to use for validation (0.2 = 20%)
-        random_state: Random seed for reproducibility
-        use_class_weights: If True, compute and use class weights for CrossEntropyLoss
-        estop: Number of epochs without improvement before early stopping
-    
-    Returns:
-        Dictionary containing training history, final model, and confusion matrix
+    Optimizations:
+    - Efficient standardization using sampling
+    - On-the-fly standardization in DataLoader
+    - Reduced DataLoader workers and overhead
+    - Streamlined setup process
     """
-    from sklearn.model_selection import train_test_split
-    from torch.utils.data import Subset
-    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # Create train-validation split
-    indices = list(range(len(dataset)))
-    train_ids, val_ids = train_test_split(
-        indices, test_size=test_size, random_state=random_state, 
-        stratify=[dataset[i][1].item() for i in indices]  # stratify by labels
-    )
+    print(f"Fast training on {device}")
+    print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
     
-    print(f"Training on {device}")
-    print(f"Dataset size: {len(dataset)}")
-    print(f"Train size: {len(train_ids)}, Val size: {len(val_ids)}")
+    # Step 1: Quick standardization if needed
+    if standardize:
+        print("Quick standardization computation...")
+        # Use only a small sample for statistics - much faster
+        sample_size = min(200, len(train_indices))
+        sample_indices = np.random.choice(train_indices, sample_size, replace=False)
+        
+        # Efficient batched computation
+        sample_tensors = []
+        for i in range(0, len(sample_indices), 32):  # Process in small batches
+            batch_indices = sample_indices[i:i+32]
+            batch_data = torch.stack([dataset[idx][0] for idx in batch_indices])
+            sample_tensors.append(batch_data)
+        
+        sample_data = torch.cat(sample_tensors, dim=0)
+        train_mean = sample_data.mean()
+        train_std = sample_data.std() + 1e-8
+        
+        print(f"Standardization computed from {len(sample_data)} samples - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
+        
+        # Create efficient standardized dataset
+        class FastStandardizedSubset(Dataset):
+            def __init__(self, original_dataset, indices, mean, std):
+                self.dataset = original_dataset
+                self.indices = torch.tensor(indices, dtype=torch.long)  # Convert to tensor for speed
+                self.mean = mean
+                self.std = std
+            
+            def __len__(self):
+                return len(self.indices)
+            
+            def __getitem__(self, idx):
+                real_idx = self.indices[idx].item()
+                x, y = self.dataset[real_idx]
+                return (x - self.mean) / self.std, y
+        
+        train_subset = FastStandardizedSubset(dataset, train_indices, train_mean, train_std)
+        val_subset = FastStandardizedSubset(dataset, val_indices, train_mean, train_std)
+    else:
+        # Use Subset for non-standardized data
+        train_subset = Subset(dataset, train_indices)
+        val_subset = Subset(dataset, val_indices)
     
-    # Create data subsets
-    train_subset = Subset(dataset, train_ids)
-    val_subset = Subset(dataset, val_ids)
-    
-    # Compute class weights if enabled
+    # Step 2: Quick class weights computation
+    criterion = nn.CrossEntropyLoss()
     if use_class_weights:
-        train_labels = [dataset[i][1].item() for i in train_ids]
-        unique_classes = np.unique(train_labels)
+        print("Computing class weights...")
+        # Vectorized approach for class weights
+        train_labels_tensor = torch.tensor([dataset[i][1].item() for i in train_indices[:min(len(train_indices), 1000)]])
+        unique_classes, counts = torch.unique(train_labels_tensor, return_counts=True)
         
-        class_weights_array = compute_class_weight(
-            'balanced',
-            classes=unique_classes,
-            y=train_labels
-        )
+        # Simple balanced weighting
+        total_samples = len(train_labels_tensor)
+        weights = total_samples / (len(unique_classes) * counts.float())
         
-        class_weights = torch.ones(num_classes)
-        for i, cls in enumerate(unique_classes):
-            class_weights[cls] = class_weights_array[i]
-        
-        class_weights = class_weights.to(device)
-        print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+        class_weights = torch.ones(num_classes, device=device)
+        class_weights[unique_classes] = weights.to(device)
         
         criterion = nn.CrossEntropyLoss(weight=class_weights)
-    else:
-        criterion = nn.CrossEntropyLoss()
+        print(f"Class weights: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
     
-    # Create data loaders
+    # Step 3: Optimized DataLoaders
+    print("Creating optimized data loaders...")
+    num_workers = min(2, os.cpu_count() or 1)  # Minimal workers for fast startup
+    
     train_loader = DataLoader(
         train_subset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=12,
-        pin_memory=True,
-        persistent_workers=True
+        num_workers=num_workers,
+        pin_memory=device.type == 'cuda',
+        persistent_workers=False,
+        prefetch_factor=1 if num_workers > 0 else None
     )
 
     val_loader = DataLoader(
         val_subset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=12,
-        pin_memory=True,
-        persistent_workers=True
+        num_workers=num_workers,
+        pin_memory=device.type == 'cuda',
+        persistent_workers=False,
+        prefetch_factor=1 if num_workers > 0 else None
     )
     
-    # Initialize model and optimizer
+    # Step 4: Initialize model and training
+    print("Initializing model...")
     model = model_class(num_classes=num_classes).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
     
+    print("Starting training...")
     # Train the model
     history = train_single_fold(
         model, train_loader, val_loader, criterion, optimizer,
@@ -1535,12 +1551,18 @@ def single_fold_training(dataset, model_class, num_classes, num_epochs=250,
             'num_epochs': num_epochs,
             'batch_size': batch_size,
             'learning_rate': lr,
-            'test_size': test_size,
             'device': str(device),
             'use_class_weights': use_class_weights,
-            'estop': estop
+            'estop': estop,
+            'standardize': standardize,
+            'predefined_split': True,
+            'fast_training': True
         }
     }
+    
+    if standardize:
+        results['train_mean'] = train_mean.item()
+        results['train_std'] = train_std.item()
     
     print(f"\nTraining Complete!")
     if history['early_stopped']:
