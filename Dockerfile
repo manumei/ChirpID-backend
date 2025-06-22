@@ -9,9 +9,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user early for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
 # Copy requirements first for better Docker layer caching
 COPY deploy-requirements-minimal.txt .
 
@@ -24,12 +21,9 @@ COPY app/ ./app/
 COPY server/ ./server/
 COPY gunicorn.conf.py .
 
-# Create uploads directory and set ownership for required directories only
+# Create uploads directory with proper permissions
 RUN mkdir -p app/uploads && \
-    chown -R appuser:appuser app/uploads server/ gunicorn.conf.py
-
-# Switch to non-root user
-USER appuser
+    chmod -R 777 app/uploads
 
 # Expose port
 EXPOSE 5001
@@ -38,5 +32,5 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5001/health || exit 1
 
-# Run the application
+# Run the application directly
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "server.wsgi:application"]

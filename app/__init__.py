@@ -1,14 +1,11 @@
 from flask import Flask, jsonify
-from flask_cors import CORS
 from app.routes.audio import audio_bp
 
 def create_app():
     app = Flask(__name__)
-      # Configure CORS for React Native app
-    CORS(app, 
-        origins=["https://chirpid.com", "https://www.chirpid.com"],
-        methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization"])
+    
+    # CORS is handled by nginx reverse proxy
+    # No need to configure CORS here to avoid duplicate headers
     
     # Add ping route for connection testing
     @app.route("/ping", methods=["GET"])
