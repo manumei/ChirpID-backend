@@ -6,7 +6,8 @@ WORKDIR /app
 
 # Install only essential system dependencies
 RUN apt-get update && apt-get install -y \
-    curl \    && rm -rf /var/lib/apt/lists/*
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better Docker layer caching
 COPY deploy-requirements-minimal.txt .
