@@ -1,0 +1,5 @@
+# pre-ef
+
+Analyze my code, should I use pin_memory? Should I use num_workers? Should I use prefetch_factor? Should I use persistent_workers? I have an RTX5080 on Cuda and a Ryzen 9 7950x. I want to make my own Custom DataLoaders to apply all these optimizations. We should change our augmentations to be worker-safe and such, so that it never causes bottlenecks and maximum efficiency in running time, to make the most out of my strong CPU and GPU. Do not apply any direct changes, instead, make an analysis based on all my attached notebooks and utils/ files, and condense this information and analysis into a final conclusion on whether or not.
+
+If the conclusion is that we can indeed use better optimizations for the loading and training, then please gather all the relevant information and the develop a set of instructions and key points on how to implement this. Do not make any direct edits, but rather write this all down in the chat/efficiency.md markdown file in the form of a detailed prompt for Copilot Agent to do it.
