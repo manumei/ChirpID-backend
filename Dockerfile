@@ -1,4 +1,4 @@
-# Python Dockerfile
+# Python Dockerfile - Optimized for production
 FROM python:3.13-slim-bookworm
 
 # Set working directory
@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user early for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
 # Copy requirements first for better Docker layer caching
 COPY deploy-requirements-minimal.txt .
 
@@ -16,18 +19,16 @@ COPY deploy-requirements-minimal.txt .
 RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
     pip install --no-cache-dir --root-user-action=ignore -r deploy-requirements-minimal.txt
 
-# Copy application code
-COPY . .
-
-# Copy Gunicorn configuration
+# Copy only essential application files
+COPY app/ ./app/
+COPY server/ ./server/
 COPY gunicorn.conf.py .
 
-# Create uploads directory
-RUN mkdir -p app/uploads
+# Create uploads directory and set ownership for required directories only
+RUN mkdir -p app/uploads && \
+    chown -R appuser:appuser app/uploads server/ gunicorn.conf.py
 
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
+# Switch to non-root user
 USER appuser
 
 # Expose port

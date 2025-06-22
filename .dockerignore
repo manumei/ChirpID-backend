@@ -43,17 +43,21 @@ Thumbs.db
 # Node modules (if any)
 node_modules
 
-# Jupyter
+# Jupyter notebooks - not needed in production
 .ipynb_checkpoints
 notebooks/
 
-# Documentation
+# Documentation - not needed in production
 docs/
 pdf/
+chat/
+*.md
+!README.md
 
-# Tests
+# Tests - not needed in production
 tests/
 test_*
+pytest.ini
 
 # Development files
 .env
@@ -62,17 +66,25 @@ test_*
 .env.test
 
 # Large files that shouldn't be in container
-database/audio/
-database/samples/
-database/spect/
-database/spect2/
-database/test_audios/
-database/test_audios2/
+.venv/
+venv/
+database/
+models/
+data/
+
+# Development scripts
+scripts/
+profiler/
+tasks/
 
 # GitHub workflows
 .github/
 
-# Docker
-Dockerfile
+# Docker files
+Dockerfile*
 .dockerignore
 docker-compose*.yml
+
+# Requirements files except the minimal one
+requirements.txt
+deploy-requirements.txt
