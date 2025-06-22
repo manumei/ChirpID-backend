@@ -19,7 +19,7 @@ For the initial 20 configs to try as a template, try configurations that fit for
 
 Remember to mantain and make use of the very clear top-down modular structure we have set up, especially for the Training process, passing on configurations cleanly to the core training functions, as the top step of the hierarchy we have set up, so that pipeline should mantain the same principles it currently has.
 
-Once done, write a report listing the changes made, and write a brief markdown file at tasks/configs.md, where you:
+Once done, summarize the changes, and then write a report markdown file at tasks/configs.md, where you:
 - Describe what each parameter does
 - Explain how to choose each parameter properly
 - Briefly show which parameters heavily rely on others, so the user doesn't take wrong conclusions from the configuring (for example, cannot modify lr_sched without considering learning rate)
