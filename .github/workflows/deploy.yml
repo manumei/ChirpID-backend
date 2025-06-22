@@ -10,6 +10,15 @@ jobs:
     runs-on: self-hosted
 
     steps:
+      - name: Fix workspace permissions
+        run: |
+          echo "🔧 Fixing workspace permissions..."
+          # Fix permissions for the entire workspace
+          sudo chown -R $USER:$USER $GITHUB_WORKSPACE 2>/dev/null || true
+          # Remove any problematic upload files
+          sudo rm -rf $GITHUB_WORKSPACE/app/uploads/* 2>/dev/null || true
+          echo "✅ Workspace permissions fixed"
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -129,7 +138,16 @@ jobs:
           echo "🧹 Cleaning up old Docker images..."
           docker image prune -af --filter "until=24h" || true
 
+          # Fix permissions for uploads directory before cleanup
+          echo "🔧 Fixing permissions for uploads directory..."
+          sudo chown -R $USER:$USER ./app/uploads 2>/dev/null || true
+          sudo chmod -R 755 ./app/uploads 2>/dev/null || true
+
           # Clean up .env file if it exists
           rm -f .env
+
+          # Clean up any Docker volumes that might have permission issues
+          echo "🔧 Cleaning up Docker volumes..."
+          docker volume prune -f || true
 
           echo "✅ Cleanup completed"
