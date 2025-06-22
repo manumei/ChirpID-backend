@@ -129,6 +129,10 @@ jobs:
           echo "🧹 Cleaning up old Docker images..."
           docker image prune -af --filter "until=24h" || true
 
+          # Fix permissions for uploads directory before cleanup
+          echo "🔧 Fixing permissions for uploads directory..."
+          sudo chown -R $USER:$USER ./app/uploads 2>/dev/null || true
+          
           # Clean up .env file if it exists
           rm -f .env
 

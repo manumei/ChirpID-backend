@@ -4,9 +4,10 @@ FROM python:3.13-slim-bookworm
 # Set working directory
 WORKDIR /app
 
-# Install only essential system dependencies
+# Install only essential system dependencies including openssl
 RUN apt-get update && apt-get install -y \
     curl \
+    openssl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better Docker layer caching
