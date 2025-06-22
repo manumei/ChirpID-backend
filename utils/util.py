@@ -44,6 +44,22 @@ class StandardizedSubset(Dataset):
         x_standardized = (x - self.mean) / self.std
         return x_standardized, y
 
+# Fast standardized subset class for optimized training
+class FastStandardizedSubset(Dataset):
+    def __init__(self, original_dataset, indices, mean, std):
+        self.dataset = original_dataset
+        self.indices = torch.tensor(indices, dtype=torch.long)  # Convert to tensor for speed
+        self.mean = mean
+        self.std = std + 1e-8  # Add epsilon to avoid division by zero
+    
+    def __len__(self):
+        return len(self.indices)
+    
+    def __getitem__(self, idx):
+        real_idx = self.indices[idx].item()
+        x, y = self.dataset[real_idx]
+        return (x - self.mean) / self.std, y
+
 def clean_dir(dest_dir):
     ''' Deletes the raw audio files in the dest_dir.'''
     print(f"Resetting {dest_dir} directory...")
@@ -1446,22 +1462,7 @@ def fast_single_fold_training_with_predefined_split(dataset, train_indices, val_
         
         print(f"Standardization computed from {len(sample_data)} samples - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
         
-        # Create efficient standardized dataset
-        class FastStandardizedSubset(Dataset):
-            def __init__(self, original_dataset, indices, mean, std):
-                self.dataset = original_dataset
-                self.indices = torch.tensor(indices, dtype=torch.long)  # Convert to tensor for speed
-                self.mean = mean
-                self.std = std
-            
-            def __len__(self):
-                return len(self.indices)
-            
-            def __getitem__(self, idx):
-                real_idx = self.indices[idx].item()
-                x, y = self.dataset[real_idx]
-                return (x - self.mean) / self.std, y
-        
+        # Use global class for compatibility
         train_subset = FastStandardizedSubset(dataset, train_indices, train_mean, train_std)
         val_subset = FastStandardizedSubset(dataset, val_indices, train_mean, train_std)
     else:
@@ -1486,29 +1487,24 @@ def fast_single_fold_training_with_predefined_split(dataset, train_indices, val_
         
         criterion = nn.CrossEntropyLoss(weight=class_weights)
         print(f"Class weights: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
-    
-    # Step 3: Optimized DataLoaders
+      # Step 3: Optimized DataLoaders (single-threaded to avoid pickling issues)
     print("Creating optimized data loaders...")
-    num_workers = min(2, os.cpu_count() or 1)  # Minimal workers for fast startup
     
     train_loader = DataLoader(
         train_subset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers,
-        pin_memory=device.type == 'cuda',
-        persistent_workers=False,
-        prefetch_factor=1 if num_workers > 0 else None
+        num_workers=0,  # Single-threaded to avoid pickling issues
+        pin_memory=False,  # Disable for compatibility
+        persistent_workers=False
     )
 
     val_loader = DataLoader(
         val_subset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=device.type == 'cuda',
-        persistent_workers=False,
-        prefetch_factor=1 if num_workers > 0 else None
+        batch_size=batch_size,        shuffle=False,
+        num_workers=0,  # Single-threaded to avoid pickling issues
+        pin_memory=False,  # Disable for compatibility
+        persistent_workers=False
     )
     
     # Step 4: Initialize model and training
