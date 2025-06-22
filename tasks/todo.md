@@ -29,16 +29,3 @@ Balance the classes. Use cost-reweighting, applied directly to the PyTorch tenso
 Try varying the threshold_factor, the segment durations, and maybe even some others? hop_len, nfft, mel_bins? might be too much though.
 
 User cares about final predictions, not cross-entropy loss. Cuando me ponga a correr los barridos y grid search, uso la cross-entropy loss para entrenar y penalizar al modelo, pero para elegir el modelo final para deploy, evaluar el que tenga mejor F1 Score.
-
-~~**Isolating Samples based on suspected repetition** (Mei)
-(Maybe), tratar de poner un max_cap a muestras que sean casi-identicas en {(lat, lon), author}, ya que probablemente representen al mismo pajaro, o at least condiciones de grabacion muy similares. Es un (maybe) igual porque qcyo, tampoco para ponerse *tan* exquisitos, como si tuvieramos 10,000 samples por cada especie. Maybe la unica razon por la que tenemos muestras de Acadian Flycatcher es porque el bueno de Oscar Humberto Marin-Gomez se sentó en el bosque de Quindio, Colombia para grabar algunos pajaros en 2007. Sino lo que diria es marcar una funcion que determine si grabaciones son consideradas is_unique en base a esas condiciones de metadata, y de ahi contar para cada especie, cuantas grabaciones en diff_situation tienen. Si tienen mas que $n_{threshold}$, entonces recortamos a que tengan solo diferentes, o alguna cuenta asi para tampoco sacarles muestras y ahora undersamplearlas (eg: Palomas tienen 2 difs, 100 repetidas le dejan 102; Robins tienen 15 difs les dejas 15). Definitely como primer paso, editar el metadata y agregarle una columna binaria de is_unique. A cada muestra le analizamos is_unique en base a (lat, lon), autor, date. Ask Chat:
-
-- como recomendaria evaluar las diferencias en time
-- como recomendaria definir is_unique
-- como hacer que recortemos muestras repetidas, pero sin darle overrepresentation a las que tienen pocas unicas y muchas repetidas (dar ejemplo de palomas & robins)
-- si hay muchas repetidas, consider elegir la de highest rating
-
-- Add feature to the original metadata, 'author'. Being the autor but with numerical IDs instead of names.
-- Siempre tener las grabaciones del mismo author en el mismo set asi no hay leaking.
-- Siempre tener los segmentos del mismo original_audio en el mismo set asi no hay leaking.
-- Al CSV final, agregarle 2 features extra para filtrar: 'og_audio', 'author' para hacer esto.~~
