@@ -1,20 +1,25 @@
-# Python Dockerfile
+# Python Dockerfile with full audio processing support
 FROM python:3.13-slim-bookworm
 
 # Set working directory
 WORKDIR /app
 
-# Install only essential system dependencies
+# Install system dependencies for audio processing
 RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
+    libsndfile1 \
+    ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better Docker layer caching
-COPY deploy-requirements-minimal.txt .
+COPY deploy-requirements.txt .
 
 # Install Python dependencies with optimizations
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r deploy-requirements-minimal.txt
+RUN pip install --no-cache-dir --upgrade pip wheel setuptools && \
+    pip install --no-cache-dir -r deploy-requirements.txt
 
 # Copy application code
 COPY . .
