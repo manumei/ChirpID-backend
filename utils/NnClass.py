@@ -67,6 +67,12 @@ class Nn:
             self.W[l]=(np.random.uniform(-limit, limit, (fan_out, fan_in)))
             self.b[l]=(np.zeros(fan_out))
 
+        # Initialize history tracking
+        self.loss_history = []
+        self.val_loss_history = []
+        self.accuracy_history = []
+        self.val_accuracy_history = []
+
     def ff(self,X=None):
         Z = [None]*(self.L+1)              # lista de matrices z
         A = [None]*(self.L+1)              # lista de matrices a
@@ -112,8 +118,12 @@ class Nn:
         best_weights = None
         best_biases = None
         wait = 0
-        loss_history = []
-        val_loss_history = []
+        
+        # Initialize history lists
+        self.loss_history = []
+        self.val_loss_history = []
+        self.accuracy_history = []
+        self.val_accuracy_history = []
 
         # For ADAM
         if optimizer == 'adam':
@@ -127,10 +137,11 @@ class Nn:
 
         for epoch in range(epochs):
             # Learning rate schedule
-            if lr_schedule == 'linear':
+            if lr_schedule and lr_schedule.get('type') == 'exponential':
+                decay = lr_schedule.get('decay', 0.96)
+                lr_epoch = lr * (decay ** epoch)
+            elif lr_schedule and lr_schedule.get('type') == 'linear':
                 lr_epoch = lr * (1 - epoch / epochs)
-            elif lr_schedule == 'exp':
-                lr_epoch = lr * (0.96 ** epoch)
             else:
                 lr_epoch = lr
 
@@ -165,21 +176,31 @@ class Nn:
                         self.W[l] -= lr_epoch * grad_W
                         self.b[l] -= lr_epoch * grad_b
 
-            # Full forward pass for tracking loss
+            # Full forward pass for tracking loss and accuracy
             _, Z_full = self.ff()
             train_loss = np.mean(cross_entropy(self.y, Z_full[self.L]))
-            loss_history.append(train_loss)
-
+            self.loss_history.append(train_loss)
             
+            # Calculate training accuracy
+            train_predictions = np.argmax(Z_full[self.L], axis=1)
+            train_true = np.argmax(self.y, axis=1)
+            train_accuracy = np.mean(train_predictions == train_true)
+            self.accuracy_history.append(train_accuracy)
+
             if valX is not None and valy is not None:         #trackear loss del validation set 
                 _, Z_val = self.ff(valX)
                 val_loss = np.mean(cross_entropy(valy, Z_val[self.L]))
-                val_loss_history.append(val_loss)
-
+                self.val_loss_history.append(val_loss)
                 
+                # Calculate validation accuracy
+                val_predictions = np.argmax(Z_val[self.L], axis=1)
+                val_true = np.argmax(valy, axis=1)
+                val_accuracy = np.mean(val_predictions == val_true)
+                self.val_accuracy_history.append(val_accuracy)
+
                 # Early stopping check
                 if patience is not None and epoch % eval_interval == 0:    #patience is not None o tambien puede ser early_stopping=False
-                    print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
+                    print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss:.4f} - Train Acc: {train_accuracy:.4f} - Val Loss: {val_loss:.4f} - Val Acc: {val_accuracy:.4f}")
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
                         best_weights = [w.copy() if w is not None else None for w in self.W]
@@ -192,13 +213,58 @@ class Nn:
                             self.W = best_weights
                             self.b = best_biases
                             break
+            else:
+                if epoch % eval_interval == 0:
+                    print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss:.4f} - Train Acc: {train_accuracy:.4f}")
 
-        # Plot training loss
-        plt.plot(range(1, len(loss_history) + 1), loss_history, label="Train Loss")
+        # Plot training history
+        plt.figure(figsize=(15, 5))
+        
+        # Plot losses
+        plt.subplot(1, 3, 1)
+        plt.plot(range(1, len(self.loss_history) + 1), self.loss_history, label="Train Loss")
         if valX is not None and valy is not None:
-            plt.plot(range(1, len(val_loss_history) + 1), val_loss_history, label="Validation Loss")
+            plt.plot(range(1, len(self.val_loss_history) + 1), self.val_loss_history, label="Validation Loss")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
+        plt.title("Training and Validation Loss")
         plt.legend()
         plt.grid(True)
+        
+        # Plot accuracies
+        plt.subplot(1, 3, 2)
+        plt.plot(range(1, len(self.accuracy_history) + 1), self.accuracy_history, label="Train Accuracy")
+        if valX is not None and valy is not None:
+            plt.plot(range(1, len(self.val_accuracy_history) + 1), self.val_accuracy_history, label="Validation Accuracy")
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy")
+        plt.title("Training and Validation Accuracy")
+        plt.legend()
+        plt.grid(True)
+        
+        # Plot learning rate over time if using schedule
+        plt.subplot(1, 3, 3)
+        if lr_schedule and lr_schedule.get('type') == 'exponential':
+            decay = lr_schedule.get('decay', 0.96)
+            lr_values = [lr * (decay ** epoch) for epoch in range(len(self.loss_history))]
+            plt.plot(range(1, len(lr_values) + 1), lr_values, label="Learning Rate")
+            plt.xlabel("Epoch")
+            plt.ylabel("Learning Rate")
+            plt.title("Learning Rate Schedule")
+            plt.legend()
+            plt.grid(True)
+        else:
+            # Plot final accuracies as bars if no LR schedule
+            if valX is not None and valy is not None:
+                final_train_acc = self.accuracy_history[-1] if self.accuracy_history else 0
+                final_val_acc = self.val_accuracy_history[-1] if self.val_accuracy_history else 0
+                plt.bar(['Training', 'Validation'], [final_train_acc, final_val_acc], 
+                       alpha=0.7, color=['blue', 'red'])
+                plt.ylabel('Final Accuracy')
+                plt.title('Final Training vs Validation Accuracy')
+                plt.ylim(0, 1)
+                for i, acc in enumerate([final_train_acc, final_val_acc]):
+                    plt.text(i, acc + 0.01, f'{acc:.3f}', ha='center', va='bottom')
+        
+        plt.tight_layout()
         plt.show()
