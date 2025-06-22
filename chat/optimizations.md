@@ -15,7 +15,7 @@ This document identifies potential optimizations found during the modular refact
 
 ### Cross-validation
 
-- **Parallel fold training**: K-fold cross-validation runs sequentially. Could implement parallel training of folds where GPU memory allows.
+- **Parallel fold training**: K-fold cross-validation runs sequentially. Could implement parallel training of folds where GPU memory allows. Make sure it optimizes efficiency, not conflicting with any other optimizations already applied to the training functions, unless they are obsolete or inferior in comparison.
 - **Early stopping optimization**: Early stopping only considers validation loss. Could implement multi-metric early stopping.
 
 ## 2. Memory and Storage Optimizations
