@@ -1,9 +1,5 @@
 # To-Do
 
-How to add noise to make model more robust? Research what the common pracvtices are, research how the papers did it.
-
-How to make the model deal with noise/silence? Should the model be able to predict if the audio is *not a bird*? What if the model receives just silence? What if it receives some audio that just isn't a bird at all? Shazam says "song not found".
-
 **Fully-Connected Neural Network** (Lara)
 Implement another model in models.py, an FCNN that works with flattened vectores instead of matrices.
 Aca dejo lo quepuse en el mensaje de WhatsApp por si sirve de tip:
@@ -20,6 +16,9 @@ Asi retornea una lista de vectores flats, en vez de matrices, como necesita la f
 
 Despues en models.py crea el modelo, uno nuevo abajo del que ya tenemos de BirdCNN. Avisale a Chat que considere que las dimensiones de los vectores de features de input son (70,112)
 
+**Noise Management**
+Read at [the noise prompt markdown file](../chat/noise.md) and send the prompt. Once done, check out the ChirpID project new chat naimed Noise Management.
+
 **Barridos & Grid Search** (Mei)
 Implement Early Stopping (xd), de mas aclarar again, para no correr 300 epochs de mas, tirar tiempo, y overfittear while at it. Research if there's some common heuristic for what early-stop margin to set. Replicar lo que pensé para el TP3 de guardarse el valor de loss mas bajo y sus pesos en esa instancia, y si *ese* valor no se mejora despues de $n$ epocas, entonces ahi si se corta el training.
 
@@ -29,3 +28,4 @@ Balance the classes. Use cost-reweighting, applied directly to the PyTorch tenso
 Try varying the threshold_factor, the segment durations, and maybe even some others? hop_len, nfft, mel_bins? might be too much though.
 
 User cares about final predictions, not cross-entropy loss. Cuando me ponga a correr los barridos y grid search, uso la cross-entropy loss para entrenar y penalizar al modelo, pero para elegir el modelo final para deploy, evaluar el que tenga mejor F1 Score.
+
