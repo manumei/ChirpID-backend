@@ -20,9 +20,6 @@ Asi retornea una lista de vectores flats, en vez de matrices, como necesita la f
 
 Despues en models.py crea el modelo, uno nuevo abajo del que ya tenemos de BirdCNN. Avisale a Chat que considere que las dimensiones de los vectores de features de input son (70,112)
 
-~~**Limit Segments per Audio** (Mei)
-Try limiting the max amount of segments per single audio sample, so that a single very long recording doesn't get significant over-representation above the other birds in that same (como dijo Trini, que la pajarita "Maria" no tenga demasiada sobre-representacion en toda su especie).~~
-
 **Barridos & Grid Search** (Mei)
 Implement Early Stopping (xd), de mas aclarar again, para no correr 300 epochs de mas, tirar tiempo, y overfittear while at it. Research if there's some common heuristic for what early-stop margin to set. Replicar lo que pensé para el TP3 de guardarse el valor de loss mas bajo y sus pesos en esa instancia, y si *ese* valor no se mejora despues de $n$ epocas, entonces ahi si se corta el training.
 
