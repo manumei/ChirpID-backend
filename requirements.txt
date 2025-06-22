@@ -59,6 +59,7 @@ typing_extensions==4.14.0
 tzdata==2025.2
 urllib3==2.4.0
 Werkzeug==3.0.1
+Flask-CORS==4.0.0
 gunicorn==21.2.0
 pytest==7.4.4
 pytest-cov==4.1.0
