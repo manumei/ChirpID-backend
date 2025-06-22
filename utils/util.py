@@ -469,15 +469,9 @@ def get_confusion_matrix(model, data_loader, device, num_classes):
     cm = confusion_matrix(all_targets, all_predictions, labels=range(num_classes))
     return cm, np.array(all_predictions), np.array(all_targets)
 
-def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(10, 8)):
+def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(12, 10)):
     """
-    Plot confusion matrix using seaborn heatmap or matplotlib if seaborn not available.
-    
-    Args:
-        cm: Confusion matrix numpy array
-        class_names: List of class names (optional)
-        title: Title for the plot
-        figsize: Figure size tuple
+    Plot confusion matrix showing only percentages to avoid overcrowding.
     """
     plt.figure(figsize=figsize)
     
@@ -487,24 +481,21 @@ def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsiz
     if class_names is None:
         class_names = [f'Class {i}' for i in range(cm.shape[0])]
 
-    # Create labels that show both count and percentage
-    labels = np.empty_like(cm).astype(str)
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            labels[i, j] = f'{cm[i, j]}\n({cm_normalized[i, j]:.1f}%)'
-    
-    # Plot heatmap with seaborn
+    # Show only percentages with 1 decimal place
     sns.heatmap(cm_normalized, 
-                annot=labels, 
-                fmt='', 
+                annot=True, 
+                fmt='.1f',
                 cmap='Blues',
                 xticklabels=class_names,
                 yticklabels=class_names,
-                cbar_kws={'label': 'Percentage'})
+                cbar_kws={'label': 'Percentage'},
+                annot_kws={'size': 8})  # Smaller font size
 
     plt.title(title)
     plt.xlabel('Predicted Label')
     plt.ylabel('True Label')
+    plt.xticks(rotation=45, ha='right')  # Rotate x labels
+    plt.yticks(rotation=0)
     plt.tight_layout()
     plt.show()
 
