@@ -1,0 +1,9 @@
+# Training
+
+I want you to read ModelTraining.ipynb, ModelSweeping.ipynb, and all the auxiliary files in utils/, especially split.py, training_utils.py, dataset_utils.py, models.py and cross_validation.py. Analyze the current auxiliary functions and their current refactored structures. Make any changes you see fit or optimal for the training process to be as clean, organized and structured as possible. Then update ModelTraining.ipynb and ModelSweeping.ipynb respectively to include the new implementations in the cells used for model training, replacing the outdated usages.
+
+I want my training functions to have a top-down structure where the top functions call on the auxiliary subfunctions, which themselves might call on smaller subfunctions. Modular programming, separation of concerns. We already apply a lot of this logic in this project, but it is very important we apply it especially and thoroughly to the training process, so that the user can cleanly and easily implement model training.\
+
+The final goal is to make 2 final refined functions that the user can import and call for training: cross_val_training and single_fold_training. These are the top of the hierarchy, and they call on various subfunctions from the different auxiliary files, which themselves might call on more subfunctions. Read all the files in utils/ and determine what the best way to apply this top-down design might be. It might be using classes and objects, it might be simply embedding function calls, it might be separating into more files, or maybe less files.
+
+Take the most optimal and cleanest decision, and after applying all the changes, create a very brief markdown file at tasks/train_instruct.md, detailing the few steps that the user must apply to run training on the model (pipeline should be something like: import data; process data; choose single-fold or k-fold; create the data grouped split; call the training function; plot metrics)
