@@ -66,8 +66,11 @@ pytest.ini
 .env.test
 
 # Large files that shouldn't be in container
+.venv/
+venv/
 database/
 models/
+data/
 
 # Development scripts
 scripts/

@@ -6,7 +6,7 @@ def create_app():
     app = Flask(__name__)
       # Configure CORS for React Native app
     CORS(app, 
-        origins=["*", "https://chirpid.utictactoe.online"],  # Allow all origins for development + production domain
+        origins=["https://chirpid.com", "https://www.chirpid.com"],
         methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"])
     
