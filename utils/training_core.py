@@ -126,7 +126,8 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
     print("=" * 60)
     print("SINGLE FOLD TRAINING")
     print("=" * 60)
-      # Set default configuration
+    
+    # Set default configuration
     default_config = {
         'num_epochs': 250,
         'batch_size': 48,
@@ -143,7 +144,11 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         # New optimization settings
         'optimize_dataloaders': True,
         'debug_dataloaders': False,  # Set to True for debugging
-        'benchmark_performance': False  # Set to True for performance testing
+        'benchmark_performance': False,  # Set to True for performance testing
+        # Additional training parameters
+        'use_adam': True,  # Whether to use Adam optimizer
+        'l2_regularization': 1e-4,  # L2 regularization strength
+        'lr_schedule': None  # Learning rate schedule configuration
     }
     config = {**default_config, **(config or {})}
     
@@ -193,11 +198,6 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
     print("=" * 60)
     
     return results
-
-
-def single_fold_training(data_path=None, features=None, labels=None, authors=None, 
-                        model_class=None, num_classes=None, config=None,
-                        spec_augment=False, gaussian_noise=False):
     """
     Top-level function for single-fold training with optimized DataLoaders.
     
