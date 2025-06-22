@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
 COPY deploy-requirements-minimal.txt .
 
 # Install Python dependencies with optimizations
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r deploy-requirements-minimal.txt
+RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
+    pip install --no-cache-dir --root-user-action=ignore -r deploy-requirements-minimal.txt
 
 # Copy application code
 COPY . .
