@@ -56,26 +56,27 @@ class FastStandardizedSubset(Dataset):
         return x_standardized, y
 
 class AugmentedDataset(Dataset):
-    """Dataset wrapper that applies SpecAugment during training."""
-    def __init__(self, base_dataset, augment_params=None, training=True):
+    """Dataset wrapper that applies on-the-fly augmentation during training."""
+    def __init__(self, base_dataset, use_spec_augment=False, use_gaussian_noise=False, 
+                 augment_params=None, training=True):
         self.base_dataset = base_dataset
         self.training = training
         
-        if augment_params is None:
-            augment_params = get_recommended_params()
+        # Import augmentation here to avoid circular imports
+        from utils.specaugment import OnTheFlyAugmentation, get_augmentation_params
         
-        self.augment_params = augment_params
+        if augment_params is None and (use_spec_augment or use_gaussian_noise):
+            # Get default params based on dataset size
+            augment_params = get_augmentation_params(len(base_dataset), 31)
         
-        # Initialize SpecAugment
-        if training:
-            self.spec_augment = PILSpecAugment(
-                freq_mask_param=augment_params.get('freq_mask_param', 15),
-                time_mask_param=augment_params.get('time_mask_param', 35),
-                num_freq_masks=augment_params.get('num_freq_masks', 1),
-                num_time_masks=augment_params.get('num_time_masks', 1)
-            )
-        else:
-            self.spec_augment = None
+        # Initialize augmentation pipeline
+        self.augmentation = OnTheFlyAugmentation(
+            use_spec_augment=use_spec_augment,
+            use_gaussian_noise=use_gaussian_noise,
+            spec_augment_params=augment_params.get('spec_augment_params') if augment_params else None,
+            gaussian_noise_params=augment_params.get('gaussian_noise_params') if augment_params else None,
+            training=training
+        )
     
     def __len__(self):
         return len(self.base_dataset)
@@ -83,21 +84,16 @@ class AugmentedDataset(Dataset):
     def __getitem__(self, idx):
         x, y = self.base_dataset[idx]
         
-        if self.training and self.spec_augment is not None:
-            # Convert tensor to PIL Image, apply augmentation, convert back
-            if isinstance(x, torch.Tensor):
-                # Convert tensor to numpy array
-                x_np = x.squeeze().numpy() if x.dim() > 2 else x.numpy()
-                # Normalize to 0-255 range for PIL
-                x_normalized = ((x_np - x_np.min()) / (x_np.max() - x_np.min()) * 255).astype(np.uint8)
-                # Convert to PIL Image
-                x_pil = Image.fromarray(x_normalized)
-                # Apply augmentation
-                x_aug = self.spec_augment(x_pil)
-                # Convert back to tensor
-                x = torch.tensor(np.array(x_aug), dtype=torch.float32).unsqueeze(0)
-                
+        # Apply augmentation only during training
+        if self.training:
+            x = self.augmentation(x)
+        
         return x, y
+    
+    def set_training(self, training):
+        """Set training mode for augmentation."""
+        self.training = training
+        self.augmentation.set_training(training)
 
 # Data Loading Functions
 def get_spect_matrix_list(spects_source_dir, spects_meta_df):
@@ -156,19 +152,22 @@ def get_spect_matrix_list(spects_source_dir, spects_meta_df):
 
     return matrices_list, labels_list, authors_list
 
-def create_augmented_dataset_wrapper(dataset, augment_params=None, training=True):
+def create_augmented_dataset_wrapper(dataset, use_spec_augment=False, use_gaussian_noise=False, 
+                                    augment_params=None, training=True):
     """
-    Create an augmented dataset wrapper with SpecAugment.
+    Create an augmented dataset wrapper with SpecAugment and/or Gaussian noise.
     
     Args:
         dataset: Base PyTorch dataset
-        augment_params: Dictionary of SpecAugment parameters
+        use_spec_augment (bool): Whether to apply SpecAugment
+        use_gaussian_noise (bool): Whether to apply Gaussian noise
+        augment_params: Dictionary of augmentation parameters
         training: Whether this is for training (applies augmentation) or validation
     
     Returns:
         AugmentedDataset wrapper
     """
-    return AugmentedDataset(dataset, augment_params, training)
+    return AugmentedDataset(dataset, use_spec_augment, use_gaussian_noise, augment_params, training)
 
 # Standardization Utilities
 def compute_standardization_stats(dataset, indices, sample_size=1000):

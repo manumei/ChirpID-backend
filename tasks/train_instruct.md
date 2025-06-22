@@ -33,6 +33,7 @@ authors = your_authors_array    # Shape: (N,)
 ### Step 2: Choose Training Type
 
 **For K-Fold Cross-Validation:**
+
 ```python
 results, best_results = cross_val_training(
     data_path=data_path,  # Or pass features, labels, authors
@@ -46,11 +47,14 @@ results, best_results = cross_val_training(
         'use_class_weights': False,
         'early_stopping': 35,
         'standardize': True
-    }
+    },
+    spec_augment=True,      # Enable SpecAugment (time/frequency masking)
+    gaussian_noise=False    # Enable Gaussian noise augmentation
 )
 ```
 
 **For Single Fold Training:**
+
 ```python
 results = single_fold_training(
     data_path=data_path,  # Or pass features, labels, authors
@@ -65,7 +69,9 @@ results = single_fold_training(
         'standardize': True,
         'test_size': 0.2
     },
-    use_predefined_split=True  # True = author-grouped split, False = stratified split
+    use_predefined_split=True,  # True = author-grouped split, False = stratified split
+    spec_augment=True,          # Enable SpecAugment (time/frequency masking)
+    gaussian_noise=True         # Enable Gaussian noise augmentation
 )
 ```
 

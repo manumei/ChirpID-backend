@@ -248,3 +248,127 @@ def test_specaugment_on_random_spec(shape=(224, 313), **augment_params):
     visualize_specaugment(random_spec, augmented_spec, "SpecAugment Test on Random Data")
     
     return random_spec, augmented_spec
+
+class GaussianNoise(nn.Module):
+    """
+    Additive Gaussian noise augmentation for spectrograms.
+    
+    Args:
+        std (float): Standard deviation of Gaussian noise
+        p (float): Probability of applying noise
+    """
+    
+    def __init__(self, std=0.02, p=0.8):
+        super().__init__()
+        self.std = std
+        self.p = p
+    
+    def forward(self, spec):
+        """
+        Apply Gaussian noise to spectrogram.
+        
+        Args:
+            spec (torch.Tensor): Input spectrogram
+        
+        Returns:
+            torch.Tensor: Noisy spectrogram
+        """
+        if random.random() > self.p:
+            return spec
+        
+        noise = torch.randn_like(spec) * self.std
+        return torch.clamp(spec + noise, 0.0, 1.0)  # Clamp to valid range
+
+
+class OnTheFlyAugmentation:
+    """
+    Combined SpecAugment and Gaussian noise augmentation for training.
+    Applied only during training, not validation/testing.
+    """
+    
+    def __init__(self, use_spec_augment=False, use_gaussian_noise=False, 
+                 spec_augment_params=None, gaussian_noise_params=None, training=True):
+        """
+        Initialize augmentation pipeline.
+        
+        Args:
+            use_spec_augment (bool): Whether to apply SpecAugment
+            use_gaussian_noise (bool): Whether to apply Gaussian noise
+            spec_augment_params (dict): Parameters for SpecAugment
+            gaussian_noise_params (dict): Parameters for Gaussian noise
+            training (bool): Whether in training mode
+        """
+        self.use_spec_augment = use_spec_augment
+        self.use_gaussian_noise = use_gaussian_noise
+        self.training = training
+        
+        # Initialize SpecAugment if enabled
+        if self.use_spec_augment and self.training:
+            if spec_augment_params is None:
+                spec_augment_params = get_recommended_params(1000, 31)  # Default params
+            self.spec_augment = SpecAugment(**spec_augment_params)
+        else:
+            self.spec_augment = None
+        
+        # Initialize Gaussian noise if enabled
+        if self.use_gaussian_noise and self.training:
+            if gaussian_noise_params is None:
+                gaussian_noise_params = {'std': 0.02, 'p': 0.8}
+            self.gaussian_noise = GaussianNoise(**gaussian_noise_params)
+        else:
+            self.gaussian_noise = None
+    
+    def __call__(self, spec):
+        """
+        Apply augmentations in sequence: SpecAugment -> Gaussian noise.
+        
+        Args:
+            spec (torch.Tensor): Input spectrogram
+        
+        Returns:
+            torch.Tensor: Augmented spectrogram
+        """
+        if not self.training:
+            return spec
+        
+        # Apply SpecAugment first
+        if self.spec_augment is not None:
+            spec = self.spec_augment(spec)
+        
+        # Apply Gaussian noise second
+        if self.gaussian_noise is not None:
+            spec = self.gaussian_noise(spec)
+        
+        return spec
+    
+    def set_training(self, training):
+        """Set training mode."""
+        self.training = training
+
+
+def get_augmentation_params(dataset_size, num_classes, aggressive=False):
+    """
+    Get recommended augmentation parameters.
+    
+    Args:
+        dataset_size (int): Total training samples
+        num_classes (int): Number of classes
+        aggressive (bool): Whether to use aggressive augmentation
+    
+    Returns:
+        dict: Combined parameters for both augmentations
+    """
+    # Get SpecAugment params
+    spec_params = get_recommended_params(dataset_size, num_classes)
+    
+    # Adjust for aggressiveness
+    if aggressive:
+        spec_params['p'] = min(0.95, spec_params['p'] + 0.1)
+        gaussian_params = {'std': 0.03, 'p': 0.9}
+    else:
+        gaussian_params = {'std': 0.02, 'p': 0.8}
+    
+    return {
+        'spec_augment_params': spec_params,
+        'gaussian_noise_params': gaussian_params
+    }

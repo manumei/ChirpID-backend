@@ -13,7 +13,8 @@ from utils.data_preparation import prepare_training_data, create_metadata_datafr
 
 
 def cross_val_training(data_path=None, features=None, labels=None, authors=None, 
-                      model_class=None, num_classes=None, config=None):
+                      model_class=None, num_classes=None, config=None,
+                      spec_augment=False, gaussian_noise=False):
     """
     Top-level function for K-fold cross-validation training.
     
@@ -25,6 +26,8 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         model_class: PyTorch model class to train
         num_classes (int): Number of output classes
         config (dict, optional): Training configuration parameters
+        spec_augment (bool): Whether to apply SpecAugment during training
+        gaussian_noise (bool): Whether to apply Gaussian noise during training
     
     Returns:
         dict: Complete training results including fold results and summary
@@ -44,7 +47,9 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         'standardize': True,
         'aggregate_predictions': True,
         'max_split_attempts': 30000,
-        'min_val_segments': 0
+        'min_val_segments': 0,
+        'spec_augment': spec_augment,
+        'gaussian_noise': gaussian_noise
     }
     config = {**default_config, **(config or {})}
     
@@ -96,7 +101,7 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
 
 def single_fold_training(data_path=None, features=None, labels=None, authors=None,
                         model_class=None, num_classes=None, config=None, 
-                        use_predefined_split=True):
+                        use_predefined_split=True, spec_augment=False, gaussian_noise=False):
     """
     Top-level function for single fold training.
     
@@ -109,6 +114,8 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         num_classes (int): Number of output classes
         config (dict, optional): Training configuration parameters
         use_predefined_split (bool): Whether to use author-grouped splitting
+        spec_augment (bool): Whether to apply SpecAugment during training
+        gaussian_noise (bool): Whether to apply Gaussian noise during training
     
     Returns:
         dict: Complete training results
@@ -128,7 +135,9 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         'test_size': 0.2,
         'random_state': 435,
         'max_split_attempts': 10000,
-        'min_test_segments': 5
+        'min_test_segments': 5,
+        'spec_augment': spec_augment,
+        'gaussian_noise': gaussian_noise
     }
     config = {**default_config, **(config or {})}
     

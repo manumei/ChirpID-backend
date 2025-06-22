@@ -245,7 +245,8 @@ class TrainingEngine:
         return results
     
     def _create_data_subsets(self, dataset, train_indices, val_indices):
-        """Create standardized data subsets if requested."""
+        """Create standardized and/or augmented data subsets if requested."""
+        # First apply standardization if requested
         if self.config.get('standardize', False):
             print("Computing standardization statistics...")
             train_mean, train_std = compute_standardization_stats(
@@ -256,15 +257,50 @@ class TrainingEngine:
             
             train_subset = create_standardized_subset(dataset, train_indices, train_mean, train_std)
             val_subset = create_standardized_subset(dataset, val_indices, train_mean, train_std)
-            
-            return train_subset, val_subset
         else:
-            return Subset(dataset, train_indices), Subset(dataset, val_indices)
+            from torch.utils.data import Subset
+            train_subset = Subset(dataset, train_indices)
+            val_subset = Subset(dataset, val_indices)
+        
+        # Then apply augmentation to training set only if requested
+        use_spec_augment = self.config.get('spec_augment', False)
+        use_gaussian_noise = self.config.get('gaussian_noise', False)
+        
+        if use_spec_augment or use_gaussian_noise:
+            print(f"Applying augmentations - SpecAugment: {use_spec_augment}, GaussianNoise: {use_gaussian_noise}")
+            
+            # Get augmentation parameters
+            from utils.specaugment import get_augmentation_params
+            augment_params = get_augmentation_params(
+                len(train_indices), 
+                self.num_classes,
+                aggressive=self.config.get('aggressive_augmentation', False)
+            )
+            
+            # Apply augmentation only to training set
+            train_subset = create_augmented_dataset_wrapper(
+                train_subset, 
+                use_spec_augment=use_spec_augment,
+                use_gaussian_noise=use_gaussian_noise,
+                augment_params=augment_params,
+                training=True
+            )
+            
+            # Validation set remains unaugmented
+            val_subset = create_augmented_dataset_wrapper(
+                val_subset,
+                use_spec_augment=False,
+                use_gaussian_noise=False,
+                training=False
+            )
+        
+        return train_subset, val_subset
     
     def _create_data_loaders(self, train_subset, val_subset):
         """Create optimized data loaders."""
         # Determine optimal worker count
-        num_workers = min(4, os.cpu_count() or 1) if self.config.get('standardize', False) else 0
+        use_augmentation = self.config.get('spec_augment', False) or self.config.get('gaussian_noise', False)
+        num_workers = 0 if (self.config.get('standardize', False) or use_augmentation) else min(4, os.cpu_count() or 1)
         
         train_loader = DataLoader(
             train_subset,
