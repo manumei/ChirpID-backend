@@ -1,5 +1,24 @@
 # Noise Management
 
-Should I add noise to make model more robust? What are the common practices in tasks like this one? How did the papers do it?. I already use noisereduce when I load the audios for the spectrograms, is this enough to deal with noisy inputs for inference?
+Implement on-the-fly spectrogram augmentation for my model training pipeline, using a combination of SpecAugment (time masking, frequency masking, and optionally time warping) and additive Gaussian noise.
+Requirements:
 
-Also another question which might or might not be related: How to make the model deal with noise/silence/fake samples? Should the model be able to predict if the audio is *not a bird*? What if the model receives just silence? What if it receives some audio that just isn't a bird at all? Shazam for example says "song not found"? What are the common practices? Do any of the papers or BirdNet mention how they handle this?
+Apply augmentations only during training batches, not during initial spectrogram creation or validation/testing.
+
+SpecAugment should include at least frequency masking and time masking. (Time warping is optional depending on complexity or library support.)
+
+Additive Gaussian noise should be applied with configurable standard deviation, after SpecAugment, to the batch or sample.
+
+Implementation should work within my existing PyTorch DataLoader/Dataset structure, applying transformations inside __getitem__ or via a callable transform.
+
+Ensure that augmentation is randomized for each epoch/batch.
+
+Use only standard libraries (torch, numpy, etc.) or minimal external dependencies if required.
+
+Integrate with my current codebase and data pipeline as described in the provided files.
+
+Clearly document where in the pipeline the augmentations are applied.
+
+Output only the implementation code and brief integration notes. No commentary or extra explanation.
+
+*IMPORTANT! I want both of these as optional booleans before training the model itself. The training function must receive the parameters specAugment: bool, gaussianNoise: bool, and use the True/False conditions to determine whether or not to apply any of the two augmentation methods*
