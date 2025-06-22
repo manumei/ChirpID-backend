@@ -25,9 +25,6 @@ COPY gunicorn.conf.py .
 RUN mkdir -p app/uploads && \
     chmod -R 777 app/uploads
 
-# Don't switch to non-root user - stay as root for volume write permissions
-# This is acceptable for containerized applications that need file access
-
 # Expose port
 EXPOSE 5001
 
