@@ -1,14 +1,16 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from app.routes.audio import audio_bp
+import os
 
 def create_app():
     app = Flask(__name__)
-      # Configure CORS for React Native app
-    CORS(app, 
-        origins=["*", "https://chirpid.utictactoe.online"],  # Allow all origins for development + production domain
-        methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization"])
+    
+    # Enable CORS for local development
+    if os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG') == '1':
+        CORS(app, origins=['http://localhost:4321', 'http://127.0.0.1:4321'])
+    else:
+        CORS(app, origins=['http://localhost:4321'])
     
     # Add ping route for connection testing
     @app.route("/ping", methods=["GET"])

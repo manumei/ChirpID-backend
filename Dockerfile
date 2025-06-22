@@ -1,38 +1,29 @@
-# Python Dockerfile
+# Python Dockerfile - Optimized for production
 FROM python:3.13-slim-bookworm
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for audio processing
+# Install only essential system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    make \
-    libsndfile1 \
-    ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better Docker layer caching
-COPY deploy-requirements.txt .
+COPY deploy-requirements-minimal.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r deploy-requirements.txt
+# Install Python dependencies with optimizations
+RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
+    pip install --no-cache-dir --root-user-action=ignore -r deploy-requirements-minimal.txt
 
-# Copy application code
-COPY . .
-
-# Copy Gunicorn configuration
+# Copy only essential application files
+COPY app/ ./app/
+COPY server/ ./server/
 COPY gunicorn.conf.py .
 
-# Create uploads directory
-RUN mkdir -p app/uploads
-
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
-USER appuser
+# Create uploads directory with proper permissions
+RUN mkdir -p app/uploads && \
+    chmod -R 777 app/uploads
 
 # Expose port
 EXPOSE 5001
@@ -41,5 +32,5 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5001/health || exit 1
 
-# Run the application
+# Run the application directly
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "server.wsgi:application"]

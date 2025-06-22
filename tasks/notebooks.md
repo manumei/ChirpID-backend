@@ -20,15 +20,23 @@ Loads the dev/ audio files with librosa, extracts high-energy segments using RMS
 
 Reads the extracted audio segments from database/audio_segments/ using the metadata CSV created by AudioExtracting notebook. Applies optional noise reduction to each segment, generates mel spectrograms, and saves them as .png images in database/spect/. Also saves a few test audio samples for verification. Creates final_spects.csv with spectrogram metadata for downstream processing.
 
-### 5. [DataLoading.ipynb](../notebooks/DataLoading.ipynb) | Status: Work in Progress 🛠️
+### 5. [DataLoading.ipynb](../notebooks/DataLoading.ipynb) | Status: Developed 🚀
 
 Takes the spectrograms from the spect/ folder, and gets the images into a matrix form, with the grayscale of all the pixels, so they can be given to a Convolutional Neural Network for training. It loads the matrices pixel info into a CSV so they can then be read & extracted, easily reconverted into a feedable matrix without having to re-run this notebook again. The target CSV (at database/meta/train_data.csv) has a row for each sample, with the columns 'label' (class_id), and then all the pixel elements of the spectrogram.
 
-### 6. [ModelTraining.ipynb](../notebooks/ModelTraining.ipynb) | Status: To be started ⏳
+### 5.5 [DevTraining.ipynb](../notebooks/DevTraining.ipynb) | Status: Work in Progress 🛠️
+
+This notebook is an intermediary step before trying the training sweeps, where I test and debug why things are going wrong with the data. I run single fold tests with various small differences to see if there is a small issue causing big consequences that affect the model's development.
+
+### 6. [ModelSweeping.ipynb](../notebooks/ModelSweeping.ipynb) | Status: Work in Progress 🛠️
+
+Makes a Grid Search and Sweeps of different ML techniques and Model Architectures to try and find the best one for final training and production.
+
+### 7. [ModelTraining.ipynb](../notebooks/ModelTraining.ipynb) | Status: Work in Progress 🛠️
 
 This notebook reads the train_data.csv, gets the matrices and turns them into torch tensors, and with that it trains the CNN PyTorch model imported from utils/models.py. It runs the entire training process and then in a final cell saves the model with its weights in a .pth file, so it can be imported and loaded from other files (such as .py or .ipynb files) for instant predictions based on the trained weights, without having to do re-training.
 
-### 7. [ModelTesting.ipynb](../notebooks/ModelTesting.ipynb) | Status: To be started ⏳
+### 8. [ModelTesting.ipynb](../notebooks/ModelTesting.ipynb) | Status: To be started ⏳
 
 Loads the saved model from the ModelTesting Notebook without doing any re-training, and is given the test set to evaluate final performance.
 

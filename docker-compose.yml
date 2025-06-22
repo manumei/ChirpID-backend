@@ -10,7 +10,7 @@ services:
       - FLASK_DEBUG=False
       - PORT=5001
     volumes:
-      - ./app/uploads:/app/app/uploads
+      - ./app/uploads:/app/app/uploads:rw
       - ./database:/app/database
     networks:
       - app-network

@@ -3,7 +3,6 @@
 
 # Web framework
 Flask==3.0.0
-Flask-Cors==4.0.0
 Werkzeug==3.0.1
 gunicorn==21.2.0
 
@@ -16,11 +15,11 @@ librosa==0.11.0
 soundfile==0.13.1
 audioread==3.0.1
 
-# PyTorch for model inference
+# PyTorch for model inference (CPU-only, smaller downloads)
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.1.0+cpu
-torchvision==0.16.0+cpu
-torchaudio==2.1.0+cpu
+torch==2.1.0+cpu --only-binary=torch
+torchvision==0.16.0+cpu --only-binary=torchvision
+torchaudio==2.1.0+cpu --only-binary=torchaudio
 
 # Required dependencies for librosa and audio processing
 joblib==1.5.1

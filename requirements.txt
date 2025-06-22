@@ -13,7 +13,6 @@ decorator==5.2.1
 fastrlock==0.8.3
 filelock==3.18.0
 Flask==3.0.0
-Flask-Cors==4.0.0
 fonttools==4.58.4
 fsspec==2025.5.1
 idna==3.10
@@ -60,6 +59,7 @@ typing_extensions==4.14.0
 tzdata==2025.2
 urllib3==2.4.0
 Werkzeug==3.0.1
+Flask-CORS==4.0.0
 gunicorn==21.2.0
 pytest==7.4.4
 pytest-cov==4.1.0

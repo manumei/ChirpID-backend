@@ -1,0 +1,11 @@
+# Minimal production requirements for ChirpID backend (mock version)
+# Core dependencies for runtime
+
+# Web framework
+Flask==3.0.0
+Werkzeug==3.0.1
+gunicorn==21.2.0
+
+# Utility packages
+requests==2.32.4
+python-dotenv==1.1.0
