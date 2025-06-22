@@ -6,11 +6,7 @@ WORKDIR /app
 
 # Install only essential system dependencies
 RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user early for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+    curl \    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better Docker layer caching
 COPY deploy-requirements-minimal.txt .
@@ -24,25 +20,12 @@ COPY app/ ./app/
 COPY server/ ./server/
 COPY gunicorn.conf.py .
 
-# Create uploads directory and set ownership for required directories only
+# Create uploads directory with proper permissions
 RUN mkdir -p app/uploads && \
-    chown -R appuser:appuser app/uploads server/ gunicorn.conf.py && \
-    chmod -R 775 app/uploads
+    chmod -R 777 app/uploads
 
-# Create entrypoint script to fix permissions at runtime
-RUN echo '#!/bin/bash\n\
-    # Fix permissions for mounted volumes\n\
-    chown -R appuser:appuser /app/app/uploads\n\
-    chmod -R 775 /app/app/uploads\n\
-    # Switch to appuser and run the application\n\
-    exec su-exec appuser gunicorn --config gunicorn.conf.py server.wsgi:application\n\
-    ' > /entrypoint.sh && chmod +x /entrypoint.sh
-
-# Install su-exec for user switching
-RUN apt-get update && apt-get install -y su-exec && rm -rf /var/lib/apt/lists/*
-
-# Don't switch to non-root user yet - we'll do it in entrypoint
-# USER appuser
+# Don't switch to non-root user - stay as root for volume write permissions
+# This is acceptable for containerized applications that need file access
 
 # Expose port
 EXPOSE 5001
@@ -51,5 +34,5 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5001/health || exit 1
 
-# Run the application with entrypoint script
-CMD ["/entrypoint.sh"]
+# Run the application directly
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "server.wsgi:application"]
