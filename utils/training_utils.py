@@ -139,372 +139,55 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
     
     return history
 
-# Single Fold Training Functions
+# Legacy Support Functions
+# These functions are maintained for backward compatibility but users should
+# prefer the new training_core.single_fold_training() and training_core.cross_val_training()
+
 def single_fold_training_with_predefined_split(dataset, train_indices, val_indices, model_class, num_classes, 
                                              num_epochs=250, batch_size=48, lr=0.001, 
                                              use_class_weights=True, estop=35, standardize=False):
     """
-    Perform single fold training with predefined train/validation indices and standardization.
-    
-    Args:
-        dataset: PyTorch dataset containing all data
-        train_indices: Indices for training set
-        val_indices: Indices for validation set
-        model_class: Model class to instantiate
-        num_classes: Number of output classes
-        num_epochs: Number of epochs to train
-        batch_size: Batch size for data loaders
-        lr: Learning rate
-        use_class_weights: If True, compute and use class weights
-        estop: Number of epochs without improvement before early stopping
-        standardize: If True, standardize features using training data statistics
-    
-    Returns:
-        Dictionary containing training history, final model, and confusion matrix
+    Legacy function - use training_core.single_fold_training() instead.
+    Perform single fold training with predefined train/validation indices.
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("⚠️  Warning: This function is deprecated. Use training_core.single_fold_training() instead.")
     
-    print(f"Training on {device}")
-    print(f"Dataset size: {len(dataset)}")
-    print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
+    # Import here to avoid circular imports
+    from utils.training_engine import TrainingEngine
     
-    # Standardization
-    if standardize:
-        print("Computing standardization statistics...")
-        train_mean, train_std = compute_standardization_stats(dataset, train_indices, sample_size=1000)
-        print(f"Training data statistics (from sample) - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
-        
-        train_subset = create_standardized_subset(dataset, train_indices, train_mean, train_std)
-        val_subset = create_standardized_subset(dataset, val_indices, train_mean, train_std)
-        print("Created standardized dataset wrappers")
-    else:
-        train_subset = Subset(dataset, train_indices)
-        val_subset = Subset(dataset, val_indices)
-    
-    # Class weights computation
-    criterion = nn.CrossEntropyLoss()
-    if use_class_weights:
-        print("Computing class weights...")
-        train_labels = [dataset[i][1].item() for i in train_indices]
-        unique_classes = np.unique(train_labels)
-        
-        class_weights_array = compute_class_weight(
-            'balanced',
-            classes=unique_classes,
-            y=train_labels
-        )
-        
-        class_weights = torch.ones(num_classes)
-        for i, cls in enumerate(unique_classes):
-            class_weights[cls] = class_weights_array[i]
-        
-        class_weights = class_weights.to(device)
-        print(f"Class weights computed: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
-        
-        criterion = nn.CrossEntropyLoss(weight=class_weights)
-    
-    # Data loaders
-    print("Creating data loaders...")
-    
-    # Optimize DataLoader settings based on standardization
-    if standardize:
-        num_workers = 0  # Custom datasets need single-threaded loading
-    else:
-        num_workers = min(4, os.cpu_count() or 1)
-    
-    train_loader = DataLoader(
-        train_subset, batch_size=batch_size, shuffle=True,
-        num_workers=num_workers, pin_memory=True if device.type == 'cuda' else False,
-        persistent_workers=False, prefetch_factor=2 if num_workers > 0 else None
-    )
-
-    val_loader = DataLoader(
-        val_subset, batch_size=batch_size, shuffle=False,
-        num_workers=num_workers, pin_memory=True if device.type == 'cuda' else False,
-        persistent_workers=False, prefetch_factor=2 if num_workers > 0 else None
-    )
-    
-    # Initialize model and optimizer
-    model = model_class(num_classes=num_classes).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
-    
-    # Train the model
-    history = train_single_fold(
-        model, train_loader, val_loader, criterion, optimizer,
-        num_epochs, device, fold_num=None, estop=estop, scheduler=scheduler
-    )
-    
-    # Get final validation metrics
-    final_val_loss, final_val_acc, final_val_f1 = validate_epoch(model, val_loader, criterion, device)
-    
-    # Generate confusion matrix
-    print("Generating confusion matrix...")
-
-    val_confusion_matrix, val_predictions, val_targets = get_confusion_matrix(model, val_loader, device, num_classes)
-    
-    results = {
-        'history': history,
-        'final_val_acc': final_val_acc,
-        'final_val_loss': final_val_loss,
-        'final_val_f1': final_val_f1,
-        'best_val_acc': max(history['val_accuracies']),
-        'best_val_f1': max(history['val_f1s']),
-        'model': model,
-        'model_state': model.state_dict().copy(),
-        'confusion_matrix': val_confusion_matrix,
-        'val_predictions': val_predictions,
-        'val_targets': val_targets,
-        'config': {
-            'num_epochs': num_epochs, 'batch_size': batch_size, 'learning_rate': lr,
-            'device': str(device), 'use_class_weights': use_class_weights,
-            'estop': estop, 'standardize': standardize, 'predefined_split': True
-        }
+    config = {
+        'num_epochs': num_epochs,
+        'batch_size': batch_size,
+        'learning_rate': lr,
+        'use_class_weights': use_class_weights,
+        'early_stopping': estop,
+        'standardize': standardize
     }
     
-    if standardize:
-        results['train_mean'] = train_mean.item()
-        results['train_std'] = train_std.item()
-    
-    print(f"\nTraining Complete!")
-    if history['early_stopped']:
-        print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
-    print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
-    print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
-    
-    return results
+    engine = TrainingEngine(model_class, num_classes, config)
+    return engine.run_single_fold_predefined(dataset, train_indices, val_indices)
 
-def fast_single_fold_training_with_predefined_split(dataset, train_indices, val_indices, model_class, num_classes, 
-                                                   num_epochs=250, batch_size=48, lr=0.001, 
-                                                   use_class_weights=True, estop=35, standardize=False):
+def single_fold_training(dataset, model_class, num_classes, num_epochs=250, batch_size=48, lr=0.001, 
+                        test_size=0.2, random_state=435, use_class_weights=True, estop=35):
     """
-    Optimized version of single fold training with minimal startup overhead.
-    
-    Optimizations:
-    - Efficient standardization using sampling
-    - Reduced DataLoader workers and overhead
-    - Streamlined setup process
+    Legacy function - use training_core.single_fold_training() instead.
+    Perform single fold training with stratified split.
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("⚠️  Warning: This function is deprecated. Use training_core.single_fold_training() instead.")
     
-    print(f"Fast training on {device}")
-    print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
+    # Import here to avoid circular imports
+    from utils.training_engine import TrainingEngine
     
-    # Quick standardization if needed
-    if standardize:
-        print("Quick standardization computation...")
-        train_mean, train_std = compute_standardization_stats(dataset, train_indices, sample_size=200)
-        print(f"Standardization computed from sample - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
-        
-        train_subset = create_standardized_subset(dataset, train_indices, train_mean, train_std, fast=True)
-        val_subset = create_standardized_subset(dataset, val_indices, train_mean, train_std, fast=True)
-    else:
-        train_subset = Subset(dataset, train_indices)
-        val_subset = Subset(dataset, val_indices)
-    
-    # Quick class weights computation
-    criterion = nn.CrossEntropyLoss()
-    if use_class_weights:
-        print("Computing class weights...")
-        # Vectorized approach for class weights
-        sample_size = min(len(train_indices), 1000)
-        train_labels_tensor = torch.tensor([dataset[i][1].item() for i in train_indices[:sample_size]])
-        unique_classes, counts = torch.unique(train_labels_tensor, return_counts=True)
-        
-        # Simple balanced weighting
-        total_samples = len(train_labels_tensor)
-        weights = total_samples / (len(unique_classes) * counts.float())
-        
-        class_weights = torch.ones(num_classes, device=device)
-        class_weights[unique_classes] = weights.to(device)
-        
-        criterion = nn.CrossEntropyLoss(weight=class_weights)
-        print(f"Class weights: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
-    
-    # Optimized DataLoaders (single-threaded to avoid pickling issues)
-    print("Creating optimized data loaders...")
-    
-    train_loader = DataLoader(
-        train_subset, batch_size=batch_size, shuffle=True,
-        num_workers=0, pin_memory=False, persistent_workers=False
-    )
-
-    val_loader = DataLoader(
-        val_subset, batch_size=batch_size, shuffle=False,
-        num_workers=0, pin_memory=False, persistent_workers=False
-    )
-    
-    # Initialize model and training
-    print("Initializing model...")
-    model = model_class(num_classes=num_classes).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
-    
-    print("Starting training...")
-    # Train the model
-    history = train_single_fold(
-        model, train_loader, val_loader, criterion, optimizer,
-        num_epochs, device, fold_num=None, estop=estop, scheduler=scheduler
-    )
-    
-    # Get final validation metrics
-    final_val_loss, final_val_acc, final_val_f1 = validate_epoch(model, val_loader, criterion, device)
-    
-    # Generate confusion matrix
-    print("Generating confusion matrix...")
-
-    val_confusion_matrix, val_predictions, val_targets = get_confusion_matrix(model, val_loader, device, num_classes)
-    
-    results = {
-        'history': history,
-        'final_val_acc': final_val_acc,
-        'final_val_loss': final_val_loss,
-        'final_val_f1': final_val_f1,
-        'best_val_acc': max(history['val_accuracies']),
-        'best_val_f1': max(history['val_f1s']),
-        'model': model,
-        'model_state': model.state_dict().copy(),
-        'confusion_matrix': val_confusion_matrix,
-        'val_predictions': val_predictions,
-        'val_targets': val_targets,
-        'config': {
-            'num_epochs': num_epochs, 'batch_size': batch_size, 'learning_rate': lr,
-            'device': str(device), 'use_class_weights': use_class_weights,
-            'estop': estop, 'standardize': standardize, 'predefined_split': True, 'fast_training': True
-        }
+    config = {
+        'num_epochs': num_epochs,
+        'batch_size': batch_size,
+        'learning_rate': lr,
+        'test_size': test_size,
+        'random_state': random_state,
+        'use_class_weights': use_class_weights,
+        'early_stopping': estop,
+        'standardize': False
     }
     
-    if standardize:
-        results['train_mean'] = train_mean.item()
-        results['train_std'] = train_std.item()
-    
-    print(f"\nTraining Complete!")
-    if history['early_stopped']:
-        print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
-    print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
-    print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
-    
-    return results
-
-def fast_single_fold_training_with_augmentation(dataset, train_indices, val_indices, model_class, num_classes, 
-                                               num_epochs=250, batch_size=48, lr=0.001, 
-                                               use_class_weights=True, estop=35, standardize=False,
-                                               augment_params=None):
-    """
-    Optimized single fold training with SpecAugment data augmentation.
-    
-    Args:
-        dataset: PyTorch dataset containing all data
-        train_indices: Indices for training set
-        val_indices: Indices for validation set
-        model_class: Model class to instantiate
-        num_classes: Number of output classes
-        num_epochs: Number of epochs to train
-        batch_size: Batch size for data loaders
-        lr: Learning rate
-        use_class_weights: If True, compute and use class weights
-        estop: Number of epochs without improvement before early stopping
-        standardize: If True, standardize features
-        augment_params: Dictionary of SpecAugment parameters
-    
-    Returns:
-        Dictionary containing training history and results
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    print(f"Training with SpecAugment on {device}")
-    print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
-    
-    # Step 1: Standardization (same as fast training)
-    if standardize:
-        print("Quick standardization computation...")
-        train_mean, train_std = compute_standardization_stats(dataset, train_indices, sample_size=200)
-        print(f"Standardization computed from sample - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
-        
-        base_train_subset = create_standardized_subset(dataset, train_indices, train_mean, train_std, fast=True)
-        val_subset = create_standardized_subset(dataset, val_indices, train_mean, train_std, fast=True)
-    else:
-        base_train_subset = Subset(dataset, train_indices)
-        val_subset = Subset(dataset, val_indices)
-    
-    # Step 2: Add augmentation to training set only
-    train_subset = create_augmented_dataset_wrapper(base_train_subset, augment_params, training=True)
-    
-    # Step 3: Class weights computation (same as before)
-    criterion = nn.CrossEntropyLoss()
-    if use_class_weights:
-        print("Computing class weights...")
-        sample_size = min(len(train_indices), 1000)
-        train_labels_tensor = torch.tensor([dataset[i][1].item() for i in train_indices[:sample_size]])
-        unique_classes, counts = torch.unique(train_labels_tensor, return_counts=True)
-        
-        total_samples = len(train_labels_tensor)
-        weights = total_samples / (len(unique_classes) * counts.float())
-        
-        class_weights = torch.ones(num_classes, device=device)
-        class_weights[unique_classes] = weights.to(device)
-        
-        criterion = nn.CrossEntropyLoss(weight=class_weights)
-        print(f"Class weights: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
-    
-    # Step 4: DataLoaders
-    print("Creating data loaders with augmentation...")
-    
-    train_loader = DataLoader(
-        train_subset, batch_size=batch_size, shuffle=True,
-        num_workers=0, pin_memory=False, persistent_workers=False
-    )
-
-    val_loader = DataLoader(
-        val_subset, batch_size=batch_size, shuffle=False,
-        num_workers=0, pin_memory=False, persistent_workers=False
-    )
-    
-    # Step 5: Training
-    model = model_class(num_classes=num_classes).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6)
-    
-    history = train_single_fold(
-        model, train_loader, val_loader, criterion, optimizer,
-        num_epochs, device, fold_num=None, estop=estop, scheduler=scheduler
-    )
-    
-    # Final metrics and confusion matrix
-    final_val_loss, final_val_acc, final_val_f1 = validate_epoch(model, val_loader, criterion, device)
-    
-    print("Generating confusion matrix...")
-
-    val_confusion_matrix, val_predictions, val_targets = get_confusion_matrix(model, val_loader, device, num_classes)
-    
-    results = {
-        'history': history,
-        'final_val_acc': final_val_acc,
-        'final_val_loss': final_val_loss,
-        'final_val_f1': final_val_f1,
-        'best_val_acc': max(history['val_accuracies']),
-        'best_val_f1': max(history['val_f1s']),
-        'model': model,
-        'model_state': model.state_dict().copy(),
-        'confusion_matrix': val_confusion_matrix,
-        'val_predictions': val_predictions,
-        'val_targets': val_targets,
-        'augment_params': augment_params,
-        'config': {
-            'num_epochs': num_epochs, 'batch_size': batch_size, 'learning_rate': lr,
-            'device': str(device), 'use_class_weights': use_class_weights,
-            'estop': estop, 'standardize': standardize, 'specaugment': True, 'predefined_split': True
-        }
-    }
-    
-    if standardize:
-        results['train_mean'] = train_mean.item()
-        results['train_std'] = train_std.item()
-    
-    print(f"\nTraining with SpecAugment Complete!")
-    if history['early_stopped']:
-        print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
-    print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
-    print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
-    
-    return results
+    engine = TrainingEngine(model_class, num_classes, config)
+    return engine.run_single_fold_stratified(dataset)
