@@ -12,3 +12,5 @@ Instructions.md es claro y conciso, estructurado con numeros y pasos, y para des
 ### notebooks.md
 
 Information about each of the notebooks, showing the order they come in, what each of them uses, what it does with it, and the changes it executes during its utility
+
+*Estos notebooks eventualmente se convertiran en READMEs de distintas secciones una vez terminados.*
