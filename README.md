@@ -190,8 +190,35 @@ curl http://localhost:5001/health
    sudo chown -R $USER:$USER app/uploads database/
    ```
 
+   **Or use the automated fix script:**
+
+   ```bash
+   ./fix-permissions.sh
+   ```
+
+   This script automatically fixes all permission issues including:
+   - Upload directory permissions
+   - Git workspace permissions
+   - Docker-related permission issues
+   - Cleanup of problematic audio files
+
 3. **Image not found:**
    Make sure to build the image first or check the registry URL
+
+4. **GitHub Actions deployment permission errors:**
+   
+   If you see errors like `EACCES: permission denied, unlink` during deployment:
+   
+   ```bash
+   # The workflow now automatically handles this, but you can manually fix it:
+   ./fix-permissions.sh
+   
+   # Or manually:
+   sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+   sudo rm -rf app/uploads/*
+   ```
+   
+   The deploy.yml workflow has been updated with pre-checkout cleanup to prevent these issues.
 
 ### Performance Tuning
 

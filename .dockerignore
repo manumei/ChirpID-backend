@@ -71,6 +71,8 @@ venv/
 database/
 models/
 data/
+app/uploads/
+uploads/
 
 # Development scripts
 scripts/
