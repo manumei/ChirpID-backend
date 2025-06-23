@@ -15,7 +15,7 @@ COPY deploy-requirements.txt .
 
 # Install Python dependencies with optimizations
 RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
-    pip install --no-cache-dir --root-user-action=ignore -r deploy-requirements-minimal.txt
+    pip install --no-cache-dir --root-user-action=ignore -r deploy-requirements.txt
 
 # Copy only essential application files
 COPY app/ ./app/
