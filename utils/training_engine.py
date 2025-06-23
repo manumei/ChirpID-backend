@@ -392,6 +392,7 @@ class TrainingEngine:
         best_val_loss = float('inf')
         patience_counter = 0
         estop = self.config.get('early_stopping', 35)
+        best_model_state = None
         
         fold_desc = f"Fold {fold_num}" if fold_num else "Training"
         
@@ -413,30 +414,40 @@ class TrainingEngine:
             history['val_losses'].append(val_loss)
             history['val_accuracies'].append(val_acc)
             history['val_f1s'].append(val_f1)
-            
-            # Learning rate scheduling
+              # Learning rate scheduling
             scheduler.step(val_loss)
             current_lr = optimizer.param_groups[0]['lr']
             history['learning_rates'].append(current_lr)
-              # Early stopping check
+            
+            # Early stopping check with model state saving
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 history['best_epoch'] = epoch
                 patience_counter = 0
+                # Save best model state
+                best_model_state = model.state_dict().copy()
             else:
                 patience_counter += 1
                 if patience_counter >= estop:
                     print(f"Early stopping at epoch {epoch + 1}")
+                    print(f"Restoring best model from epoch {history['best_epoch'] + 1}")
+                    # Restore best model state
+                    if best_model_state is not None:
+                        model.load_state_dict(best_model_state)
                     history['early_stopped'] = True
                     break
             
             history['total_epochs'] = epoch + 1
-            
             # Progress update
             if (epoch + 1) % 50 == 0:
                 print(f"Epoch {epoch + 1}/{self.config['num_epochs']} - "
-                      f"Train: Loss={train_loss:.4f}, Acc={train_acc:.4f}, F1={train_f1:.4f} - "
-                      f"Val: Loss={val_loss:.4f}, Acc={val_acc:.4f}, F1={val_f1:.4f}")
+                    f"Train: Loss={train_loss:.4f}, Acc={train_acc:.4f}, F1={train_f1:.4f} - "
+                    f"Val: Loss={val_loss:.4f}, Acc={val_acc:.4f}, F1={val_f1:.4f}")
+        
+        # Always restore best model at the end (if not early stopped)
+        if best_model_state is not None and not history['early_stopped']:
+            model.load_state_dict(best_model_state)
+            print(f"Training completed. Restored best model from epoch {history['best_epoch'] + 1}")
         
         return history
     
