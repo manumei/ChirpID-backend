@@ -2,100 +2,100 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# class BirdCNN(nn.Module):
+#     def __init__(self, num_classes, dropout_p=0.5):
+#         super(BirdCNN, self).__init__()
+        
+#         # More gradual channel progression
+#         self.block1 = self._make_block(1, 32, dropout_p=0.2)      # [32, 313, 224]
+#         self.pool1 = nn.MaxPool2d(2, stride=2)                    # [32, 156, 112]
+        
+#         self.block2 = self._make_block(32, 64, dropout_p=0.3)     # [64, 156, 112] 
+#         self.pool2 = nn.MaxPool2d(2, stride=2)                    # [64, 78, 56]
+        
+#         self.block3 = self._make_block(64, 128, dropout_p=0.4)    # [128, 78, 56]
+#         self.pool3 = nn.MaxPool2d(2, stride=2)                    # [128, 39, 28]
+        
+#         self.block4 = self._make_block(128, 256, dropout_p=0.4)   # [256, 39, 28]
+#         self.pool4 = nn.MaxPool2d(2, stride=2)                    # [256, 19, 14]
+        
+#         # Global Average Pooling instead of massive linear layer
+#         self.global_pool = nn.AdaptiveAvgPool2d((1, 1))           # [256, 1, 1]
+        
+#         # Smaller, more gradual classifier
+#         self.classifier = nn.Sequential(
+#             nn.Flatten(),                                         # [256]
+#             nn.Dropout(dropout_p),
+#             nn.Linear(256, 128),
+#             nn.ReLU(),
+#             nn.Dropout(dropout_p),
+#             nn.Linear(128, num_classes)
+#         )
+        
+#         # Initialize weights
+#         self._initialize_weights()
+    
+#     def _make_block(self, in_channels, out_channels, dropout_p=0.0):
+#         """Consistent block structure with residual-like connections"""
+#         return nn.Sequential(
+#             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+#             nn.BatchNorm2d(out_channels),
+#             nn.ReLU(inplace=True),
+#             nn.Dropout2d(dropout_p),  # Spatial dropout
+#             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+#             nn.BatchNorm2d(out_channels),
+#             nn.ReLU(inplace=True),
+#         )
+    
+#     def _initialize_weights(self):
+#         """Proper weight initialization"""
+#         for m in self.modules():
+#             if isinstance(m, nn.Conv2d):
+#                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+#                 if m.bias is not None:
+#                     nn.init.constant_(m.bias, 0)
+#             elif isinstance(m, nn.BatchNorm2d):
+#                 nn.init.constant_(m.weight, 1)
+#                 nn.init.constant_(m.bias, 0)
+#             elif isinstance(m, nn.Linear):
+#                 nn.init.normal_(m.weight, 0, 0.01)
+#                 nn.init.constant_(m.bias, 0)
+    
+#     def forward(self, x):
+#         x = self.pool1(self.block1(x))
+#         x = self.pool2(self.block2(x))
+#         x = self.pool3(self.block3(x))
+#         x = self.pool4(self.block4(x))
+        
+#         # Global average pooling eliminates the massive linear layer
+#         x = self.global_pool(x)
+#         x = self.classifier(x)
+        
+#         return x
+    
+#     def predict_proba(self, x):
+#         """
+#         Forward pass with softmax applied for inference.
+#         Returns probabilities instead of raw logits.
+#         """
+#         with torch.no_grad():
+#             logits = self.forward(x)
+#             probabilities = F.softmax(logits, dim=1)
+#             return probabilities
+    
+#     def predict(self, x):
+#         """
+#         Forward pass returning predicted class indices.
+#         """
+#         with torch.no_grad():
+#             logits = self.forward(x)
+#             predictions = torch.argmax(logits, dim=1)
+#             return predictions
+
+# Alternative: ResNet-style with skip connections
 class BirdCNN(nn.Module):
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN, self).__init__()
-        
-        # More gradual channel progression
-        self.block1 = self._make_block(1, 32, dropout_p=0.2)      # [32, 313, 224]
-        self.pool1 = nn.MaxPool2d(2, stride=2)                    # [32, 156, 112]
-        
-        self.block2 = self._make_block(32, 64, dropout_p=0.3)     # [64, 156, 112] 
-        self.pool2 = nn.MaxPool2d(2, stride=2)                    # [64, 78, 56]
-        
-        self.block3 = self._make_block(64, 128, dropout_p=0.4)    # [128, 78, 56]
-        self.pool3 = nn.MaxPool2d(2, stride=2)                    # [128, 39, 28]
-        
-        self.block4 = self._make_block(128, 256, dropout_p=0.4)   # [256, 39, 28]
-        self.pool4 = nn.MaxPool2d(2, stride=2)                    # [256, 19, 14]
-        
-        # Global Average Pooling instead of massive linear layer
-        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))           # [256, 1, 1]
-        
-        # Smaller, more gradual classifier
-        self.classifier = nn.Sequential(
-            nn.Flatten(),                                         # [256]
-            nn.Dropout(dropout_p),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Dropout(dropout_p),
-            nn.Linear(128, num_classes)
-        )
-        
-        # Initialize weights
-        self._initialize_weights()
-    
-    def _make_block(self, in_channels, out_channels, dropout_p=0.0):
-        """Consistent block structure with residual-like connections"""
-        return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Dropout2d(dropout_p),  # Spatial dropout
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
-    
-    def _initialize_weights(self):
-        """Proper weight initialization"""
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)
-    
-    def forward(self, x):
-        x = self.pool1(self.block1(x))
-        x = self.pool2(self.block2(x))
-        x = self.pool3(self.block3(x))
-        x = self.pool4(self.block4(x))
-        
-        # Global average pooling eliminates the massive linear layer
-        x = self.global_pool(x)
-        x = self.classifier(x)
-        
-        return x
-    
-    def predict_proba(self, x):
-        """
-        Forward pass with softmax applied for inference.
-        Returns probabilities instead of raw logits.
-        """
-        with torch.no_grad():
-            logits = self.forward(x)
-            probabilities = F.softmax(logits, dim=1)
-            return probabilities
-    
-    def predict(self, x):
-        """
-        Forward pass returning predicted class indices.
-        """
-        with torch.no_grad():
-            logits = self.forward(x)
-            predictions = torch.argmax(logits, dim=1)
-            return predictions
-
-# Alternative: ResNet-style with skip connections
-class BirdResNet(nn.Module):
-    def __init__(self, num_classes, dropout_p=0.5):
-        super(BirdResNet, self).__init__()
         
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
         self.bn1 = nn.BatchNorm2d(64)
