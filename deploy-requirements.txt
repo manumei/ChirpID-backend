@@ -18,9 +18,9 @@ audioread==3.0.1
 
 # PyTorch for model inference (CPU-only, smaller downloads)
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.1.0+cpu --only-binary=torch
-torchvision==0.16.0+cpu --only-binary=torchvision
-torchaudio==2.1.0+cpu --only-binary=torchaudio
+torch==2.7.1+cpu --only-binary=torch
+torchvision==0.20.1+cpu --only-binary=torchvision
+torchaudio==2.7.1+cpu --only-binary=torchaudio
 
 # Required dependencies for librosa and audio processing
 joblib==1.5.1
