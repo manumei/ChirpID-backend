@@ -336,6 +336,7 @@ def plot_summary(final_df, output_csv_path):
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()
+    plt.close()  # Free figure memory
 
 def get_spect_matrix(image_path):
     img = Image.open(image_path).convert('L')
@@ -455,6 +456,7 @@ def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsiz
     plt.yticks(rotation=0)
     plt.tight_layout()
     plt.show()
+    plt.close()  # Free figure memory
 
 def train_epoch(model, train_loader, criterion, optimizer, device):
     """Train model for one epoch and return loss, accuracy, and F1 score."""
@@ -1786,6 +1788,7 @@ def plot_best_results(best_results, metric_key, title, ylabel, ax=None):
     if show_plot:
         plt.tight_layout()
         plt.show()
+        plt.close()  # Free figure memory
 
 def plot_mean_curve(results, metric_key, title, ylabel, ax=None):
     if ax is None:
@@ -1834,6 +1837,8 @@ def plot_mean_curve(results, metric_key, title, ylabel, ax=None):
         plt.tight_layout()
         plt.show()
 
+        plt.close()  # Free figure memory
+
 def plot_kfold_results(results, best_results):
     """
     Plot comprehensive K-fold cross validation results in a 3x2 grid.
@@ -1862,6 +1867,8 @@ def plot_kfold_results(results, best_results):
     plt.tight_layout()
     plt.show()
 
+    plt.close()  # Free figure memory
+
 def plot_single_fold_curve(results, metric_key, title, ylabel):
     """
     Plot a single training curve for single fold training results.
@@ -1883,6 +1890,8 @@ def plot_single_fold_curve(results, metric_key, title, ylabel):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+    plt.close()  # Free figure memory
 
 def print_single_fold_results(results):
     """

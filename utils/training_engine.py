@@ -13,6 +13,9 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import f1_score
 import numpy as np
 from tqdm import tqdm
+import multiprocessing as mp
+from joblib import Parallel, delayed
+import gc
 
 from utils.dataset_utils import (
     compute_standardization_stats, 
@@ -415,19 +418,17 @@ class TrainingEngine:
             scheduler.step(val_loss)
             current_lr = optimizer.param_groups[0]['lr']
             history['learning_rates'].append(current_lr)
-            
-            # Early stopping check
+              # Early stopping check
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 history['best_epoch'] = epoch
                 patience_counter = 0
             else:
                 patience_counter += 1
-                
-            if patience_counter >= estop:
-                print(f"Early stopping at epoch {epoch + 1}")
-                history['early_stopped'] = True
-                break
+                if patience_counter >= estop:
+                    print(f"Early stopping at epoch {epoch + 1}")
+                    history['early_stopped'] = True
+                    break
             
             history['total_epochs'] = epoch + 1
             
@@ -445,14 +446,48 @@ class TrainingEngine:
         running_loss, correct, total = 0.0, 0, 0
         all_preds, all_targets = [], []
         
+        # Mixed precision training components
+        use_amp = self.config.get('mixed_precision', True)  # Default enabled for RTX 5080
+        gradient_clipping = self.config.get('gradient_clipping', 1.0)  # Default clip value
+        
+        if use_amp and hasattr(torch.cuda, 'amp'):
+            scaler = torch.cuda.amp.GradScaler()
+        else:
+            scaler = None
+            use_amp = False
+        
         for X_batch, y_batch in train_loader:
             X_batch, y_batch = X_batch.to(self.device), y_batch.to(self.device)
             
             optimizer.zero_grad()
-            outputs = model(X_batch)
-            loss = criterion(outputs, y_batch)
-            loss.backward()
-            optimizer.step()
+            
+            if use_amp and scaler is not None:
+                # Mixed precision forward pass
+                with torch.cuda.amp.autocast():
+                    outputs = model(X_batch)
+                    loss = criterion(outputs, y_batch)
+                
+                # Mixed precision backward pass
+                scaler.scale(loss).backward()
+                
+                # Gradient clipping (on scaled gradients)
+                if gradient_clipping > 0:
+                    scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
+                
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                # Standard precision training
+                outputs = model(X_batch)
+                loss = criterion(outputs, y_batch)
+                loss.backward()
+                
+                # Gradient clipping
+                if gradient_clipping > 0:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
+                
+                optimizer.step()
             
             running_loss += loss.item() * X_batch.size(0)
             preds = outputs.argmax(dim=1)
@@ -533,5 +568,4 @@ class TrainingEngine:
                 'aggregated_loss': aggregated_loss,
                 'aggregated_f1': aggregated_f1
             })
-        
-        return summary
+       

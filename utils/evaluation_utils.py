@@ -83,6 +83,7 @@ def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsiz
     
     plt.tight_layout()
     plt.show()
+    plt.close()  # Free figure memory
 
 # Result Visualization Functions
 def plot_best_results(best_results, metric_key, title, ylabel, ax=None):
@@ -201,8 +202,7 @@ def plot_kfold_results(results, best_results):
                      'F1 Score', axes[0, 1])
     plot_best_results(best_results, 'losses', 'Best Validation Loss per Fold', 
                      'Loss', axes[0, 2])
-    
-    # Mean curves plots
+      # Mean curves plots
     plot_mean_curve(results, 'val_accuracies', 'Mean Validation Accuracy Curves', 
                    'Accuracy', axes[1, 0])
     plot_mean_curve(results, 'val_f1s', 'Mean Validation F1 Score Curves', 
@@ -212,6 +212,7 @@ def plot_kfold_results(results, best_results):
     
     plt.tight_layout()
     plt.show()
+    plt.close()  # Free figure memory
 
 def plot_single_fold_curve(results, metric_key, title, ylabel):
     """
@@ -244,6 +245,7 @@ def plot_single_fold_curve(results, metric_key, title, ylabel):
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.show()
+    plt.close()  # Free figure memory
 
 # Results Printing Functions
 def print_single_fold_results(results):

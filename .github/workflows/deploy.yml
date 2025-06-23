@@ -12,18 +12,15 @@ jobs:
     steps:
       - name: Pre-checkout cleanup
         run: |
-          echo "🔧 Pre-checkout cleanup..."
-          # Fix permissions for the entire workspace before checkout
+          echo "Pre-checkout cleanup..."
           if [ -d "$GITHUB_WORKSPACE" ]; then
-            sudo chown -R $USER:$USER $GITHUB_WORKSPACE 2>/dev/null || true
-            sudo chmod -R 755 $GITHUB_WORKSPACE 2>/dev/null || true
-            # Remove any problematic upload files that might prevent checkout
-            sudo rm -rf $GITHUB_WORKSPACE/app/uploads/* 2>/dev/null || true
-            sudo rm -rf $GITHUB_WORKSPACE/app/uploads 2>/dev/null || true
-            # Also remove any audio files that might cause permission issues
-            sudo find $GITHUB_WORKSPACE -name "*.mp3" -o -name "*.wav" -o -name "*.ogg" -type f -exec sudo rm -f {} \; 2>/dev/null || true
+            chown -R $(id -u):$(id -g) "$GITHUB_WORKSPACE" || true
+            chmod -R u+rwX,go+rX,go-w "$GITHUB_WORKSPACE" || true
+            rm -rf "$GITHUB_WORKSPACE/app/uploads/"* || true
+            rm -rf "$GITHUB_WORKSPACE/app/uploads" || true
+            find "$GITHUB_WORKSPACE" \( -name "*.mp3" -o -name "*.wav" -o -name "*.ogg" \) -type f -exec rm -f {} \; || true
           fi
-          echo "✅ Pre-checkout cleanup completed"
+          echo "Pre-checkout cleanup completed"
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,16 +29,13 @@ jobs:
 
       - name: Fix workspace permissions
         run: |
-          echo "🔧 Post-checkout permission fixes..."
-          # Ensure proper ownership after checkout
-          sudo chown -R $USER:$USER $GITHUB_WORKSPACE 2>/dev/null || true
-          # Create uploads directory with proper permissions
+          echo "Post-checkout permission fixes..."
+          chown -R $(id -u):$(id -g) "$GITHUB_WORKSPACE" || true
           mkdir -p app/uploads
-          sudo chown -R $USER:$USER app/uploads 2>/dev/null || true
-          sudo chmod -R 755 app/uploads 2>/dev/null || true
-          # Remove any upload files that might have been accidentally tracked
-          rm -rf app/uploads/* 2>/dev/null || true
-          echo "✅ Workspace permissions fixed"
+          chown -R $(id -u):$(id -g) app/uploads || true
+          chmod -R u+rwX,go+rX,go-w app/uploads || true
+          rm -rf app/uploads/* || true
+          echo "Workspace permissions fixed"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -49,14 +43,10 @@ jobs:
       - name: Verify Docker Hub credentials
         run: |
           if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-            echo "❌ Docker Hub credentials are missing"
-            echo "Please ensure DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets are set"
-            echo "DOCKERHUB_USERNAME should be your Docker Hub username"
-            echo "DOCKERHUB_TOKEN should be a Personal Access Token from Docker Hub"
+            echo "Docker Hub credentials are missing"
             exit 1
           fi
-          echo "✅ Docker Hub credentials are available"
-          echo "Using Docker Hub username: ${{ secrets.DOCKERHUB_USERNAME }}"
+          echo "Docker Hub credentials are available"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -77,98 +67,52 @@ jobs:
 
       - name: Ensure app-network exists
         run: |
-          echo "🔗 Ensuring app-network exists..."
           docker network create app-network 2>/dev/null || true
-          echo "✅ Network app-network is ready"
 
       - name: Deploy backend service
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          echo "🚀 Deploying ChirpID backend..."
-
-          # Create .env file for docker-compose
+          echo "Deploying ChirpID backend..."
           echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" > .env
-
-          echo "Verifying image availability..."
           if docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chirpid-backend:latest; then
-            echo "✅ Successfully pulled image from Docker Hub"
+            echo "Pulled image successfully"
           else
-            echo "❌ Failed to pull image from Docker Hub"
-            echo "This might be because:"
-            echo "1. The image doesn't exist yet (first deployment)"
-            echo "2. Authentication failed"
-            echo "3. Repository doesn't exist on Docker Hub"
+            echo "Failed to pull image"
             exit 1
           fi
-
-          echo "Stopping existing services..."
           docker-compose down || true
-
-          echo "Starting services..."
           docker-compose up -d
-
-          echo "Waiting for backend to initialize..."
           sleep 30
 
       - name: Verify deployment
         run: |
-          echo "🔍 Verifying deployment..."
-
           if ! docker ps | grep -q "chirpid-backend"; then
-            echo "❌ Backend container is not running"
             docker-compose logs backend
             exit 1
           fi
-
-          echo "✅ Backend container is running"
-
-          echo "Testing backend connectivity..."
           max_attempts=6
           attempt=1
-
           while [ $attempt -le $max_attempts ]; do
-            echo "Attempt $attempt/$max_attempts..."
-            
             if docker exec chirpid-backend curl -f http://localhost:5001/health > /dev/null 2>&1; then
-              echo "✅ Backend health check passed"
               break
             elif docker exec chirpid-backend curl -f http://localhost:5001/ > /dev/null 2>&1; then
-              echo "✅ Backend is responding on root endpoint"
               break
             else
               if [ $attempt -eq $max_attempts ]; then
-                echo "⚠️ Backend health check failed after $max_attempts attempts"
-                echo "Container logs:"
                 docker-compose logs backend
               else
-                echo "Retrying in 10 seconds..."
                 sleep 10
               fi
             fi
-            
             attempt=$((attempt + 1))
           done
-
-          echo "📊 Deployment Summary:"
-          docker ps | grep chirpid-backend || echo "Container not found in ps output"
-          echo "✅ ChirpID backend deployment completed"
+          docker ps | grep chirpid-backend || echo "Container not found"
 
       - name: Clean up old images
         run: |
-          echo "🧹 Cleaning up old Docker images..."
           docker image prune -af --filter "until=24h" || true
-
-          # Fix permissions for uploads directory before cleanup
-          echo "🔧 Fixing permissions for uploads directory..."
-          sudo chown -R $USER:$USER ./app/uploads 2>/dev/null || true
-          sudo chmod -R 755 ./app/uploads 2>/dev/null || true
-
-          # Clean up .env file if it exists
+          chown -R $(id -u):$(id -g) ./app/uploads || true
+          chmod -R u+rwX,go+rX,go-w ./app/uploads || true
           rm -f .env
-
-          # Clean up any Docker volumes that might have permission issues
-          echo "🔧 Cleaning up Docker volumes..."
           docker volume prune -f || true
-
-          echo "✅ Cleanup completed"
