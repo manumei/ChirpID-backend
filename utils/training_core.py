@@ -56,7 +56,7 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         'gradient_clipping': 1.0,  # Gradient clipping value (0 to disable)
         # Parallel fold training optimization
         'parallel_folds': False,  # Enable parallel fold training (experimental)
-        'max_parallel_folds': 2,  # Max concurrent folds (adjust for GPU memory)
+        'max_parallel_folds': 3,  # Max concurrent folds (adjust for GPU memory)
     }
     config = {**default_config, **(config or {})}
     
