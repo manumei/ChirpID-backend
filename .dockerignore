@@ -89,4 +89,3 @@ docker-compose*.yml
 
 # Requirements files except the minimal one
 requirements.txt
-deploy-requirements.txt
