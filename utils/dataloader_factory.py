@@ -42,22 +42,20 @@ class OptimalDataLoaderFactory:
             'persistent_workers': True,  # Reduce spawn overhead
             'drop_last': True,  # Consistent batch sizes
         }
-        
-        # Determine worker count based on operations complexity
+          # Determine worker count based on operations complexity
         if has_augmentation or has_standardization:
-            # Use fewer workers for complex operations to avoid bottlenecks
-            base_config['num_workers'] = 8
-            base_config['prefetch_factor'] = 4
+            # Use more workers for complex operations on high-end hardware
+            base_config['num_workers'] = 10  # Increased from 8
+            base_config['prefetch_factor'] = 6  # Increased from 4
         else:
-            # Use more workers for simple tensor loading
-            base_config['num_workers'] = 12
-            base_config['prefetch_factor'] = 6
-            
-        # Adjust for dataset size
+            # Use more workers for simple tensor loading on RTX 5080
+            base_config['num_workers'] = 14  # Increased from 12
+            base_config['prefetch_factor'] = 8  # Increased from 6
+              # Adjust for dataset size
         if dataset_size < 1000:
-            base_config['num_workers'] = min(base_config['num_workers'], 4)
+            base_config['num_workers'] = min(base_config['num_workers'], 6)  # Increased from 4
         elif dataset_size > 10000:
-            base_config['num_workers'] = min(base_config['num_workers'] + 2, 16)
+            base_config['num_workers'] = min(base_config['num_workers'] + 2, 18)  # Increased from 16
               # Disable persistent workers if num_workers is 0
         if base_config['num_workers'] == 0:
             base_config['persistent_workers'] = False

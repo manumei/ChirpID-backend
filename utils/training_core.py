@@ -34,8 +34,7 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
     """
     print("=" * 60)
     print("CROSS-VALIDATION TRAINING")
-    print("=" * 60)
-      # Set default configuration
+    print("=" * 60)      # Set default configuration
     default_config = {
         'k_folds': 4,
         'num_epochs': 220,
@@ -47,12 +46,17 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         'aggregate_predictions': True,
         'max_split_attempts': 30000,
         'min_val_segments': 0,
-        'spec_augment': spec_augment,
-        'gaussian_noise': gaussian_noise,
+        'spec_augment': spec_augment,        'gaussian_noise': gaussian_noise,
         # New optimization settings
         'optimize_dataloaders': True,
         'debug_dataloaders': False,  # Set to True for debugging
-        'benchmark_performance': False  # Set to True for performance testing
+        'benchmark_performance': False,  # Set to True for performance testing
+        # Mixed precision and gradient clipping optimizations
+        'mixed_precision': True,  # Enable AMP for RTX 5080
+        'gradient_clipping': 1.0,  # Gradient clipping value (0 to disable)
+        # Parallel fold training optimization
+        'parallel_folds': False,  # Enable parallel fold training (experimental)
+        'max_parallel_folds': 2,  # Max concurrent folds (adjust for GPU memory)
     }
     config = {**default_config, **(config or {})}
     
@@ -91,9 +95,15 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         num_classes=num_classes,
         config=config
     )
-    
-    # Execute cross-validation training
-    results, best_results = engine.run_cross_validation(dataset, fold_indices)
+      # Execute cross-validation training (sequential or parallel)
+    if config.get('parallel_folds', False):
+        print(f"Using PARALLEL fold training (max {config['max_parallel_folds']} concurrent folds)")
+        results, best_results = engine.run_cross_validation_parallel(
+            dataset, fold_indices, config['max_parallel_folds']
+        )
+    else:
+        print("Using SEQUENTIAL fold training")
+        results, best_results = engine.run_cross_validation(dataset, fold_indices)
     
     print("\\n" + "=" * 60)
     print("CROSS-VALIDATION TRAINING COMPLETED")
@@ -231,10 +241,12 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         'random_state': 42,
         'spec_augment': spec_augment,
         'gaussian_noise': gaussian_noise,
-        # New optimization settings
-        'optimize_dataloaders': True,
+        # New optimization settings        'optimize_dataloaders': True,
         'debug_dataloaders': False,
-        'benchmark_performance': False
+        'benchmark_performance': False,
+        # Mixed precision and gradient clipping optimizations
+        'mixed_precision': True,  # Enable AMP for RTX 5080
+        'gradient_clipping': 1.0,  # Gradient clipping value (0 to disable)
     }
     config = {**default_config, **(config or {})}
     
