@@ -55,13 +55,37 @@ def get_spec_norm(segment, sr, mels, hoplen, nfft):
     """Generate normalized mel spectrogram."""
     spec = librosa.feature.melspectrogram(y=segment, sr=sr, n_mels=mels, hop_length=hoplen, n_fft=nfft)
     spec_db = librosa.power_to_db(spec, ref=np.max)
-    norm_spec = (spec_db - spec_db.min()) / (spec_db.max() - spec_db.min())
+    
+    # Check for invalid values or zero range
+    if np.any(np.isnan(spec_db)) or np.any(np.isinf(spec_db)):
+        raise ValueError("Spectrogram contains NaN or infinite values")
+    
+    spec_min = spec_db.min()
+    spec_max = spec_db.max()
+    spec_range = spec_max - spec_min
+    
+    # Check for zero range (all values are the same)
+    if spec_range == 0 or spec_range < 1e-8:
+        raise ValueError("Spectrogram has zero or near-zero dynamic range")
+    
+    norm_spec = (spec_db - spec_min) / spec_range
+    
+    # Final validation
+    if np.any(np.isnan(norm_spec)) or np.any(np.isinf(norm_spec)):
+        raise ValueError("Normalized spectrogram contains invalid values")
+    
     return norm_spec
 
 def get_spec_image(segment, sr, mels, hoplen, nfft, filename, start, spectrogram_dir):
     """Create and save spectrogram image."""
     norm_spec = get_spec_norm(segment, sr, mels, hoplen, nfft)
+    
+    # Ensure values are in valid range [0, 1] before scaling
+    norm_spec = np.clip(norm_spec, 0.0, 1.0)
+    
+    # Convert to uint8 safely
     img = (norm_spec * 255).astype(np.uint8)
+    
     spec_filename = f"{os.path.splitext(filename)[0]}_{start}.png"
     spec_path = os.path.join(spectrogram_dir, spec_filename)
     return img, spec_path, spec_filename
@@ -279,7 +303,17 @@ def extract_single_segment(audio_info, segment_index):
 
 def create_single_spectrogram(segment_info, spectrogram_dir, mels, hoplen, nfft):
     """Create a single spectrogram from segment info."""
+    audio_name = f"{segment_info['original_filename']}_segment_{segment_info['segment_index']}"
+    
     try:
+        # Validate audio data first
+        if segment_info['audio_data'] is None or len(segment_info['audio_data']) == 0:
+            raise ValueError("Empty or invalid audio data")
+        
+        # Check for silent or near-silent audio
+        if np.max(np.abs(segment_info['audio_data'])) < 1e-8:
+            raise ValueError("Audio segment is silent or has extremely low amplitude")
+        
         # Generate spectrogram filename
         base_filename = os.path.splitext(segment_info['original_filename'])[0]
         segment_filename = f"{base_filename}_{segment_info['segment_index']}.wav"
@@ -307,8 +341,7 @@ def create_single_spectrogram(segment_info, spectrogram_dir, mels, hoplen, nfft)
         }
         
     except Exception as e:
-        print(f"Error creating spectrogram for segment {segment_info['segment_index']} "
-                f"of {segment_info['original_filename']}: {e}")
+        print(f"{audio_name} has been removed due to {e} error")
         return None
 
 def save_test_audio(segment_info, test_audios_dir):
