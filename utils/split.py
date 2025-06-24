@@ -449,6 +449,6 @@ def display_split_statistics(split_data, split_type="single"):
         print(f"Average quality score: {score:.4f}")
         
         for i, (train_idx, val_idx) in enumerate(fold_indices):
-            print(f"  Fold {i+1}: {len(train_idx)} train, {len(val_idx)} val")
+            print(f"  Fold {i+1}: {len(train_idx)} train, {len(val_idx)} val ({len(train_idx)/(len(train_idx)+len(val_idx)):.2%} - {len(val_idx)/(len(train_idx)+len(val_idx)):.2%})")
     
     print("-" * 40)
