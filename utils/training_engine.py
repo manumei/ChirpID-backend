@@ -44,11 +44,6 @@ class TrainingEngine:
         self.num_classes = num_classes
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        print(f"Training engine initialized:")
-        print(f"  Device: {self.device}")
-        print(f"  Model: {model_class.__name__}")
-        print(f"  Classes: {num_classes}")
     
     def run_cross_validation(self, dataset, fold_indices):
         """
@@ -258,12 +253,10 @@ class TrainingEngine:
         """Create standardized and/or augmented data subsets if requested."""
         # First apply standardization if requested
         if self.config.get('standardize', False):
-            print("Computing standardization statistics...")
             train_mean, train_std = compute_standardization_stats(
                 dataset, train_indices, 
                 sample_size=self.config.get('standardize_sample_size', 1000)
             )
-            print(f"Standardization stats - Mean: {train_mean:.4f}, Std: {train_std:.4f}")
             
             train_subset = create_standardized_subset(dataset, train_indices, train_mean, train_std)
             val_subset = create_standardized_subset(dataset, val_indices, train_mean, train_std)
@@ -276,9 +269,7 @@ class TrainingEngine:
         use_spec_augment = self.config.get('spec_augment', False)
         use_gaussian_noise = self.config.get('gaussian_noise', False)
         
-        if use_spec_augment or use_gaussian_noise:
-            print(f"Applying augmentations - SpecAugment: {use_spec_augment}, GaussianNoise: {use_gaussian_noise}")
-            
+        if use_spec_augment or use_gaussian_noise:            
             # Get augmentation parameters
             from utils.specaugment import get_augmentation_params
             augment_params = get_augmentation_params(
@@ -313,13 +304,13 @@ class TrainingEngine:
         has_augmentation = self.config.get('spec_augment', False) or self.config.get('gaussian_noise', False)
         has_standardization = self.config.get('standardize', False)
         
-        # Log configuration for debugging
-        if self.config.get('debug_dataloaders', False):
-            print(f"\\nDataLoader Configuration:")
-            print(f"  Has augmentation: {has_augmentation}")
-            print(f"  Has standardization: {has_standardization}")
-            print(f"  Train dataset size: {len(train_subset)}")
-            print(f"  Val dataset size: {len(val_subset)}")
+        # # Log configuration for debugging
+        # if self.config.get('debug_dataloaders', False):
+        #     print(f"\\nDataLoader Configuration:")
+        #     print(f"  Has augmentation: {has_augmentation}")
+        #     print(f"  Has standardization: {has_standardization}")
+        #     print(f"  Train dataset size: {len(train_subset)}")
+        #     print(f"  Val dataset size: {len(val_subset)}")
         
         train_loader = OptimalDataLoaderFactory.create_training_loader(
             train_subset,

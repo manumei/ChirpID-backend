@@ -45,22 +45,12 @@ def prepare_training_data(data_path=None, features=None, labels=None, authors=No
         labels = np.array(labels)
         authors = np.array(authors)
         
-        print(f"Using provided data:")
-        print(f"  Features shape: {features.shape}")
-        print(f"  Labels shape: {labels.shape}")
-        print(f"  Authors shape: {authors.shape}")
-        
     else:
         raise ValueError("Either data_path or (features, labels, authors) must be provided")
     
     # Validation
     if len(features) != len(labels) or len(labels) != len(authors):
         raise ValueError("Features, labels, and authors must have the same length")
-    
-    print(f"Data prepared successfully:")
-    print(f"  Total samples: {len(features)}")
-    print(f"  Unique authors: {len(np.unique(authors))}")
-    print(f"  Unique classes: {len(np.unique(labels))}")
     
     return features, labels, authors
 
