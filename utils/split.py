@@ -1,3 +1,25 @@
+"""
+Split Generation and Optimization Module
+
+This module provides functions for generating optimal train/validation splits
+with author grouping constraints for bird song classification.
+
+Key Features:
+- Author-grouped splitting to prevent data leakage
+- Stratified splitting based on usable segments per class
+- Single fold and K-fold cross-validation support
+- Split pre-computation for configuration sweeping optimization
+
+Functions:
+- search_best_group_seed: Find optimal single fold split
+- search_best_group_seed_kfold: Find optimal K-fold splits  
+- precompute_single_fold_split: Pre-compute single split for reuse
+- precompute_kfold_splits: Pre-compute K-fold splits for reuse
+
+The pre-computation functions are designed to optimize hyperparameter
+sweeping by avoiding redundant split computation across configurations.
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -295,3 +317,138 @@ def plot_fold_splits(folds):
         ax.grid(True)
     plt.tight_layout()
     plt.show()
+
+# Helper functions for pre-computing splits to optimize configuration sweeping
+
+def precompute_single_fold_split(features, labels, authors, test_size=0.2, 
+                                max_attempts=10000, min_test_segments=5):
+    """
+    Pre-compute a single fold split for use across multiple training configurations.
+    This avoids recomputing the same split for different model configurations.
+    
+    Parameters:
+    - features: Feature array (used for creating metadata)
+    - labels: Label array
+    - authors: Author array
+    - test_size: Target test set size (0.0 to 1.0)
+    - max_attempts: Maximum number of random seeds to try
+    - min_test_segments: Minimum total segments per class in test set
+    
+    Returns:
+    - (train_indices, val_indices, best_score): Pre-computed split indices and score
+    """
+    from utils.data_preparation import create_metadata_dataframe
+    
+    print("=" * 60)
+    print("PRE-COMPUTING SINGLE FOLD SPLIT")
+    print("=" * 60)
+    print(f"Dataset size: {len(labels)} samples")
+    print(f"Target split: {int((1-test_size)*100)}-{int(test_size*100)}")
+    print(f"Max attempts: {max_attempts}")
+    
+    # Create metadata for splitting
+    metadata_df = create_metadata_dataframe(labels, authors)
+    
+    # Find optimal split with author grouping
+    dev_df, test_df, best_score = search_best_group_seed(
+        df=metadata_df,
+        test_size=test_size,
+        max_attempts=max_attempts,
+        min_test_segments=min_test_segments
+    )
+    
+    # Extract indices
+    train_indices = dev_df['sample_idx'].values
+    val_indices = test_df['sample_idx'].values
+    
+    print(f"\n✅ Single fold split pre-computed successfully!")
+    print(f"   Best score: {best_score:.3f}")
+    print(f"   Train samples: {len(train_indices)}")
+    print(f"   Validation samples: {len(val_indices)}")
+    print("=" * 60)
+    
+    return train_indices, val_indices, best_score
+
+
+def precompute_kfold_splits(features, labels, authors, n_splits=4, 
+                           max_attempts=30000, min_val_segments=0):
+    """
+    Pre-compute K-fold splits for use across multiple training configurations.
+    This avoids recomputing the same splits for different model configurations.
+    
+    Parameters:
+    - features: Feature array (used for creating metadata)
+    - labels: Label array
+    - authors: Author array
+    - n_splits: Number of folds for cross-validation
+    - max_attempts: Maximum number of random seeds to try
+    - min_val_segments: Minimum total segments per class in each validation fold
+    
+    Returns:
+    - (fold_indices, best_score, best_seed): Pre-computed fold indices, score, and seed
+    """
+    from utils.data_preparation import create_metadata_dataframe
+    
+    print("=" * 60)
+    print(f"PRE-COMPUTING {n_splits}-FOLD CROSS-VALIDATION SPLITS")
+    print("=" * 60)
+    print(f"Dataset size: {len(labels)} samples")
+    print(f"Number of folds: {n_splits}")
+    print(f"Max attempts: {max_attempts}")
+    
+    # Create metadata for splitting
+    metadata_df = create_metadata_dataframe(labels, authors)
+    
+    # Find optimal k-fold splits with author grouping
+    best_folds, best_score, best_seed = search_best_group_seed_kfold(
+        df=metadata_df,
+        max_attempts=max_attempts,
+        min_val_segments=min_val_segments,
+        n_splits=n_splits
+    )
+    
+    # Convert fold indices for dataset
+    fold_indices = []
+    for train_df, val_df in best_folds:
+        train_indices = train_df['sample_idx'].values
+        val_indices = val_df['sample_idx'].values
+        fold_indices.append((train_indices, val_indices))
+    
+    print(f"\n✅ {n_splits}-fold splits pre-computed successfully!")
+    print(f"   Best seed: {best_seed}")
+    print(f"   Average score: {best_score:.3f}")
+    print(f"   Total fold configurations: {len(fold_indices)}")
+    print("=" * 60)
+    
+    return fold_indices, best_score, best_seed
+
+
+def display_split_statistics(split_data, split_type="single"):
+    """
+    Display statistics about pre-computed splits for verification.
+    
+    Parameters:
+    - split_data: Either (train_indices, val_indices, score) for single fold
+                  or (fold_indices, score, seed) for k-fold
+    - split_type: "single" or "kfold"
+    """
+    print(f"\n📊 {split_type.upper()} SPLIT STATISTICS")
+    print("-" * 40)
+    
+    if split_type == "single":
+        train_indices, val_indices, score = split_data
+        print(f"Train samples: {len(train_indices)}")
+        print(f"Validation samples: {len(val_indices)}")
+        print(f"Split ratio: {len(train_indices)/(len(train_indices)+len(val_indices)):.2%} - {len(val_indices)/(len(train_indices)+len(val_indices)):.2%}")
+        print(f"Quality score: {score:.4f}")
+        
+    elif split_type == "kfold":
+        fold_indices, score, seed = split_data
+        print(f"Number of folds: {len(fold_indices)}")
+        print(f"Random seed: {seed}")
+        print(f"Average quality score: {score:.4f}")
+        
+        for i, (train_idx, val_idx) in enumerate(fold_indices):
+            print(f"  Fold {i+1}: {len(train_idx)} train, {len(val_idx)} val")
+    
+    print("-" * 40)
