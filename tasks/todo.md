@@ -1,6 +1,7 @@
 # To-Do
 
-
+**Add New Audios!**
+Go to [database/audio/samples/](../database/audio/samples/) and add extracts of the bird species we're working with, from YouTube or such sources that aren't our dataset, so it's a distinct, "test2" style dataset. Download the MP3s and add them, do about 16-20 per species ideally.
 
 **Fully-Connected Neural Network** (Lara)
 Implement another model in models.py, an FCNN that works with flattened vectores instead of matrices.
