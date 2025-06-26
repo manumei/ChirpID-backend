@@ -570,4 +570,161 @@ class TrainingEngine:
                 'aggregated_loss': aggregated_loss,
                 'aggregated_f1': aggregated_f1
             })
-       
+        
+        return summary
+
+    def run_cross_validation_parallel(self, dataset, fold_indices, max_parallel_folds=2):
+        """
+        Execute K-fold cross-validation training with parallel processing.
+        
+        Args:
+            dataset: PyTorch TensorDataset
+            fold_indices: List of (train_indices, val_indices) tuples
+            max_parallel_folds (int): Maximum number of concurrent fold training processes
+        
+        Returns:
+            tuple: (results, best_results)
+        """
+        print(f"\nStarting {len(fold_indices)}-fold cross-validation with parallel processing...")
+        print(f"Maximum concurrent folds: {max_parallel_folds}")
+        
+        # Check if CUDA is available and warn about GPU memory considerations
+        if torch.cuda.is_available():
+            print("WARNING: GPU detected. Parallel fold training will use CPU to avoid GPU memory conflicts.")
+            print("Each fold will run on CPU in parallel. For GPU training, use sequential mode.")
+        
+        # Force CPU execution for parallel processing to prevent GPU memory conflicts
+        original_device = self.device
+        parallel_config = self.config.copy()
+        parallel_config['force_cpu'] = True
+        
+        try:
+            # Create a helper function for parallel execution
+            def train_fold_parallel(fold_data):
+                fold_idx, train_indices, val_indices = fold_data
+                
+                # Create a new engine instance for this process with CPU-only config
+                engine = TrainingEngine(
+                    model_class=self.model_class,
+                    num_classes=self.num_classes,
+                    config=parallel_config
+                )
+                engine.device = torch.device("cpu")  # Force CPU for parallel execution
+                
+                print(f"\nStarting Fold {fold_idx + 1}/{len(fold_indices)} (Parallel)")
+                
+                try:
+                    # Train the fold
+                    fold_result = engine._train_single_fold_with_indices(
+                        dataset, train_indices, val_indices, fold_num=fold_idx+1
+                    )
+                    
+                    # Clean up GPU memory if any was used
+                    if 'model' in fold_result:
+                        del fold_result['model']  # Remove model to save memory in results
+                    
+                    # Force garbage collection
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    
+                    print(f"Fold {fold_idx + 1} completed successfully")
+                    return fold_idx, fold_result
+                    
+                except Exception as e:
+                    print(f"Error in Fold {fold_idx + 1}: {str(e)}")
+                    return fold_idx, {'error': str(e)}
+            
+            # Prepare fold data for parallel processing
+            fold_data_list = [
+                (fold_idx, train_indices, val_indices) 
+                for fold_idx, (train_indices, val_indices) in enumerate(fold_indices)
+            ]
+            
+            # Execute folds in parallel with controlled concurrency
+            print(f"\nExecuting folds in parallel (max {max_parallel_folds} concurrent)...")
+            parallel_results = Parallel(
+                n_jobs=min(max_parallel_folds, len(fold_indices)),
+                backend='spawn',  # Use spawn to avoid CUDA context issues
+                verbose=1
+            )(delayed(train_fold_parallel)(fold_data) for fold_data in fold_data_list)
+            
+            # Process and aggregate results
+            fold_results = {}
+            final_val_accuracies = []
+            final_val_losses = []
+            final_val_f1s = []
+            best_accs = []
+            best_f1s = []
+            best_losses = []
+            all_final_predictions = []
+            all_final_targets = []
+            
+            # Sort results by fold index to maintain order
+            parallel_results.sort(key=lambda x: x[0])
+            
+            for fold_idx, fold_result in parallel_results:
+                if 'error' in fold_result:
+                    print(f"Fold {fold_idx + 1} failed: {fold_result['error']}")
+                    continue
+                
+                # Extract metrics
+                history = fold_result['history']
+                final_val_acc = fold_result['final_val_acc']
+                final_val_loss = fold_result['final_val_loss']
+                final_val_f1 = fold_result['final_val_f1']
+                
+                # Store results
+                fold_results[f'fold_{fold_idx+1}'] = fold_result
+                final_val_accuracies.append(final_val_acc)
+                final_val_losses.append(final_val_loss)
+                final_val_f1s.append(final_val_f1)
+                
+                # Best results
+                best_accs.append(max(history['val_accuracies']))
+                best_f1s.append(max(history['val_f1s']))
+                best_losses.append(min(history['val_losses']))
+                
+                # Aggregate predictions if enabled
+                if self.config.get('aggregate_predictions', True):
+                    if 'val_predictions' in fold_result and 'val_targets' in fold_result:
+                        all_final_predictions.append(fold_result['val_predictions'])
+                        all_final_targets.append(fold_result['val_targets'])
+            
+            # Calculate summary statistics
+            if final_val_accuracies:  # Only if some folds succeeded
+                summary = self._calculate_cv_summary(
+                    final_val_accuracies, final_val_losses, final_val_f1s,
+                    all_final_predictions, all_final_targets
+                )
+            else:
+                print("ERROR: All folds failed during parallel execution!")
+                summary = {'error': 'All folds failed'}
+            
+            results = {
+                'fold_results': fold_results,
+                'summary': summary,
+                'config': self.config.copy(),
+                'parallel_execution': True,
+                'max_parallel_folds': max_parallel_folds
+            }
+            
+            best_results = {
+                'accuracies': best_accs,
+                'f1s': best_f1s,
+                'losses': best_losses
+            }
+            
+            print(f"\nParallel cross-validation completed!")
+            print(f"Successfully completed {len(final_val_accuracies)} out of {len(fold_indices)} folds")
+            
+            return results, best_results
+            
+        finally:
+            # Restore original device setting
+            self.device = original_device
+            
+            # Clean up memory
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
