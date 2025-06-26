@@ -140,11 +140,9 @@ def get_spect_matrix_list(spects_source_dir, spects_meta_df):
         
         expected_shape = (313, 224)  # PIL uses (width, height) format
         if img.size != expected_shape:
-            print(f"Warning: Unexpected image size: {img.size} in file {image_path}. Expected {expected_shape}.")
-            # Resize if needed
-            img = img.resize(expected_shape)
+            raise ValueError(f"Image {filename} has unexpected shape {img.size}. Expected {expected_shape}.")
 
-        # Convert to numpy array (this gives us height x width, i.e., 313 x 224)
+        # Convert to numpy array (this gives us height x width, i.e., (224, 313))
         pixels = np.array(img)
         
         matrices_list.append(pixels)

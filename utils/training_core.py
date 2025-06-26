@@ -20,9 +20,9 @@ from utils.data_preparation import prepare_training_data, create_metadata_datafr
 
 
 def cross_val_training(data_path=None, features=None, labels=None, authors=None, 
-                      model_class=None, num_classes=None, config=None,
-                      spec_augment=False, gaussian_noise=False, 
-                      precomputed_splits=None):
+                        model_class=None, num_classes=None, config=None,
+                        spec_augment=False, gaussian_noise=False, 
+                        precomputed_splits=None):
     """
     Top-level function for K-fold cross-validation training.
     
@@ -37,7 +37,7 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         spec_augment (bool): Whether to apply SpecAugment during training
         gaussian_noise (bool): Whether to apply Gaussian noise during training
         precomputed_splits (tuple, optional): Pre-computed (fold_indices, best_score, best_seed) 
-                                             from split generation to avoid recomputation
+                                            from split generation to avoid recomputation
     
     Returns:
         dict: Complete training results including fold results and summary
@@ -76,14 +76,14 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         torch.tensor(features, dtype=torch.float32),
         torch.tensor(labels, dtype=torch.long)
     )
-      # Create metadata for splitting
-    metadata_df = create_metadata_dataframe(labels, authors)
     
     # Use precomputed splits if available, otherwise compute them
     if precomputed_splits is not None:
         fold_indices, best_score, best_seed = precomputed_splits
         print(f"Using precomputed {config['k_folds']}-fold splits (seed {best_seed}, score {best_score:.3f})")
     else:
+        # Create metadata for splitting
+        metadata_df = create_metadata_dataframe(labels, authors)
         # Find optimal k-fold splits with author grouping
         print(f"Finding best {config['k_folds']}-fold split with author grouping...")
         best_folds, best_score, best_seed = search_best_group_seed_kfold(

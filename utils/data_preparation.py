@@ -41,9 +41,8 @@ def prepare_training_data(data_path=None, features=None, labels=None, authors=No
         
     elif features is not None and labels is not None and authors is not None:
         print("Using provided arrays")
-        features = np.array(features)
-        labels = np.array(labels)
-        authors = np.array(authors)
+        if features.type != np.ndarray or labels.dtype != np.ndarray or authors.dtype != np.ndarray:
+            raise TypeError("Features, labels, and authors must be numpy arrays")
         
     else:
         raise ValueError("Either data_path or (features, labels, authors) must be provided")
