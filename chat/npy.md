@@ -21,9 +21,12 @@ Key new functions:
 - (in audio_processing.py) | get_spec_npy(), the new equivalent of get_spec_image()
 - (in ModelConfiguring.ipynb) | load_npy_data(), a new function implemented directly inside a cell in ModelConfiguring.ipynb, called in the later cell to get the data, acts as the new equivalent of load_csv_data(), but skipping the /255.0 step and working with the specs/ directory and the final_specs.csv instead of the train_data.csv (which currently holds pixels and metadata).csv,
 
-Please add these functions to use .npy format while maintaining the same functionality and data flow.
-With the important note that we do not modify the functions of our current pipeline, but rather, add new ones.
-So we add the new get_spec_npy to audio_processing _without removing_ get_spec_image(),
-And then we create AudioSpecting.ipynb, to reflect/imitate exactly what AudioProcessing.ipynb does, but calling get_spec_npy instead of get_spec_image() (yes, most of it will be duplicate code between AudioProcessing.ipynb and AudioSpecting.ipynb, yes I am fine with it)
-And then in ModelConfiguring.ipynb, we replace calling load_csv_data() that currently deals only with the CSV, with load_npy_data(), which will call on the specs directory and final_specs.csv to get the features, labels and authors directly from there.
-Do not modify DataLoading.ipynb! We only make it redundant (for now, as I will use it in other future tests).
+Please add these functions to use .npy format while maintaining the same functionality and data flow. With the important note that we do not modify the functions of our current pipeline, but rather, add new ones.
+
+So we add the new get_spec_npy to audio_processing _without removing_ get_spec_image(). And then we create AudioSpecting.ipynb, to reflect/imitate exactly what AudioProcessing.ipynb does, but calling get_spec_npy instead of get_spec_image() (yes, most of it will be duplicate code between AudioProcessing.ipynb and AudioSpecting.ipynb, yes I am fine with it)
+
+Finally, in ModelConfiguring.ipynb, we replace calling load_csv_data() that currently deals only with the CSV, with load_npy_data(), which will call on the specs directory and final_specs.csv to get the features, labels and authors directly from there. We define load_npy_data IN A NEW CELL without deleting the cell that defines load_csv_data (just making it redundant for now, I may use it later).
+
+Do not modify DataLoading.ipynb! We only make it redundant via not calling its outputs (for now, as I will use it in other future tests). If you find any imperfections or optimizations in parts of the hierarchy/pipeline that are affected by this change, then please fix them or improve them.
+
+Once all the changes have been done, please list me a brief summary reporting all the changes and how this works for now.
