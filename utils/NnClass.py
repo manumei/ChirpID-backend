@@ -268,3 +268,140 @@ class Nn:
         
         plt.tight_layout()
         plt.show()
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+
+
+class BirdFCNN(nn.Module):
+    def __init__(self, input_dim, num_classes, hidden_layers=[512, 128, 32], dropout_p=0.5):
+        super(BirdFCNN, self).__init__()
+
+        layers = []
+        prev_dim = input_dim
+
+        for hidden_dim in hidden_layers:
+            layers.append(nn.Linear(prev_dim, hidden_dim))
+            layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout_p))
+            prev_dim = hidden_dim
+
+        layers.append(nn.Linear(prev_dim, num_classes))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.net(x)
+
+    def predict_proba(self, x):
+        with torch.no_grad():
+            logits = self.forward(x)
+            probabilities = F.softmax(logits, dim=1)
+            return probabilities
+
+    def predict(self, x):
+        with torch.no_grad():
+            logits = self.forward(x)
+            predictions = torch.argmax(logits, dim=1)
+            return predictions
+
+    def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
+                    lr=0.001, batch_size=32, optimizer_type='adam', 
+                    l2_lambda=0.0, early_stopping=False, patience=10, 
+                    eval_interval=10, lr_schedule=None, device='cpu'):
+        
+        self.to(device)
+        trainX = torch.tensor(trainX, dtype=torch.float32, device=device)
+        trainY = torch.tensor(trainY, dtype=torch.long, device=device)
+
+        if valX is not None and valY is not None:
+            valX = torch.tensor(valX, dtype=torch.float32, device=device)
+            valY = torch.tensor(valY, dtype=torch.long, device=device)
+
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=l2_lambda) if optimizer_type == 'adam' else torch.optim.SGD(self.parameters(), lr=lr, weight_decay=l2_lambda)
+
+        best_val_loss = float('inf')
+        wait = 0
+
+        train_loss_history, val_loss_history = [], []
+        train_acc_history, val_acc_history = [], []
+
+        for epoch in range(epochs):
+            self.train()
+            indices = torch.randperm(trainX.size(0))
+            
+            for i in range(0, trainX.size(0), batch_size):
+                idx = indices[i:i+batch_size]
+                X_batch = trainX[idx]
+                y_batch = trainY[idx]
+
+                outputs = self(X_batch)
+                loss = criterion(outputs, y_batch)
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            if lr_schedule and lr_schedule.get('type') == 'exponential':
+                decay = lr_schedule.get('decay', 0.96)
+                for g in optimizer.param_groups:
+                    g['lr'] = lr * (decay ** epoch)
+
+            if epoch % eval_interval == 0:
+                self.eval()
+                with torch.no_grad():
+                    outputs = self(trainX)
+                    train_loss = criterion(outputs, trainY).item()
+                    preds = torch.argmax(outputs, dim=1)
+                    train_acc = (preds == trainY).float().mean().item()
+
+                    train_loss_history.append(train_loss)
+                    train_acc_history.append(train_acc)
+
+                    print(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f} - Acc: {train_acc:.4f}", end="")
+
+                    if valX is not None and valY is not None:
+                        val_outputs = self(valX)
+                        val_loss = criterion(val_outputs, valY).item()
+                        val_preds = torch.argmax(val_outputs, dim=1)
+                        val_acc = (val_preds == valY).float().mean().item()
+
+                        val_loss_history.append(val_loss)
+                        val_acc_history.append(val_acc)
+
+                        print(f" - Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f}")
+                    else:
+                        print()
+
+                if early_stopping and valX is not None:
+                    if val_loss < best_val_loss:
+                        best_val_loss = val_loss
+                        best_model_state = self.state_dict()
+                        wait = 0
+                    else:
+                        wait += 1
+                        if wait >= patience:
+                            print(f"Early stopping at epoch {epoch+1}")
+                            self.load_state_dict(best_model_state)
+                            break
+
+        plt.figure(figsize=(15, 5))
+        plt.subplot(1, 2, 1)
+        plt.plot(train_loss_history, label="Train Loss")
+        if val_loss_history:
+            plt.plot(val_loss_history, label="Validation Loss")
+        plt.legend()
+        plt.title("Loss over Epochs")
+
+        plt.subplot(1, 2, 2)
+        plt.plot(train_acc_history, label="Train Accuracy")
+        if val_acc_history:
+            plt.plot(val_acc_history, label="Validation Accuracy")
+        plt.legend()
+        plt.title("Accuracy over Epochs")
+
+        plt.show()
