@@ -277,7 +277,7 @@ import matplotlib.pyplot as plt
 
 
 class BirdFCNN(nn.Module):
-    def __init__(self, input_dim, num_classes, hidden_layers=[512, 128, 32], dropout_p=0.5):
+    def __init__(self, num_classes, input_dim=70113, hidden_layers=[512, 128, 32], dropout_p=0.5):
         super(BirdFCNN, self).__init__()
 
         layers = []
@@ -311,7 +311,7 @@ class BirdFCNN(nn.Module):
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.001, batch_size=32, optimizer_type='adam', 
                     l2_lambda=0.0, early_stopping=False, patience=10, 
-                    eval_interval=10, lr_schedule=None, device='cpu'):
+                    eval_interval=10, lr_schedule=None, class_weights=None, device='cpu'):
         
         self.to(device)
         trainX = torch.tensor(trainX, dtype=torch.float32, device=device)
@@ -321,7 +321,7 @@ class BirdFCNN(nn.Module):
             valX = torch.tensor(valX, dtype=torch.float32, device=device)
             valY = torch.tensor(valY, dtype=torch.long, device=device)
 
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
         optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=l2_lambda) if optimizer_type == 'adam' else torch.optim.SGD(self.parameters(), lr=lr, weight_decay=l2_lambda)
 
         best_val_loss = float('inf')
