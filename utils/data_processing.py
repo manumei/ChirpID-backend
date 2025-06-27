@@ -90,6 +90,17 @@ def get_spec_image(segment, sr, mels, hoplen, nfft, filename, start, spectrogram
     spec_path = os.path.join(spectrogram_dir, spec_filename)
     return img, spec_path, spec_filename
 
+def get_spec_npy(segment, sr, mels, hoplen, nfft, filename, start, spectrogram_dir):
+    """Create and save spectrogram as .npy file with float32 precision."""
+    norm_spec = get_spec_norm(segment, sr, mels, hoplen, nfft)
+    
+    # Ensure values are in valid range [0, 1] and maintain float32 precision
+    norm_spec = np.clip(norm_spec, 0.0, 1.0).astype(np.float32)
+    
+    spec_filename = f"{os.path.splitext(filename)[0]}_{start}.npy"
+    spec_path = os.path.join(spectrogram_dir, spec_filename)
+    return norm_spec, spec_path, spec_filename
+
 def save_test_audios(segment, sr, test_audios_dir, filename, start, saved_audios):
     """Save test audio segments."""
     if test_audios_dir is not None and saved_audios < 10:
@@ -332,6 +343,49 @@ def create_single_spectrogram(segment_info, spectrogram_dir, mels, hoplen, nfft)
         
         # Save spectrogram image
         Image.fromarray(img).save(spec_path)
+        
+        return {
+            'filename': spec_name,
+            'class_id': segment_info['class_id'],
+            'author': segment_info['author'],
+            'species_segments': segment_info['class_total_segments']
+        }
+        
+    except Exception as e:
+        print(f"{audio_name} has been removed due to {e} error")
+        return None
+
+def create_single_spectrogram_npy(segment_info, spectrogram_dir, mels, hoplen, nfft):
+    """Create a single spectrogram from segment info and save as .npy file."""
+    audio_name = f"{segment_info['original_filename']}_segment_{segment_info['segment_index']}"
+    
+    try:
+        # Validate audio data first
+        if segment_info['audio_data'] is None or len(segment_info['audio_data']) == 0:
+            raise ValueError("Empty or invalid audio data")
+        
+        # Check for silent or near-silent audio
+        if np.max(np.abs(segment_info['audio_data'])) < 1e-8:
+            raise ValueError("Audio segment is silent or has extremely low amplitude")
+        
+        # Generate spectrogram filename
+        base_filename = os.path.splitext(segment_info['original_filename'])[0]
+        segment_filename = f"{base_filename}_{segment_info['segment_index']}.wav"
+        
+        # Create spectrogram as numpy array
+        spec_array, spec_path, spec_name = get_spec_npy(
+            segment_info['audio_data'], 
+            sr=segment_info['sr'], 
+            mels=mels, 
+            hoplen=hoplen, 
+            nfft=nfft,
+            filename=segment_filename, 
+            start=segment_info['segment_index'], 
+            spectrogram_dir=spectrogram_dir
+        )
+        
+        # Save spectrogram as .npy file
+        np.save(spec_path, spec_array)
         
         return {
             'filename': spec_name,

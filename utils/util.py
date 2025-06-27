@@ -27,10 +27,10 @@ from utils.dataset_utils import StandardizedDataset, StandardizedSubset, FastSta
 # Import functions from specialized modules for backward compatibility
 from utils.data_processing import (
     clean_dir, count_files_in_dir, lbrs_loading, get_rmsThreshold, 
-    reduce_noise_seg, get_spec_norm, get_spec_image, save_test_audios,
+    reduce_noise_seg, get_spec_norm, get_spec_image, get_spec_npy, save_test_audios,
     save_audio_segments_to_disk, load_audio_segments_from_disk,
     load_audio_files, calculate_class_totals, extract_balanced_segments,
-    extract_single_segment, create_single_spectrogram, save_test_audio,
+    extract_single_segment, create_single_spectrogram, create_single_spectrogram_npy, save_test_audio,
     plot_summary, get_spect_matrix, get_spec_matrix_direct, audio_process
 )
 
