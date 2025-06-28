@@ -49,32 +49,62 @@ def get_confusion_matrix(model, data_loader, device, num_classes):
     
     return cm, predictions_tensor, targets_tensor
 
-def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(12, 10)):
+def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(12, 10), show_counts=False):
     """
-    Plot confusion matrix showing only percentages to avoid overcrowding.
+    Plot confusion matrix showing percentages and optionally counts.
     
     Args:
-        cm: Confusion matrix array
+        cm: Confusion matrix array (numpy array)
         class_names: List of class names (optional)
         title: Plot title
         figsize: Figure size tuple
+        show_counts: If True, show both counts and percentages
     """
+    # Convert to numpy array if it's a tensor
+    if hasattr(cm, 'numpy'):
+        cm = cm.numpy()
+    elif hasattr(cm, 'cpu'):
+        cm = cm.cpu().numpy()
+    
     plt.figure(figsize=figsize)
     
     # Normalize confusion matrix to percentages
     cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
     
-    # Create heatmap
-    sns.heatmap(cm_normalized, 
-                annot=True, 
-                fmt='.1f',
-                cmap='Blues',
-                square=True,
-                cbar_kws={'label': 'Percentage (%)'})
+    # Prepare annotations
+    if show_counts:
+        # Show both counts and percentages
+        annotations = []
+        for i in range(cm.shape[0]):
+            row = []
+            for j in range(cm.shape[1]):
+                count = cm[i, j]
+                percentage = cm_normalized[i, j]
+                if count > 0:
+                    row.append(f'{count}\n({percentage:.1f}%)')
+                else:
+                    row.append('0\n(0.0%)')
+            annotations.append(row)
+        
+        # Create heatmap with custom annotations
+        sns.heatmap(cm_normalized, 
+                    annot=np.array(annotations), 
+                    fmt='',
+                    cmap='Blues',
+                    square=True,
+                    cbar_kws={'label': 'Percentage (%)'})
+    else:
+        # Show only percentages
+        sns.heatmap(cm_normalized, 
+                    annot=True, 
+                    fmt='.1f',
+                    cmap='Blues',
+                    square=True,
+                    cbar_kws={'label': 'Percentage (%)'})
     
-    plt.title(title)
-    plt.ylabel('True Label')
-    plt.xlabel('Predicted Label')
+    plt.title(title, fontsize=14, pad=20)
+    plt.ylabel('True Label', fontsize=12)
+    plt.xlabel('Predicted Label', fontsize=12)
     
     if class_names is not None:
         tick_marks = np.arange(len(class_names))
