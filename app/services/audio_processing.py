@@ -201,6 +201,12 @@ def inferenceia_prueba(path):
     """
     model_class = OldBirdCNN
     model_path = os.path.join('..', '..', 'models', 'bird_cnn.pth')
-    mapping_csv = os.path.join('..', '..', 'database', 'meta', 'mapping.csv')
+    mapping_csv = os.path.join('..', '..', 'database', 'meta', 'class_mapping.csv')
     
     return predict_bird(path, model_class, model_path, mapping_csv, reduce_noise=True)
+
+path = os.path.join('..', '..', 'database', 'audio', 'dev', 'XC16003.ogg')
+if __name__ == "__main__":
+    # Example usage
+    result = inferenceia_prueba(path)
+    print(result)
