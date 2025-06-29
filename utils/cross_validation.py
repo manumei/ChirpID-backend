@@ -21,9 +21,9 @@ from utils.dataloader_factory import OptimalDataLoaderFactory
 
 
 def k_fold_cross_validation_with_predefined_folds(dataset, fold_indices, model_class, num_classes, 
-                                                  num_epochs=300, batch_size=32, lr=0.001, 
-                                                  aggregate_predictions=True, use_class_weights=True, 
-                                                  estop=35, standardize=False):
+                                                    num_epochs=300, batch_size=32, lr=0.001, 
+                                                    aggregate_predictions=True, use_class_weights=True, 
+                                                    estop=35, standardize=False):
     """
     Legacy function - use training_core.cross_val_training() instead.
     Perform K-Fold Cross Validation training with predefined fold indices.
