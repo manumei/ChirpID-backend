@@ -65,7 +65,7 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         'mixed_precision': True,  # Enable AMP for RTX 5080
         'gradient_clipping': 1.0,  # Gradient clipping value (0 to disable)
         # Parallel fold training optimization
-        'parallel_folds': False,  # Enable parallel fold training (experimental)
+        'parallel_folds': False,  # Enable parallel fold training (always uses GPU parallel)
         'max_parallel_folds': 3,  # Max concurrent folds (adjust for GPU memory)
     }
     config = {**default_config, **(config or {})}
@@ -109,9 +109,9 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         num_classes=num_classes,
         config=config
     )
-      # Execute cross-validation training (sequential or parallel)
+    # Execute cross-validation training (sequential or parallel)
     if config.get('parallel_folds', False):
-        print(f"Using PARALLEL fold training (max {config['max_parallel_folds']} concurrent folds)")
+        print(f"Using TRUE GPU PARALLEL fold training (max {config['max_parallel_folds']} concurrent folds)")
         results, best_results = engine.run_cross_validation_parallel(
             dataset, fold_indices, config['max_parallel_folds']
         )
