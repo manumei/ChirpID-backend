@@ -114,22 +114,6 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
             raise ValueError("No valid split found with current constraints. Consider relaxing min_test_segments.")
         return search_best_group_seed(df, test_size, max_attempts, min_test_segments=8)
     
-    # Print distribution comparison
-    actual_test_segments = best_test_df.groupby('class_id')['usable_segments'].sum().sort_index()
-    dev_segments = best_dev_df.groupby('class_id')['usable_segments'].sum().sort_index()
-    target_dev_segments = total_segments_per_class - target_test_segments
-    
-    comparison_df = pd.DataFrame({
-        'Target_Test_Segments': target_test_segments,
-        'Actual_Test_Segments': actual_test_segments,
-        'Target_Dev_Segments': target_dev_segments,
-        'Actual_Dev_Segments': dev_segments,
-        'Total_Segments': total_segments_per_class
-    })
-
-    print("\nSegment distribution comparison:")
-    print(tabulate(comparison_df, headers=comparison_df.columns, tablefmt='grid'))
-    
     return best_dev_df, best_test_df, best_score
 
 def try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_segments):
@@ -247,7 +231,6 @@ def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
         return search_best_group_seed_kfold(df, max_attempts, min_val_segments=5, n_splits=n_splits)
     
     # Print fold statistics
-    print(f"\nFold statistics:")
     for i, (train_df, val_df) in enumerate(best_folds):
         author_overlap = set(train_df['author']) & set(val_df['author'])
         if author_overlap:
@@ -311,12 +294,6 @@ def precompute_single_fold_split(features, labels, authors, test_size=0.2,
     # Extract indices
     train_indices = dev_df['sample_idx'].values
     val_indices = test_df['sample_idx'].values
-    
-    print(f"\n✅ Single fold split pre-computed successfully!")
-    print(f"   Best score: {best_score:.3f}")
-    print(f"   Train samples: {len(train_indices)}")
-    print(f"   Validation samples: {len(val_indices)}")
-    print("=" * 60)
     
     return train_indices, val_indices, best_score
 
