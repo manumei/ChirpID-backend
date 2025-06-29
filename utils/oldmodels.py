@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class BirdCNN(nn.Module):
+class OldBirdCNN(nn.Module):
     def __init__(self, num_classes=28, dropout_p=0.3):
-        super(BirdCNN, self).__init__()
+        super(OldBirdCNN, self).__init__()
         self.net = nn.Sequential(
             # Block 1: no early downsampling
             nn.Conv2d(1, 32, kernel_size=3, padding=1),   # [32, 313, 224]
