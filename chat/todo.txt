@@ -1,0 +1,33 @@
+
+We need to ensure that the amount of samples *after test* remains balanced. I picked a cap of 100 and min of 75, but that means birds with 130, 200, etc. get 100, and the birds with 74 get less because of dev/test split. Dev split ends up with many at 100, some below 60.
+Maybe higher MIN or lower CAP could help.
+
+
+
+prompt markdowns:
+1. test.md
+
+
+
+Notes for agent:
+- output says most times im using around 0.1G out of 16GB, underutilizing heavily
+- I want the loading tqdm bar to actively show current train_acc and val_acc
+- 
+
+
+
+- implement ModelTesting base functionality with audio_process(), and make it print the process as it calculates for each segment each SoftMax, etc.
+- Try sweeps with vs without ADAM (asi ya me saco de encima eso)
+
+
+sempre
+read todo.md chirpid
+
+
+chirpid website
+- mi cursor no hace pointer sobre el microfono
+- no me deja grabar audios, solo subir archivos
+- no hay footer ni header
+
+
+
