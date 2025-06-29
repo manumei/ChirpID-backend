@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import f1_score, confusion_matrix
@@ -113,7 +113,12 @@ def train_single_fold(model, train_loader, val_loader, criterion, optimizer,
         
         # Learning rate scheduling
         if scheduler:
-            scheduler.step(val_loss)
+            # Handle different scheduler types
+            if isinstance(scheduler, ReduceLROnPlateau):
+                scheduler.step(val_loss)
+            else:
+                # For other schedulers (ExponentialLR, CosineAnnealingLR), step without metric
+                scheduler.step()
             current_lr = optimizer.param_groups[0]['lr']
             history['learning_rates'].append(current_lr)
         

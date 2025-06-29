@@ -8,7 +8,7 @@ import queue
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, ExponentialLR, CosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
@@ -345,13 +345,70 @@ class TrainingEngine:
             class_weights = self._compute_class_weights(train_indices, dataset)
             criterion = nn.CrossEntropyLoss(weight=class_weights)
         
-        # Initialize optimizer and scheduler
-        optimizer = optim.Adam(model.parameters(), lr=self.config['learning_rate'])
-        scheduler = ReduceLROnPlateau(
-            optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6
-        )
+        # Initialize optimizer - use config to decide between Adam and SGD
+        use_adam = self.config.get('use_adam', True)  # Default to Adam if not specified
+        learning_rate = self.config.get('learning_rate', self.config.get('initial_lr', 0.001))
+        l2_reg = self.config.get('l2_regularization', 0)
+        
+        if use_adam:
+            optimizer = optim.Adam(
+                model.parameters(), 
+                lr=learning_rate,
+                weight_decay=l2_reg
+            )
+        else:
+            momentum = self.config.get('momentum', 0.9)  # Allow configurable momentum
+            optimizer = optim.SGD(
+                model.parameters(), 
+                lr=learning_rate,
+                momentum=momentum,
+                weight_decay=l2_reg
+            )
+        
+        # Initialize scheduler based on config
+        scheduler = self._create_scheduler(optimizer)
         
         return model, criterion, optimizer, scheduler
+    
+    def _create_scheduler(self, optimizer):
+        """Create learning rate scheduler based on configuration."""
+        lr_schedule = self.config.get('lr_schedule', None)
+        
+        if lr_schedule is None:
+            return None
+        
+        if isinstance(lr_schedule, dict):
+            schedule_type = lr_schedule.get('type', 'plateau')
+            
+            if schedule_type == 'plateau':
+                return ReduceLROnPlateau(
+                    optimizer, 
+                    mode='min',
+                    patience=lr_schedule.get('patience', 10),
+                    factor=lr_schedule.get('factor', 0.2),
+                    min_lr=lr_schedule.get('min_lr', 1e-6)
+                )
+            elif schedule_type == 'exponential':
+                return ExponentialLR(
+                    optimizer,
+                    gamma=lr_schedule.get('gamma', 0.95)
+                )
+            elif schedule_type == 'cosine':
+                return CosineAnnealingLR(
+                    optimizer,
+                    T_max=lr_schedule.get('T_max', 50),
+                    eta_min=lr_schedule.get('eta_min', 1e-6)
+                )
+            else:
+                print(f"Warning: Unknown scheduler type '{schedule_type}'. Using ReduceLROnPlateau as default.")
+                return ReduceLROnPlateau(
+                    optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6
+                )
+        else:
+            print(f"Warning: lr_schedule should be a dict, got {type(lr_schedule)}. Using ReduceLROnPlateau as default.")
+            return ReduceLROnPlateau(
+                optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6
+            )
     
     def _compute_class_weights(self, train_indices, dataset):
         """Compute balanced class weights for training."""
@@ -384,7 +441,7 @@ class TrainingEngine:
         
         best_val_loss = float('inf')
         patience_counter = 0
-        estop = self.config.get('early_stopping', 35)
+        estop = self.config.get('estop_thresh', self.config.get('early_stopping', 35))
         best_model_state = None
         
         fold_desc = f"Fold {fold_num}" if fold_num else "Training"
@@ -407,8 +464,15 @@ class TrainingEngine:
             history['val_losses'].append(val_loss)
             history['val_accuracies'].append(val_acc)
             history['val_f1s'].append(val_f1)
-              # Learning rate scheduling
-            scheduler.step(val_loss)
+            
+            # Learning rate scheduling - handle different scheduler types
+            if scheduler is not None:
+                if isinstance(scheduler, ReduceLROnPlateau):
+                    scheduler.step(val_loss)
+                else:
+                    # For other schedulers (ExponentialLR, CosineAnnealingLR), step without metric
+                    scheduler.step()
+            
             current_lr = optimizer.param_groups[0]['lr']
             history['learning_rates'].append(current_lr)
             
