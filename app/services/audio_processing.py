@@ -169,7 +169,6 @@ def predict_bird(audio_path, model_class, model_path, mapping_csv, reduce_noise=
     # Find the class with highest probability
     predicted_class_id = np.argmax(average_probabilities)
     confidence = average_probabilities[predicted_class_id]
-    confidence_pct = confidence * 100
     
     # Get bird information from mapping
     bird_info = mapping_df[mapping_df['class_id'] == predicted_class_id]
@@ -185,11 +184,9 @@ def predict_bird(audio_path, model_class, model_path, mapping_csv, reduce_noise=
     
     # Return structured results
     return {
-        'class_id': int(predicted_class_id),
         'common_name': common_name,
         'scientific_name': scientific_name,
         'confidence': float(confidence),
-        'confidence_prct': float(confidence_pct)
     }
 
 def inferenceia_prueba(path):
