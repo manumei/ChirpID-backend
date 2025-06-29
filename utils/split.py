@@ -1,24 +1,4 @@
-"""
-Split Generation and Optimization Module
-
-This module provides functions for generating optimal train/validation splits
-with author grouping constraints for bird song classification.
-
-Key Features:
-- Author-grouped splitting to prevent data leakage
-- Stratified splitting based on usable segments per class
-- Single fold and K-fold cross-validation support
-- Split pre-computation for configuration sweeping optimization
-
-Functions:
-- search_best_group_seed: Find optimal single fold split
-- search_best_group_seed_kfold: Find optimal K-fold splits  
-- precompute_single_fold_split: Pre-compute single split for reuse
-- precompute_kfold_splits: Pre-compute K-fold splits for reuse
-
-The pre-computation functions are designed to optimize hyperparameter
-sweeping by avoiding redundant split computation across configurations.
-"""
+''' Las splitting functions para train-val o dev-test '''
 
 import pandas as pd
 import numpy as np
@@ -27,6 +7,7 @@ from tabulate import tabulate
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
+from utils.data_preparation import create_metadata_dataframe
 
 def try_split_with_seed(df, test_size, seed, min_test_segments, target_test_segments):
     """
@@ -133,18 +114,7 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
             raise ValueError("No valid split found with current constraints. Consider relaxing min_test_segments.")
         return search_best_group_seed(df, test_size, max_attempts, min_test_segments=8)
     
-    print(f"\nBest split found:")
-    print(f"Seed: {best_seed}")
-    print(f"Stratification score: {best_score:.3f}")
-    print(f"Author overlap: {set(best_dev_df['author']) & set(best_test_df['author'])}")
-
-    print(f"Segments in dev set: {best_dev_df['usable_segments'].sum()}")
-    print(f"Segments in test set: {best_test_df['usable_segments'].sum()}")
-    print(f"Dev segment%: {best_dev_df['usable_segments'].sum() / df['usable_segments'].sum():.2%}")
-    print(f"Test segment%: {best_test_df['usable_segments'].sum() / df['usable_segments'].sum():.2%}")
-
     # Print distribution comparison
-    print("\nSegment distribution comparison:")
     actual_test_segments = best_test_df.groupby('class_id')['usable_segments'].sum().sort_index()
     dev_segments = best_dev_df.groupby('class_id')['usable_segments'].sum().sort_index()
     target_dev_segments = total_segments_per_class - target_test_segments
@@ -156,7 +126,8 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
         'Actual_Dev_Segments': dev_segments,
         'Total_Segments': total_segments_per_class
     })
-    
+
+    print("\nSegment distribution comparison:")
     print(tabulate(comparison_df, headers=comparison_df.columns, tablefmt='grid'))
     
     return best_dev_df, best_test_df, best_score
@@ -251,15 +222,12 @@ def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
     total_segments_per_class = df.groupby('class_id')['usable_segments'].sum().sort_index()
     target_val_segments = (total_segments_per_class / n_splits).round().astype(int)
     
-    print(f"Searching for best stratified {n_splits}-fold split across {max_attempts} attempts...")
-    print(f"Target validation segments per class per fold: {target_val_segments.to_dict()}")
-    
     best_score = float('inf')
     best_folds = None
     best_seed = None
     
     for seed in range(max_attempts):
-        if seed % 5000 == 0:
+        if seed % 1200 == 0:
             print(f"Attempt {seed}/{max_attempts - 1}...")
         result = try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_segments)
         
@@ -278,21 +246,12 @@ def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
         print("Warning: No valid split found with current constraints. Relaxing min_val_segments...")
         return search_best_group_seed_kfold(df, max_attempts, min_val_segments=5, n_splits=n_splits)
     
-    print(f"\nBest {n_splits}-fold split found:")
-    print(f"Seed: {best_seed}")
-    print(f"Average stratification score: {best_score:.3f}")
-    
     # Print fold statistics
     print(f"\nFold statistics:")
     for i, (train_df, val_df) in enumerate(best_folds):
-        train_segments = train_df['usable_segments'].sum()
-        val_segments = val_df['usable_segments'].sum()
-        print(f"Fold {i+1}: Train={train_segments} segments, Val={val_segments} segments")
-        
-        # Check for author overlap (should be empty)
         author_overlap = set(train_df['author']) & set(val_df['author'])
         if author_overlap:
-            print(f"WARNING: Author overlap in fold {i+1}: {author_overlap}")
+            raise ValueError("AUTHOR OVERLAP!!")
 
     if n_splits == 4 and best_folds is not None:
         plot_fold_splits(best_folds)
@@ -337,14 +296,6 @@ def precompute_single_fold_split(features, labels, authors, test_size=0.2,
     Returns:
     - (train_indices, val_indices, best_score): Pre-computed split indices and score
     """
-    from utils.data_preparation import create_metadata_dataframe
-    
-    print("=" * 60)
-    print("PRE-COMPUTING SINGLE FOLD SPLIT")
-    print("=" * 60)
-    print(f"Dataset size: {len(labels)} samples")
-    print(f"Target split: {int((1-test_size)*100)}-{int(test_size*100)}")
-    print(f"Max attempts: {max_attempts}")
     
     # Create metadata for splitting
     metadata_df = create_metadata_dataframe(labels, authors)
@@ -371,7 +322,7 @@ def precompute_single_fold_split(features, labels, authors, test_size=0.2,
 
 
 def precompute_kfold_splits(features, labels, authors, n_splits=4, 
-                           max_attempts=30000, min_val_segments=0):
+                            max_attempts=30000, min_val_segments=0):
     """
     Pre-compute K-fold splits for use across multiple training configurations.
     This avoids recomputing the same splits for different model configurations.
@@ -387,14 +338,6 @@ def precompute_kfold_splits(features, labels, authors, n_splits=4,
     Returns:
     - (fold_indices, best_score, best_seed): Pre-computed fold indices, score, and seed
     """
-    from utils.data_preparation import create_metadata_dataframe
-    
-    print("=" * 60)
-    print(f"PRE-COMPUTING {n_splits}-FOLD CROSS-VALIDATION SPLITS")
-    print("=" * 60)
-    print(f"Dataset size: {len(labels)} samples")
-    print(f"Number of folds: {n_splits}")
-    print(f"Max attempts: {max_attempts}")
     
     # Create metadata for splitting
     metadata_df = create_metadata_dataframe(labels, authors)
@@ -413,12 +356,7 @@ def precompute_kfold_splits(features, labels, authors, n_splits=4,
         train_indices = train_df['sample_idx'].values
         val_indices = val_df['sample_idx'].values
         fold_indices.append((train_indices, val_indices))
-    
-    print(f"\n✅ {n_splits}-fold splits pre-computed successfully!")
     print(f"   Best seed: {best_seed}")
-    print(f"   Average score: {best_score:.3f}")
-    print(f"   Total fold configurations: {len(fold_indices)}")
-    print("=" * 60)
     
     return fold_indices, best_score, best_seed
 
