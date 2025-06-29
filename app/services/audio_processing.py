@@ -191,3 +191,19 @@ def predict_bird(audio_path, model_class, model_path, mapping_csv, reduce_noise=
         'confidence': float(confidence),
         'confidence_prct': float(confidence_pct)
     }
+
+def inferenceia_prueba(path):
+    """
+    Test function to demonstrate inference on a sample audio file.
+    
+    Args:
+        path (str): Path to the audio file to analyze
+    
+    Returns:
+        dict: Inference results
+    """
+    model_class = OldBirdCNN
+    model_path = os.path.join('..', '..', 'models', 'bird_cnn.pth')
+    mapping_csv = os.path.join('..', '..', 'database', 'meta', 'mapping.csv')
+    
+    return predict_bird(path, model_class, model_path, mapping_csv, reduce_noise=True)
