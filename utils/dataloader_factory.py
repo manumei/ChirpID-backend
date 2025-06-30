@@ -1,12 +1,12 @@
 # DataLoader Factory - Optimal DataLoader Configuration
 # Provides hardware-optimized DataLoader configurations for RTX 5080 + Ryzen 9 7950X
 
-import torch
-from torch.utils.data import DataLoader
 import os
 import random
 import numpy as np
 
+import torch
+from torch.utils.data import DataLoader
 
 def worker_init_fn(worker_id):
     """Initialize random state per worker for consistent augmentation."""
@@ -42,7 +42,7 @@ class OptimalDataLoaderFactory:
             'persistent_workers': True,  # Reduce spawn overhead
             'drop_last': True,  # Consistent batch sizes
         }
-          # Determine worker count based on operations complexity
+        # Determine worker count based on operations complexity
         if has_augmentation or has_standardization:
             # Use more workers for complex operations on high-end hardware
             base_config['num_workers'] = 10  # Increased from 8
@@ -51,12 +51,12 @@ class OptimalDataLoaderFactory:
             # Use more workers for simple tensor loading on RTX 5080
             base_config['num_workers'] = 14  # Increased from 12
             base_config['prefetch_factor'] = 8  # Increased from 6
-              # Adjust for dataset size
+            # Adjust for dataset size
         if dataset_size < 1000:
             base_config['num_workers'] = min(base_config['num_workers'], 6)  # Increased from 4
         elif dataset_size > 10000:
             base_config['num_workers'] = min(base_config['num_workers'] + 2, 18)  # Increased from 16
-              # Disable persistent workers if num_workers is 0
+            # Disable persistent workers if num_workers is 0
         if base_config['num_workers'] == 0:
             base_config['persistent_workers'] = False
             base_config.pop('prefetch_factor', None)
@@ -84,7 +84,7 @@ class OptimalDataLoaderFactory:
         
         # Remove our custom flags from kwargs
         clean_kwargs = {k: v for k, v in kwargs.items() 
-                       if k not in ['has_augmentation', 'has_standardization']}
+                        if k not in ['has_augmentation', 'has_standardization']}
         
         # Update with user overrides
         config.update(clean_kwargs)
@@ -120,7 +120,7 @@ class OptimalDataLoaderFactory:
         
         # Remove our custom flags from kwargs
         clean_kwargs = {k: v for k, v in kwargs.items() 
-                       if k not in ['has_augmentation', 'has_standardization']}        # Update with user overrides
+                        if k not in ['has_augmentation', 'has_standardization']}        # Update with user overrides
         config.update(clean_kwargs)
         config['shuffle'] = False
         

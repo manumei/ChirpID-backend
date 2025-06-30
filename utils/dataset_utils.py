@@ -60,7 +60,7 @@ class FastStandardizedSubset(Dataset):
 class AugmentedDataset(Dataset):
     """Worker-safe dataset wrapper that applies on-the-fly augmentation during training."""
     def __init__(self, base_dataset, use_spec_augment=False, use_gaussian_noise=False, 
-                 augment_params=None, training=True):
+                augment_params=None, training=True):
         self.base_dataset = base_dataset
         self.training = training
         self.use_spec_augment = use_spec_augment
