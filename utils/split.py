@@ -95,6 +95,8 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
     best_seed = None
     
     for seed in range(max_attempts):
+        if seed % 6_000 == 0:
+            print(f"Attempt {seed}/{max_attempts - 1}...")
         result = try_split_with_seed(df, test_size, seed, min_test_segments, target_test_segments)
         
         if result is not None:
