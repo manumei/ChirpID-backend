@@ -111,7 +111,7 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
             raise ValueError("No valid split found with current constraints. Consider relaxing min_test_segments.")
         return search_best_group_seed(df, test_size, max_attempts, min_test_segments=8)
     
-    return best_dev_df, best_test_df, best_score
+    return best_dev_df, best_test_df, best_score, best_seed
 
 def try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_segments):
     """
@@ -280,7 +280,7 @@ def precompute_single_fold_split(features, labels, authors, test_size=0.2,
     metadata_df = create_metadata_dataframe(labels, authors)
     
     # Find optimal split with author grouping
-    dev_df, test_df, best_score = search_best_group_seed(
+    dev_df, test_df, best_score, best_seed = search_best_group_seed(
         df=metadata_df,
         test_size=test_size,
         max_attempts=max_attempts,
@@ -290,6 +290,7 @@ def precompute_single_fold_split(features, labels, authors, test_size=0.2,
     # Extract indices
     train_indices = dev_df['sample_idx'].values
     val_indices = test_df['sample_idx'].values
+    print(f"Best seed: {best_seed}")
     
     return train_indices, val_indices, best_score
 
@@ -328,7 +329,7 @@ def precompute_kfold_splits(features, labels, authors, n_splits=4,
         train_indices = train_df['sample_idx'].values
         val_indices = val_df['sample_idx'].values
         fold_indices.append((train_indices, val_indices))
-    print(f"   Best seed: {best_seed}")
+    print(f"Best seed: {best_seed}")
     
     return fold_indices, best_score, best_seed
 

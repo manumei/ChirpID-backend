@@ -204,7 +204,7 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
             
             # Find optimal 80-20 split with author grouping
             print(f"Finding best {int((1-config['test_size'])*100)}-{int(config['test_size']*100)} split with author grouping...")
-            dev_df, test_df, best_split_score = search_best_group_seed(
+            dev_df, test_df, best_split_score, best_seed = search_best_group_seed(
                 df=metadata_df,
                 test_size=config['test_size'],
                 max_attempts=config['max_split_attempts'],
