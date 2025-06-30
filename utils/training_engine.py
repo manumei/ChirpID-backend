@@ -438,8 +438,15 @@ class TrainingEngine:
         best_model_state = None
         
         fold_desc = f"Fold {fold_num}" if fold_num else "Training"
+        config_id = self.config.get('config_id', 'Unknown')
         
-        for epoch in tqdm(range(self.config['num_epochs']), desc=f"{fold_desc}"):
+        # Initialize timing for progress estimates
+        start_time = time.time()
+        
+        # Create progress bar with detailed information
+        progress_bar = tqdm(range(self.config['num_epochs']), desc=f"{fold_desc}")
+        
+        for epoch in progress_bar:
             # Training phase
             train_loss, train_acc, train_f1 = self._train_epoch(
                 model, train_loader, criterion, optimizer
@@ -457,6 +464,27 @@ class TrainingEngine:
             history['val_losses'].append(val_loss)
             history['val_accuracies'].append(val_acc)
             history['val_f1s'].append(val_f1)
+            
+            # Calculate time estimates
+            elapsed_time = time.time() - start_time
+            epochs_completed = epoch + 1
+            avg_time_per_epoch = elapsed_time / epochs_completed
+            remaining_epochs = self.config['num_epochs'] - epochs_completed
+            estimated_total_time = elapsed_time + (remaining_epochs * avg_time_per_epoch)
+            
+            # Format time strings
+            elapsed_str = f"{int(elapsed_time//60):02d}:{int(elapsed_time%60):02d}"
+            total_str = f"{int(estimated_total_time//60):02d}:{int(estimated_total_time%60):02d}"
+            
+            # Update progress bar with detailed information
+            progress_info = (
+                f"Epoch {epochs_completed}/{self.config['num_epochs']} | "
+                f"Time {elapsed_str}/{total_str} | "
+                f"Config: {config_id} | "
+                f"TrLoss: {train_loss:.4f} | TrAcc: {train_acc:.4f} | "
+                f"ValLoss: {val_loss:.4f} | ValAcc: {val_acc:.4f}"
+            )
+            progress_bar.set_description(progress_info)
             
             # Learning rate scheduling - handle different scheduler types
             if scheduler is not None:
@@ -488,6 +516,9 @@ class TrainingEngine:
                     break
             
             history['total_epochs'] = epoch + 1
+        
+        # Close progress bar
+        progress_bar.close()
         
         # Always restore best model at the end (if not early stopped)
         if best_model_state is not None and not history['early_stopped']:

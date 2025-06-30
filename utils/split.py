@@ -385,16 +385,16 @@ def display_split_statistics(split_data, split_type="single"):
     print("-" * 40)
     
     if split_type == "single":
-        print(f"Random seed: {seed}")
         train_indices, val_indices, score, seed = split_data
+        print(f"Random seed: {seed}")
         print(f"Train samples: {len(train_indices)}")
         print(f"Validation samples: {len(val_indices)}")
         print(f"Split ratio: {len(train_indices)/(len(train_indices)+len(val_indices)):.2%} - {len(val_indices)/(len(train_indices)+len(val_indices)):.2%}")
         print(f"Quality score: {score:.4f}")
         
     elif split_type == "kfold":
-        print(f"Random seed: {seed}")
         fold_indices, score, seed = split_data
+        print(f"Random seed: {seed}")
         print(f"Number of folds: {len(fold_indices)}")
         print(f"Average quality score: {score:.4f}")
         

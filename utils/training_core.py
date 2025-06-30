@@ -22,7 +22,7 @@ from utils.data_preparation import prepare_training_data, create_metadata_datafr
 def cross_val_training(data_path=None, features=None, labels=None, authors=None, 
                         model_class=None, num_classes=None, config=None,
                         spec_augment=False, gaussian_noise=False, 
-                        precomputed_splits=None):
+                        precomputed_splits=None, config_id=None):
     """
     Top-level function for K-fold cross-validation training.
     
@@ -69,6 +69,10 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         'max_parallel_folds': 3,  # Max concurrent folds (adjust for GPU memory)
     }
     config = {**default_config, **(config or {})}
+    
+    # Add config_id if provided
+    if config_id is not None:
+        config['config_id'] = config_id
     
     # Prepare training data
     features, labels, authors = prepare_training_data(data_path, features, labels, authors)
@@ -129,7 +133,7 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
 def single_fold_training(data_path=None, features=None, labels=None, authors=None,
                         model_class=None, num_classes=None, config=None, 
                         use_predefined_split=True, spec_augment=False, gaussian_noise=False,
-                        precomputed_split=None):
+                        precomputed_split=None, config_id=None):
     """
     Top-level function for single fold training.
     
@@ -178,6 +182,10 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         'lr_schedule': None  # Learning rate schedule configuration
     }
     config = {**default_config, **(config or {})}
+    
+    # Add config_id if provided
+    if config_id is not None:
+        config['config_id'] = config_id
     
     # Prepare training data
     features, labels, authors = prepare_training_data(data_path, features, labels, authors)
