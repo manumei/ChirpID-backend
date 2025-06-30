@@ -95,7 +95,7 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
     best_seed = None
     
     for seed in range(max_attempts):
-        if seed % 6_000 == 0:
+        if seed % 10_000 == 0:
             print(f"Attempt {seed}/{max_attempts - 1}...")
         result = try_split_with_seed(df, test_size, seed, min_test_segments, target_test_segments)
         
@@ -210,7 +210,7 @@ def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
     best_seed = None
     
     for seed in range(max_attempts):
-        if seed % 1200 == 0:
+        if seed % 2000 == 0:
             print(f"Attempt {seed}/{max_attempts - 1}...")
         result = try_kfold_split_with_seed(df, n_splits, seed, min_val_segments, target_val_segments)
         
