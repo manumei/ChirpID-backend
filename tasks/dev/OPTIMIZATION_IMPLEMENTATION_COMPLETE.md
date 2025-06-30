@@ -9,7 +9,7 @@
 
 ### ✅ 1. Mixed Precision Training (AMP) 
 - **Location**: `utils/training_engine.py`, `utils/training_core.py`
-- **Implementation**: Added `torch.cuda.amp.GradScaler()` and autocast context
+- **Implementation**: Added `torch.amp.GradScaler()` and autocast context
 - **Performance**: 30-50% training speedup expected
 - **GPU Memory**: ~40% reduction in memory usage
 

@@ -519,7 +519,7 @@ class TrainingEngine:
         gradient_clipping = self.config.get('gradient_clipping', 1.0)  # Default clip value
         
         if use_amp and hasattr(torch.cuda, 'amp'):
-            scaler = torch.cuda.amp.GradScaler()
+            scaler = torch.amp.GradScaler()
         else:
             scaler = None
             use_amp = False
@@ -531,7 +531,7 @@ class TrainingEngine:
             
             if use_amp and scaler is not None:
                 # Mixed precision forward pass
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast():
                     outputs = model(X_batch)
                     loss = criterion(outputs, y_batch)
                 
