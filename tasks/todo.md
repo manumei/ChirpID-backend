@@ -17,11 +17,8 @@ Asi retornea una lista de vectores flats, en vez de matrices, como necesita la f
 Despues en models.py crea el modelo, uno nuevo abajo del que ya tenemos de BirdCNN. Avisale a Chat que considere que las dimensiones de los vectores de features de input son (70,112)
 
 **Barridos & Grid Search** (Mei)
-Implement Early Stopping (xd), de mas aclarar again, para no correr 300 epochs de mas, tirar tiempo, y overfittear while at it. Research if there's some common heuristic for what early-stop margin to set. Replicar lo que pensé para el TP3 de guardarse el valor de loss mas bajo y sus pesos en esa instancia, y si *ese* valor no se mejora despues de $n$ epocas, entonces ahi si se corta el training.
-
-Balance the classes. Use cost-reweighting, applied directly to the PyTorch tensors and to the criterion (cross-entropy). Other methods of balancing are not good for audios and spectrograms. The papers that mention dealing with class imbalance, all use cost re-weighting.
-
-(De mas esta aclarar), try sweeps and grid searches of different architectures, optimization and regularization techniques. Try L2 Reg, try using vs not using ADAM, try varying learning rate or learning rate momentum (todas las 'vistas en la cursada'). Instead of just varying techniques and architectures, also vary some arbitrary values for data-processing.
+Once model is defined:
+Instead of just varying techniques and architectures, also vary some arbitrary values for data-processing.
 Try varying the threshold_factor, the segment durations, and maybe even some others? hop_len, nfft, mel_bins? might be too much though.
 
 User cares about final predictions, not cross-entropy loss. Cuando me ponga a correr los barridos y grid search, uso la cross-entropy loss para entrenar y penalizar al modelo, pero para elegir el modelo final para deploy, evaluar el que tenga mejor F1 Score.
