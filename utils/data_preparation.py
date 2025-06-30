@@ -34,10 +34,10 @@ def prepare_training_data(data_path=None, features=None, labels=None, authors=No
         # Reshape for CNN input (batch_size, channels, height, width)
         features = features.reshape(-1, 1, 313, 224)
         
-        print(f"Loaded data from CSV:")
-        print(f"  Features shape: {features.shape}")
-        print(f"  Labels shape: {labels.shape}")
-        print(f"  Authors shape: {authors.shape}")
+        # print(f"Loaded data from CSV:")
+        # print(f"  Features shape: {features.shape}")
+        # print(f"  Labels shape: {labels.shape}")
+        # print(f"  Authors shape: {authors.shape}")
         
     elif features is not None and labels is not None and authors is not None:
         print("Using provided arrays")

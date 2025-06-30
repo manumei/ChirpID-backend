@@ -149,14 +149,11 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         spec_augment (bool): Whether to apply SpecAugment during training
         gaussian_noise (bool): Whether to apply Gaussian noise during training
         precomputed_split (tuple, optional): Pre-computed (train_indices, val_indices, best_score) 
-                                           from split generation to avoid recomputation
+                                            from split generation to avoid recomputation
     
     Returns:
         dict: Complete training results
     """
-    print("=" * 60)
-    print("SINGLE FOLD TRAINING")
-    print("=" * 60)
     
     # Set default configuration
     default_config = {
@@ -193,7 +190,7 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         torch.tensor(features, dtype=torch.float32),
         torch.tensor(labels, dtype=torch.long)
     )
-      # Initialize training engine
+    # Initialize training engine
     engine = TrainingEngine(
         model_class=model_class,
         num_classes=num_classes,
@@ -204,8 +201,6 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         # Use precomputed split if available, otherwise compute it
         if precomputed_split is not None:
             train_indices, val_indices, best_split_score, best_split_seed = precomputed_split
-            print(f"Using precomputed split with score: {best_split_score:.3f}")
-            print(f"Train samples: {len(train_indices)}, Validation samples: {len(val_indices)}")
         else:
             # Create metadata for splitting
             metadata_df = create_metadata_dataframe(labels, authors)
@@ -232,8 +227,5 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
     else:
         # Execute training with stratified split
         results = engine.run_single_fold_stratified(dataset)        
-    print("\\n" + "=" * 60)
-    print("SINGLE FOLD TRAINING COMPLETED")
-    print("=" * 60)
-    
+        
     return results

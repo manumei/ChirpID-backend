@@ -241,12 +241,9 @@ class TrainingEngine:
         
         # Log completion
         fold_str = f"Fold {fold_num} " if fold_num else ""
-        print(f"\\n{fold_str}Training Complete!")
         if history['early_stopped']:
             print(f"Early stopped after {history['total_epochs']} epochs (best at epoch {history['best_epoch'] + 1})")
-        print(f"Final - Val Acc: {final_val_acc:.4f}, Val Loss: {final_val_loss:.4f}, Val F1: {final_val_f1:.4f}")
         print(f"Best - Val Acc: {results['best_val_acc']:.4f}, Val F1: {results['best_val_f1']:.4f}")
-        print(f"Training time: {training_time:.1f} seconds")
         
         return results
     
@@ -405,7 +402,7 @@ class TrainingEngine:
     
     def _compute_class_weights(self, train_indices, dataset):
         """Compute balanced class weights for training."""
-        print("Computing class weights...")
+        # print("Computing class weights...")
         train_labels = [dataset[i][1].item() for i in train_indices]
         unique_classes = np.unique(train_labels)
         
@@ -420,7 +417,7 @@ class TrainingEngine:
             class_weights[cls] = class_weights_array[i]
         
         class_weights = class_weights.to(self.device)
-        print(f"Class weights: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
+        # print(f"Class weights: min={class_weights.min():.3f}, max={class_weights.max():.3f}")
         
         return class_weights
     
@@ -478,8 +475,6 @@ class TrainingEngine:
             
             # Update progress bar with detailed information
             progress_info = (
-                f"Epoch {epochs_completed}/{self.config['num_epochs']} | "
-                f"Time {elapsed_str}/{total_str} | "
                 f"Config: {config_id} | "
                 f"TrLoss: {train_loss:.4f} | TrAcc: {train_acc:.4f} | "
                 f"ValLoss: {val_loss:.4f} | ValAcc: {val_acc:.4f}"
@@ -507,8 +502,8 @@ class TrainingEngine:
             else:
                 patience_counter += 1
                 if patience_counter >= estop:
-                    print(f"Early stopping at epoch {epoch + 1}")
-                    print(f"Restoring best model from epoch {history['best_epoch'] + 1}")
+                    # print(f"Early stopping at epoch {epoch + 1}")
+                    # print(f"Restoring best model from epoch {history['best_epoch'] + 1}")
                     # Restore best model state
                     if best_model_state is not None:
                         model.load_state_dict(best_model_state)
