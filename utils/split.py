@@ -293,7 +293,6 @@ def precompute_single_fold_split(features, labels, authors, test_size=0.2,
     
     return train_indices, val_indices, best_score
 
-
 def precompute_kfold_splits(features, labels, authors, n_splits=4, 
                             max_attempts=30000, min_val_segments=0):
     """
@@ -333,6 +332,44 @@ def precompute_kfold_splits(features, labels, authors, n_splits=4,
     
     return fold_indices, best_score, best_seed
 
+def get_set_seed_indices(features, labels, authors, test_size, seed):
+    ''' Returns the train_indices and val_indices for a set seed '''
+    metadata_df = create_metadata_dataframe(labels, authors)
+    dev_df, test_df, best_score = try_split_with_seed(
+        df=metadata_df,
+        test_size=test_size,
+        seed=seed,
+        min_test_segments=5,
+        target_test_segments=(metadata_df.groupby('class_id')['usable_segments'].sum() * test_size).round().astype(int)
+    )
+    if dev_df is None or test_df is None:
+        raise ValueError(f"Failed to find a valid split with seed {seed}. Try a different seed or adjust parameters.")
+    train_indices = dev_df['sample_idx'].values
+    val_indices = test_df['sample_idx'].values
+    
+    return train_indices, val_indices, best_score
+
+def get_set_seed_kfold_indices(features, labels, authors, n_splits, seed):
+    ''' Returns the train_indices and val_indices for a set seed in k-fold '''
+    metadata_df = create_metadata_dataframe(labels, authors)
+    folds, best_score, best_seed = try_kfold_split_with_seed(
+        df=metadata_df,
+        n_splits=n_splits,
+        seed=seed,
+        min_val_segments=0,
+        target_val_segments=(metadata_df.groupby('class_id')['usable_segments'].sum() / n_splits).round().astype(int)
+    )
+    
+    if folds is None:
+        raise ValueError(f"Failed to find a valid k-fold split with seed {seed}. Try a different seed or adjust parameters.")
+    
+    fold_indices = []
+    for train_df, val_df in folds:
+        train_indices = train_df['sample_idx'].values
+        val_indices = val_df['sample_idx'].values
+        fold_indices.append((train_indices, val_indices))
+    
+    return fold_indices, best_score, best_seed
 
 def display_split_statistics(split_data, split_type="single"):
     """
