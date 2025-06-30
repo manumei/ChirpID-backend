@@ -5,6 +5,10 @@ import os
 import time
 import threading
 import queue
+import gc
+import numpy as np
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,19 +17,15 @@ from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import f1_score
-import numpy as np
-from tqdm import tqdm
-import multiprocessing as mp
-from joblib import Parallel, delayed
-import gc
+from sklearn.model_selection import train_test_split
 
+from utils.evaluation_utils import get_confusion_matrix
+from utils.specaugment import get_augmentation_params
+from utils.dataloader_factory import OptimalDataLoaderFactory, DataLoaderConfigLogger
 from utils.dataset_utils import (
     compute_standardization_stats, 
     create_standardized_subset,
-    create_augmented_dataset_wrapper
-)
-from utils.evaluation_utils import get_confusion_matrix
-
+    create_augmented_dataset_wrapper)
 
 class TrainingEngine:
     """
@@ -156,7 +156,6 @@ class TrainingEngine:
         Returns:
             dict: Training results
         """
-        from sklearn.model_selection import train_test_split
         
         # Extract labels for stratification
         labels = dataset.tensors[1].numpy()
@@ -273,7 +272,6 @@ class TrainingEngine:
         
         if use_spec_augment or use_gaussian_noise:            
             # Get augmentation parameters
-            from utils.specaugment import get_augmentation_params
             augment_params = get_augmentation_params(
                 len(train_indices), 
                 self.num_classes,
@@ -300,8 +298,6 @@ class TrainingEngine:
     
     def _create_data_loaders(self, train_subset, val_subset):
         """Create optimized data loaders using the factory."""
-        from utils.dataloader_factory import OptimalDataLoaderFactory, DataLoaderConfigLogger
-        
         # Determine dataset characteristics
         has_augmentation = self.config.get('spec_augment', False) or self.config.get('gaussian_noise', False)
         has_standardization = self.config.get('standardize', False)
@@ -378,7 +374,7 @@ class TrainingEngine:
             return None
         
         if isinstance(lr_schedule, dict):
-            schedule_type = lr_schedule.get('type', 'plateau')
+            schedule_type = lr_schedule.get('type')
             
             if schedule_type == 'plateau':
                 return ReduceLROnPlateau(
@@ -400,10 +396,7 @@ class TrainingEngine:
                     eta_min=lr_schedule.get('eta_min', 1e-6)
                 )
             else:
-                print(f"Warning: Unknown scheduler type '{schedule_type}'. Using ReduceLROnPlateau as default.")
-                return ReduceLROnPlateau(
-                    optimizer, mode='min', patience=10, factor=0.2, min_lr=1e-6
-                )
+                raise ValueError(f"Unknown lr_schedule type: {schedule_type}")
         else:
             print(f"Warning: lr_schedule should be a dict, got {type(lr_schedule)}. Using ReduceLROnPlateau as default.")
             return ReduceLROnPlateau(
@@ -495,11 +488,6 @@ class TrainingEngine:
                     break
             
             history['total_epochs'] = epoch + 1
-            # Progress update
-            if (epoch + 1) % 50 == 0:
-                print(f"Epoch {epoch + 1}/{self.config['num_epochs']} - "
-                    f"Train: Loss={train_loss:.4f}, Acc={train_acc:.4f}, F1={train_f1:.4f} - "
-                    f"Val: Loss={val_loss:.4f}, Acc={val_acc:.4f}, F1={val_f1:.4f}")
         
         # Always restore best model at the end (if not early stopped)
         if best_model_state is not None and not history['early_stopped']:
@@ -655,9 +643,6 @@ class TrainingEngine:
         Returns:
             tuple: (results, best_results)
         """
-        import threading
-        import queue
-        import gc
         
         print(f"\nStarting {len(fold_indices)}-fold cross-validation with TRUE GPU PARALLEL processing...")
         print(f"Maximum concurrent folds: {max_parallel_folds}")
