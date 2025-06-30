@@ -17,7 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.dataloader_factory import OptimalDataLoaderFactory
 from utils.dataset_utils import StandardizedSubset, AugmentedDataset
-from utils.performance_monitor import DataLoaderPerformanceMonitor
+from benchmark.performance_monitor import DataLoaderPerformanceMonitor
 from utils.specaugment import get_augmentation_params
 
 
