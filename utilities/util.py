@@ -34,7 +34,7 @@ from utils.data_processing import (
     plot_summary, get_spect_matrix, get_spec_matrix_direct, audio_process
 )
 
-from utils.training_utils import (
+from utilities.training_utils import (
     train_epoch, validate_epoch, train_single_fold, 
     fast_single_fold_training_with_predefined_split,
     fast_single_fold_training_with_augmentation,
@@ -49,7 +49,7 @@ from utils.evaluation_utils import (
     load_model, reset_model
 )
 
-from utils.cross_validation import (
+from utilities.cross_validation import (
     k_fold_cross_validation, k_fold_cross_validation_with_predefined_folds
 )
 
