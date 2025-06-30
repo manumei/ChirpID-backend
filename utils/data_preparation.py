@@ -76,10 +76,10 @@ def create_metadata_dataframe(labels, authors, sample_indices=None):
         'usable_segments': 1  # Each sample represents 1 segment
     })
     
-    print(f"Created metadata DataFrame:")
-    print(f"  Shape: {metadata_df.shape}")
-    print(f"  Unique authors: {len(metadata_df['author'].unique())}")
-    print(f"  Unique classes: {len(metadata_df['class_id'].unique())}")
+    # print(f"Created metadata DataFrame:")
+    # print(f"  Shape: {metadata_df.shape}")
+    # print(f"  Unique authors: {len(metadata_df['author'].unique())}")
+    # print(f"  Unique classes: {len(metadata_df['class_id'].unique())}")
     
     return metadata_df
 

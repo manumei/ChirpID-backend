@@ -106,8 +106,6 @@ def search_best_group_seed(df, test_size, max_attempts, min_test_segments):
                 best_test_df = test_df
                 best_seed = seed
                 
-                print(f"New best split found! Seed: {seed}, Score: {score:.3f}")
-    
     if best_dev_df is None:
         if min_test_segments < 8:
             raise ValueError("No valid split found with current constraints. Consider relaxing min_test_segments.")
@@ -221,7 +219,6 @@ def search_best_group_seed_kfold(df, max_attempts, min_val_segments, n_splits):
                 best_score = avg_score
                 best_folds = folds
                 best_seed = seed
-                print(f"New best {n_splits}-fold split found! Seed: {seed}, Avg Score: {avg_score:.3f}")
     
     if best_folds is None:
         if min_val_segments <= 4:
