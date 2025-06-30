@@ -290,9 +290,8 @@ def precompute_single_fold_split(features, labels, authors, test_size=0.2,
     # Extract indices
     train_indices = dev_df['sample_idx'].values
     val_indices = test_df['sample_idx'].values
-    print(f"Best seed: {best_seed}")
     
-    return train_indices, val_indices, best_score
+    return train_indices, val_indices, best_score, best_seed
 
 def precompute_kfold_splits(features, labels, authors, n_splits=4, 
                             max_attempts=30000, min_val_segments=0):
@@ -329,7 +328,6 @@ def precompute_kfold_splits(features, labels, authors, n_splits=4,
         train_indices = train_df['sample_idx'].values
         val_indices = val_df['sample_idx'].values
         fold_indices.append((train_indices, val_indices))
-    print(f"Best seed: {best_seed}")
     
     return fold_indices, best_score, best_seed
 
@@ -378,23 +376,24 @@ def display_split_statistics(split_data, split_type="single"):
     
     Parameters:
     - split_data: Either (train_indices, val_indices, score) for single fold
-                  or (fold_indices, score, seed) for k-fold
+                    or (fold_indices, score, seed) for k-fold
     - split_type: "single" or "kfold"
     """
     print(f"\n📊 {split_type.upper()} SPLIT STATISTICS")
     print("-" * 40)
     
     if split_type == "single":
-        train_indices, val_indices, score = split_data
+        print(f"Random seed: {seed}")
+        train_indices, val_indices, score, seed = split_data
         print(f"Train samples: {len(train_indices)}")
         print(f"Validation samples: {len(val_indices)}")
         print(f"Split ratio: {len(train_indices)/(len(train_indices)+len(val_indices)):.2%} - {len(val_indices)/(len(train_indices)+len(val_indices)):.2%}")
         print(f"Quality score: {score:.4f}")
         
     elif split_type == "kfold":
+        print(f"Random seed: {seed}")
         fold_indices, score, seed = split_data
         print(f"Number of folds: {len(fold_indices)}")
-        print(f"Random seed: {seed}")
         print(f"Average quality score: {score:.4f}")
         
         for i, (train_idx, val_idx) in enumerate(fold_indices):

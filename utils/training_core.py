@@ -195,7 +195,7 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
     if use_predefined_split:
         # Use precomputed split if available, otherwise compute it
         if precomputed_split is not None:
-            train_indices, val_indices, best_split_score = precomputed_split
+            train_indices, val_indices, best_split_score, best_split_seed = precomputed_split
             print(f"Using precomputed split with score: {best_split_score:.3f}")
             print(f"Train samples: {len(train_indices)}, Validation samples: {len(val_indices)}")
         else:
