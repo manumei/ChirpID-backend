@@ -243,29 +243,6 @@ class DataLoaderPerformanceMonitor:
             print(f"Plot saved to: {save_path}")
         
         plt.show()
-    
-    def monitor_gpu_utilization(self):
-        """Monitor GPU utilization during training (requires nvidia-ml-py)."""
-        try:
-            import pynvml
-            pynvml.nvmlInit()
-            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-            
-            util = pynvml.nvmlDeviceGetUtilizationRates(handle)
-            memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-            
-            return {
-                'gpu_util_percent': util.gpu,
-                'memory_used_mb': memory.used // 1024 // 1024,
-                'memory_total_mb': memory.total // 1024 // 1024,
-                'memory_util_percent': (memory.used / memory.total) * 100
-            }
-        except ImportError:
-            print("pynvml not available for GPU monitoring")
-            return None
-        except Exception as e:
-            print(f"GPU monitoring failed: {e}")
-            return None
 
 
 def quick_benchmark(dataset, batch_size=24, has_augmentation=False, has_standardization=False):
