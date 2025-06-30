@@ -531,7 +531,7 @@ class TrainingEngine:
             
             if use_amp and scaler is not None:
                 # Mixed precision forward pass
-                with torch.amp.autocast():
+                with torch.amp.autocast(device_type='cuda'):
                     outputs = model(X_batch)
                     loss = criterion(outputs, y_batch)
                 
@@ -686,42 +686,37 @@ class TrainingEngine:
             """
             Train a single fold on GPU with dedicated CUDA stream.
             """
-            try:
                 # Set the stream for this thread
-                with torch.cuda.stream(stream):
-                    # Create isolated training engine for this fold
-                    fold_engine = TrainingEngine(
-                        model_class=self.model_class,
-                        num_classes=self.num_classes,
-                        config=self.config.copy()
-                    )
-                    fold_engine.device = self.device  # Keep GPU device
-                    
-                    print(f"\n🚀 Starting Fold {fold_idx + 1}/{len(fold_indices)} on GPU (Stream {stream.stream_id})")
-                    
-                    # Train the fold with stream isolation
-                    fold_result = fold_engine._train_single_fold_with_indices(
-                        dataset, train_indices, val_indices, fold_num=fold_idx+1
-                    )
-                    
-                    # Clean up model from results to save memory
-                    if 'model' in fold_result:
-                        # Save model state but remove the model object
-                        fold_result['model_state_dict'] = fold_result['model'].state_dict().copy()
-                        del fold_result['model']
-                    
-                    # Synchronize stream before cleanup
-                    stream.synchronize()
-                    
-                    # Clean up GPU memory for this stream
-                    torch.cuda.empty_cache()
-                    
-                    print(f"✅ Fold {fold_idx + 1} completed successfully on GPU")
-                    results_queue.put((fold_idx, fold_result))
-                    
-            except Exception as e:
-                print(f"❌ Error in Fold {fold_idx + 1}: {str(e)}")
-                error_queue.put((fold_idx, str(e)))
+            with torch.cuda.stream(stream):
+                # Create isolated training engine for this fold
+                fold_engine = TrainingEngine(
+                    model_class=self.model_class,
+                    num_classes=self.num_classes,
+                    config=self.config.copy()
+                )
+                fold_engine.device = self.device  # Keep GPU device
+                
+                print(f"\n🚀 Starting Fold {fold_idx + 1}/{len(fold_indices)} on GPU (Stream {stream.stream_id})")
+                
+                # Train the fold with stream isolation
+                fold_result = fold_engine._train_single_fold_with_indices(
+                    dataset, train_indices, val_indices, fold_num=fold_idx+1
+                )
+                
+                # Clean up model from results to save memory
+                if 'model' in fold_result:
+                    # Save model state but remove the model object
+                    fold_result['model_state_dict'] = fold_result['model'].state_dict().copy()
+                    del fold_result['model']
+                
+                # Synchronize stream before cleanup
+                stream.synchronize()
+                
+                # Clean up GPU memory for this stream
+                torch.cuda.empty_cache()
+                
+                print(f"✅ Fold {fold_idx + 1} completed successfully on GPU")
+                results_queue.put((fold_idx, fold_result))
         
         # Execute folds in parallel using threading
         print(f"\n🔥 Launching {max_parallel_folds} concurrent GPU training threads...")
