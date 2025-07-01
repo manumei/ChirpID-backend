@@ -139,11 +139,12 @@ def plot_metric_vs_epochs(train_values, val_values, metric_name, ax=None):
     ax.legend()
     ax.grid(True, alpha=0.3)
 
-def plot_full_metrics(history: dict, cm: np.ndarray):
+def plot_full_metrics(config_id, history: dict, cm: np.ndarray):
     """ Plots all the relevant metrics from the training history.
     Plots a 2x2 grid of subplots: Losses, Accuracies, F1 Scores and Confusion Matrix
 
     Args:
+        config_id: Configuration identifier for the plot title
         history (dict): Dictionary containing training history with the keys:
             - 'train_losses': List of training losses
             - 'val_losses': List of validation losses
@@ -154,6 +155,7 @@ def plot_full_metrics(history: dict, cm: np.ndarray):
         cm (np.ndarray): Confusion matrix to be plotted
     """
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    fig.suptitle(f'Metrics of {config_id}', fontsize=16, fontweight='bold')
     
     # [0, 0] Plot training and validation losses over epochs
     plot_metric_vs_epochs(history['train_losses'], history['val_losses'], 'Loss', axes[0, 0])
@@ -191,11 +193,11 @@ def plot_full_metrics(history: dict, cm: np.ndarray):
     plt.show()
     plt.close()  # Free figure memory
 
-def plot_metrics(results):
+def plot_metrics(config_id, results):
     history = results.get('history', {})
     conf_matrix = results.get('confusion_matrix', None)
     
     if not history or not conf_matrix:
         raise ValueError(f"Results must contain 'history' and 'confusion_matrix' keys. Currently got: {results}")
     
-    plot_full_metrics(history, conf_matrix)
+    plot_full_metrics(config_id, history, conf_matrix)
