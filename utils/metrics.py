@@ -49,7 +49,7 @@ def get_confusion_matrix(model, data_loader, device, num_classes):
     
     return cm, predictions_tensor, targets_tensor
 
-def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(12, 10), show_counts=False):
+def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(15, 10), show_counts=False):
     """
     Plot confusion matrix showing percentages and optionally counts.
     
@@ -154,7 +154,7 @@ def plot_full_metrics(config_id, history: dict, cm: np.ndarray):
             - 'val_f1s': List of validation F1 scores
         cm (np.ndarray): Confusion matrix to be plotted
     """
-    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    fig, axes = plt.subplots(2, 2, figsize=(15, 8))
     fig.suptitle(f'Metrics of {config_id}', fontsize=16, fontweight='bold')
     
     # [0, 0] Plot training and validation losses over epochs
@@ -178,9 +178,10 @@ def plot_full_metrics(config_id, history: dict, cm: np.ndarray):
                 annot=True, 
                 fmt='d',
                 cmap='Blues',
-                square=True,
+                square=False,  # Allow rectangle shape to use full width
                 cbar_kws={'label': 'Count'},
-                ax=axes[1, 1])
+                ax=axes[1, 1],
+                annot_kws={'size': 8})  # set number font size here
     
     axes[1, 1].set_title('Confusion Matrix', fontsize=12)
     axes[1, 1].set_ylabel('True Label')
