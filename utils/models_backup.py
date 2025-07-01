@@ -109,7 +109,6 @@ class BottleneckBlock(nn.Module):
         out = F.relu(out)
         return out
 
-
 class SeparableConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
         super(SeparableConvBlock, self).__init__()
@@ -131,7 +130,6 @@ class SeparableConvBlock(nn.Module):
         out += self.shortcut(x)
         return out
 
-
 class AttentionBlock(nn.Module):
     def __init__(self, channels, reduction=16):
         super(AttentionBlock, self).__init__()
@@ -149,7 +147,6 @@ class AttentionBlock(nn.Module):
         y = self.fc(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
 
-
 class SEBlock(nn.Module):
     def __init__(self, channels, reduction=4):
         super(SEBlock, self).__init__()
@@ -163,7 +160,6 @@ class SEBlock(nn.Module):
     
     def forward(self, x):
         return x * self.se(x)
-
 
 class MBConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, expand_ratio, stride=1):
@@ -200,7 +196,6 @@ class MBConvBlock(nn.Module):
             out = out + x
         return out
 
-
 class DenseBlock(nn.Module):
     def __init__(self, in_channels, growth_rate, num_layers):
         super(DenseBlock, self).__init__()
@@ -215,7 +210,6 @@ class DenseBlock(nn.Module):
             features.append(new_feature)
         return torch.cat(features, 1)
 
-
 class DenseLayer(nn.Module):
     def __init__(self, in_channels, growth_rate):
         super(DenseLayer, self).__init__()
@@ -229,7 +223,6 @@ class DenseLayer(nn.Module):
         out = self.conv2(F.relu(self.bn2(out)))
         return out
 
-
 class TransitionLayer(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(TransitionLayer, self).__init__()
@@ -241,7 +234,6 @@ class TransitionLayer(nn.Module):
         out = self.conv(F.relu(self.bn(x)))
         out = self.pool(out)
         return out
-
 
 class InceptionBlock(nn.Module):
     def __init__(self, in_channels, ch1x1, ch3x3red, ch3x3, ch5x5red, ch5x5, pool_proj):
@@ -267,7 +259,6 @@ class InceptionBlock(nn.Module):
         branch4 = self.branch4(x)
         return torch.cat([branch1, branch2, branch3, branch4], 1)
 
-
 class WideResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, dropout_p=0.0):
         super(WideResidualBlock, self).__init__()
@@ -286,7 +277,6 @@ class WideResidualBlock(nn.Module):
         out = self.conv2(F.relu(self.bn2(out)))
         out += self.shortcut(x)
         return out
-
 
 class ShuffleNetUnit(nn.Module):
     def __init__(self, in_channels, out_channels, stride, groups):
@@ -335,7 +325,6 @@ class ShuffleNetUnit(nn.Module):
             out = torch.cat([out, self.shortcut(x)], 1)
         
         return F.relu(out)
-
 
 class RegNetBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, groups=1):
@@ -535,9 +524,6 @@ class BirdCNN_v1(nn.Module):
             predictions = torch.argmax(logits, dim=1)  # Get class with highest logit
             return predictions
 
-
-# Keep the original BirdCNN for backward compatibility  
-BirdCNN = BirdCNN_v1
 
 class BirdCNN_v2(nn.Module):
     """
@@ -927,7 +913,10 @@ class BirdCNN_v8(nn.Module):
 
 
 class BirdCNN_v9(nn.Module):
-    """Inception-inspired network with parallel convolutions."""
+    """
+    Inception-inspired network with parallel convolutions.
+    Uses multiple kernel sizes in parallel for multi-scale feature extraction.
+    """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v9, self).__init__()
         
@@ -935,25 +924,37 @@ class BirdCNN_v9(nn.Module):
         self.bn1 = nn.BatchNorm2d(64)
         self.maxpool1 = nn.MaxPool2d(3, stride=2, padding=1)
         
+        # Inception-style blocks
         self.inception1 = InceptionBlock(64, 64, 96, 128, 16, 32, 32)
         self.inception2 = InceptionBlock(256, 128, 128, 192, 32, 96, 64)
         self.maxpool2 = nn.MaxPool2d(3, stride=2, padding=1)
         
         self.inception3 = InceptionBlock(480, 192, 96, 208, 16, 48, 64)
         self.inception4 = InceptionBlock(512, 160, 112, 224, 24, 64, 64)
+        self.maxpool3 = nn.MaxPool2d(3, stride=2, padding=1)
+        
+        self.inception5 = InceptionBlock(512, 128, 128, 256, 24, 64, 64)
+        self.inception6 = InceptionBlock(512, 112, 144, 288, 32, 64, 64)
         
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.dropout = nn.Dropout(dropout_p)
-        self.fc = nn.Linear(512, num_classes)
+        self.fc = nn.Linear(528, num_classes)
     
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
         x = self.maxpool1(x)
+        
         x = self.inception1(x)
         x = self.inception2(x)
         x = self.maxpool2(x)
+        
         x = self.inception3(x)
         x = self.inception4(x)
+        x = self.maxpool3(x)
+        
+        x = self.inception5(x)
+        x = self.inception6(x)
+        
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.dropout(x)
@@ -962,29 +963,35 @@ class BirdCNN_v9(nn.Module):
 
 
 class BirdCNN_v10(nn.Module):
-    """Compact CNN optimized for limited data."""
+    """
+    Compact CNN optimized for limited data.
+    Fewer parameters with careful architectural choices for small datasets.
+    """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v10, self).__init__()
         
+        # Lightweight feature extraction
         self.features = nn.Sequential(
+            # Initial conv with moderate channels
             nn.Conv2d(1, 32, kernel_size=5, stride=2, padding=2),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, stride=2),
+            nn.MaxPool2d(2, stride=2),  # 56x78
             
+            # Compact conv blocks
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
             nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True),  # 28x39
             
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True),  # 14x19
             
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
@@ -1008,7 +1015,10 @@ class BirdCNN_v10(nn.Module):
 
 
 class BirdCNN_v11(nn.Module):
-    """Wide ResNet variant with wider layers but fewer residual blocks."""
+    """
+    Wide ResNet variant with wider layers but fewer residual blocks.
+    Balances capacity and efficiency for spectrogram analysis.
+    """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v11, self).__init__()
         
@@ -1016,10 +1026,11 @@ class BirdCNN_v11(nn.Module):
         self.bn1 = nn.BatchNorm2d(64)
         self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
         
-        self.layer1 = self._make_wide_layer(64, 128, 2, stride=1)
-        self.layer2 = self._make_wide_layer(128, 256, 2, stride=2)
-        self.layer3 = self._make_wide_layer(256, 512, 2, stride=2)
-        self.layer4 = self._make_wide_layer(512, 1024, 2, stride=2)
+        # Wide residual layers (fewer blocks, more channels)
+        self.layer1 = self._make_wide_layer(64, 128, 2, stride=1)   # 56x78
+        self.layer2 = self._make_wide_layer(128, 256, 2, stride=2)  # 28x39
+        self.layer3 = self._make_wide_layer(256, 512, 2, stride=2)  # 14x19
+        self.layer4 = self._make_wide_layer(512, 1024, 2, stride=2) # 7x9
         
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.dropout = nn.Dropout(dropout_p)
@@ -1035,10 +1046,12 @@ class BirdCNN_v11(nn.Module):
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
         x = self.maxpool(x)
+        
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+        
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.dropout(x)
@@ -1047,10 +1060,14 @@ class BirdCNN_v11(nn.Module):
 
 
 class BirdCNN_v12(nn.Module):
-    """Temporal-aware CNN with 1D convolutions along time axis."""
+    """
+    Temporal-aware CNN with 1D convolutions along time axis.
+    Explicitly models temporal patterns in spectrograms.
+    """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v12, self).__init__()
         
+        # 2D convolutions for frequency patterns
         self.freq_conv = nn.Sequential(
             nn.Conv2d(1, 64, kernel_size=(7, 1), stride=(2, 1), padding=(3, 0)),
             nn.BatchNorm2d(64),
@@ -1061,8 +1078,12 @@ class BirdCNN_v12(nn.Module):
             nn.Conv2d(128, 256, kernel_size=(3, 1), stride=(2, 1), padding=(1, 0)),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-        )
+        )  # Output: (N, 256, 28, 313)
         
+        # Reshape for 1D temporal processing
+        # (N, 256, 28, 313) -> (N, 256*28, 313)
+        
+        # 1D convolutions for temporal patterns
         self.temporal_conv = nn.Sequential(
             nn.Conv1d(256*28, 512, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm1d(512),
@@ -1086,17 +1107,26 @@ class BirdCNN_v12(nn.Module):
         )
     
     def forward(self, x):
-        x = self.freq_conv(x)
+        # Frequency processing
+        x = self.freq_conv(x)  # (N, 256, 28, 313)
+        
+        # Reshape for temporal processing
         N, C, H, W = x.shape
-        x = x.view(N, C*H, W)
-        x = self.temporal_conv(x)
-        x = self.global_pool(x)
+        x = x.view(N, C*H, W)  # (N, 256*28, 313)
+        
+        # Temporal processing
+        x = self.temporal_conv(x)  # (N, 1024, time_frames)
+        x = self.global_pool(x)    # (N, 1024, 1)
+        
         x = self.classifier(x)
         return x
 
 
 class BirdCNN_v13(nn.Module):
-    """ShuffleNet-inspired efficient architecture."""
+    """
+    ShuffleNet-inspired efficient architecture.
+    Uses channel shuffling and group convolutions for efficiency.
+    """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v13, self).__init__()
         
@@ -1104,9 +1134,10 @@ class BirdCNN_v13(nn.Module):
         self.bn1 = nn.BatchNorm2d(24)
         self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
         
-        self.stage2 = self._make_stage(24, 116, 4, stride=2)
-        self.stage3 = self._make_stage(116, 232, 8, stride=2)
-        self.stage4 = self._make_stage(232, 464, 4, stride=2)
+        # ShuffleNet units
+        self.stage2 = self._make_stage(24, 116, 4, stride=2)    # 56x78
+        self.stage3 = self._make_stage(116, 232, 8, stride=2)   # 28x39
+        self.stage4 = self._make_stage(232, 464, 4, stride=2)   # 14x19
         
         self.conv5 = nn.Conv2d(464, 1024, kernel_size=1)
         self.bn5 = nn.BatchNorm2d(1024)
@@ -1125,9 +1156,11 @@ class BirdCNN_v13(nn.Module):
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
         x = self.maxpool(x)
+        
         x = self.stage2(x)
         x = self.stage3(x)
         x = self.stage4(x)
+        
         x = F.relu(self.bn5(self.conv5(x)))
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
@@ -1137,20 +1170,25 @@ class BirdCNN_v13(nn.Module):
 
 
 class BirdCNN_v14(nn.Module):
-    """RegNet-inspired architecture with regular design."""
+    """
+    RegNet-inspired architecture with regular design.
+    Uses quantized layer configurations for systematic scaling.
+    """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v14, self).__init__()
         
+        # Stem
         self.stem = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True)
         )
         
-        self.stage1 = self._make_stage(32, 64, depth=2, stride=2)
-        self.stage2 = self._make_stage(64, 128, depth=4, stride=2)
-        self.stage3 = self._make_stage(128, 256, depth=8, stride=2)
-        self.stage4 = self._make_stage(256, 512, depth=2, stride=2)
+        # RegNet stages with systematic scaling
+        self.stage1 = self._make_stage(32, 64, depth=2, stride=2)    # 56x78
+        self.stage2 = self._make_stage(64, 128, depth=4, stride=2)   # 28x39
+        self.stage3 = self._make_stage(128, 256, depth=8, stride=2)  # 14x19
+        self.stage4 = self._make_stage(256, 512, depth=2, stride=2)  # 7x9
         
         self.head = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
@@ -1177,17 +1215,23 @@ class BirdCNN_v14(nn.Module):
 
 
 class BirdCNN_v15(nn.Module):
-    """Frequency-aware CNN with explicit frequency band processing."""
+    """
+    Frequency-aware CNN with explicit frequency band processing.
+    Splits frequency domain and processes different bands separately.
+    """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v15, self).__init__()
         
-        self.low_freq_path = self._make_freq_path(1, 128)
-        self.mid_freq_path = self._make_freq_path(1, 128)
-        self.high_freq_path = self._make_freq_path(1, 128)
+        # Split frequency bands (224 freq bins -> 3 bands of ~75 each)
+        self.low_freq_path = self._make_freq_path(1, 128)    # 0-75 Hz range
+        self.mid_freq_path = self._make_freq_path(1, 128)    # 75-150 Hz range  
+        self.high_freq_path = self._make_freq_path(1, 128)   # 150-224 Hz range
         
+        # Cross-band interaction
         self.cross_band_conv = nn.Conv2d(384, 512, kernel_size=3, padding=1)
         self.cross_band_bn = nn.BatchNorm2d(512)
         
+        # Temporal processing
         self.temporal_layers = nn.Sequential(
             nn.Conv2d(512, 1024, kernel_size=(1, 7), stride=(1, 2), padding=(0, 3)),
             nn.BatchNorm2d(1024),
@@ -1218,20 +1262,27 @@ class BirdCNN_v15(nn.Module):
         )
     
     def forward(self, x):
+        # Split frequency bands
+        band_size = x.size(2) // 3  # 224 // 3 = 74.67, so use 75, 75, 74
         low_band = x[:, :, :75, :]
         mid_band = x[:, :, 75:150, :]
         high_band = x[:, :, 150:, :]
         
+        # Process each band
         low_features = self.low_freq_path(low_band)
         mid_features = self.mid_freq_path(mid_band)  
         high_features = self.high_freq_path(high_band)
         
+        # Resize to match dimensions for concatenation
         target_size = low_features.shape[2:]
         mid_features = F.interpolate(mid_features, size=target_size, mode='bilinear', align_corners=False)
         high_features = F.interpolate(high_features, size=target_size, mode='bilinear', align_corners=False)
         
+        # Combine frequency bands
         x = torch.cat([low_features, mid_features, high_features], dim=1)
         x = F.relu(self.cross_band_bn(self.cross_band_conv(x)))
+        
+        # Temporal processing
         x = self.temporal_layers(x)
         x = self.global_pool(x)
         x = self.classifier(x)
@@ -1239,31 +1290,38 @@ class BirdCNN_v15(nn.Module):
 
 
 class BirdCNN_v16(nn.Module):
-    """Hybrid CNN-RNN architecture."""
+    """
+    Hybrid CNN-RNN architecture.
+    Combines convolutional feature extraction with recurrent temporal modeling.
+    """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v16, self).__init__()
         
+        # Convolutional feature extractor
         self.conv_features = nn.Sequential(
             nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(3, stride=2, padding=1),
+            nn.MaxPool2d(3, stride=2, padding=1),  # 56x78
             
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True),  # 28x39
             
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True),  # 14x19
             
             nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True),  # 7x9
         )
         
-        self.freq_pool = nn.AdaptiveAvgPool2d((1, None))
+        # Temporal modeling with LSTM
+        # Aggregate frequency dimension, keep time dimension
+        self.freq_pool = nn.AdaptiveAvgPool2d((1, None))  # (N, 512, 1, 9) 
         
+        # Bidirectional LSTM for temporal patterns
         self.lstm = nn.LSTM(
             input_size=512, 
             hidden_size=256, 
@@ -1273,7 +1331,567 @@ class BirdCNN_v16(nn.Module):
             bidirectional=True
         )
         
+        # Classification head
         self.classifier = nn.Sequential(
+            nn.Dropout(dropout_p),
+            nn.Linear(512, 256),  # 512 = 256 * 2 (bidirectional)
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout_p),
+            nn.Linear(256, num_classes)
+        )
+    
+    def forward(self, x):
+        # CNN feature extraction
+        x = self.conv_features(x)  # (N, 512, 7, 9)
+        
+        # Aggregate frequency dimension
+        x = self.freq_pool(x)  # (N, 512, 1, 9)
+        x = x.squeeze(2)       # (N, 512, 9)
+        
+        # Transpose for LSTM: (batch, seq_len, features)
+        x = x.transpose(1, 2)  # (N, 9, 512)
+        
+        # LSTM processing
+        lstm_out, (h_n, c_n) = self.lstm(x)  # (N, 9, 512)
+        
+        # Use the last time step output
+        x = lstm_out[:, -1, :]  # (N, 512)
+        
+        # Classification
+        x = self.classifier(x)
+        return x
+
+
+# Additional helper blocks for the new architectures
+class BottleneckBlock(nn.Module):
+    """Bottleneck block for ResNet-style architectures."""
+    def __init__(self, inplanes, planes, expansion_planes, stride=1):
+        super(BottleneckBlock, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.conv3 = nn.Conv2d(planes, expansion_planes, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(expansion_planes)
+        
+        self.shortcut = nn.Sequential()
+        if stride != 1 or inplanes != expansion_planes:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(inplanes, expansion_planes, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(expansion_planes)
+            )
+    
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = F.relu(self.bn2(self.conv2(out)))
+        out = self.bn3(self.conv3(out))
+        out += self.shortcut(x)
+        out = F.relu(out)
+        return out
+
+
+class SeparableConvBlock(nn.Module):
+    """Depthwise separable convolution block."""
+    def __init__(self, in_channels, out_channels, stride=1):
+        super(SeparableConvBlock, self).__init__()
+        self.depthwise = nn.Conv2d(in_channels, in_channels, 3, stride=stride, padding=1, groups=in_channels)
+        self.pointwise = nn.Conv2d(in_channels, out_channels, 1)
+        self.bn1 = nn.BatchNorm2d(in_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, 1, stride=stride),
+                nn.BatchNorm2d(out_channels)
+            )
+    
+    def forward(self, x):
+        out = F.relu(self.bn1(self.depthwise(x)))
+        out = F.relu(self.bn2(self.pointwise(out)))
+        out += self.shortcut(x)
+        return out
+
+
+class AttentionBlock(nn.Module):
+    """Channel attention mechanism."""
+    def __init__(self, channels, reduction=16):
+        super(AttentionBlock, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(channels, channels // reduction),
+            nn.ReLU(inplace=True),
+            nn.Linear(channels // reduction, channels),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.avg_pool(x).view(b, c)
+        y = self.fc(y).view(b, c, 1, 1)
+        return x * y.expand_as(x)
+
+
+class SEBlock(nn.Module):
+    """Squeeze-and-Excitation block."""
+    def __init__(self, channels, reduction=4):
+        super(SEBlock, self).__init__()
+        self.se = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(channels, channels // reduction, 1),
+            nn.SiLU(inplace=True),
+            nn.Conv2d(channels // reduction, channels, 1),
+            nn.Sigmoid()
+        )
+    
+    def forward(self, x):
+        return x * self.se(x)
+
+
+class MBConvBlock(nn.Module):
+    """Mobile inverted bottleneck convolution block."""
+    def __init__(self, in_channels, out_channels, expand_ratio, stride=1):
+        super(MBConvBlock, self).__init__()
+        hidden_dim = in_channels * expand_ratio
+        self.use_residual = stride == 1 and in_channels == out_channels
+        
+        layers = []
+        if expand_ratio != 1:
+            # Pointwise expansion
+            layers.extend([
+                nn.Conv2d(in_channels, hidden_dim, 1, bias=False),
+                nn.BatchNorm2d(hidden_dim),
+                nn.SiLU(inplace=True)
+            ])
+        
+        # Depthwise convolution
+        layers.extend([
+            nn.Conv2d(hidden_dim, hidden_dim, 3, stride=stride, padding=1, groups=hidden_dim, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.SiLU(inplace=True)
+        ])
+        
+        # SE block
+        layers.append(SEBlock(hidden_dim))
+        
+        # Pointwise linear projection
+        layers.extend([
+            nn.Conv2d(hidden_dim, out_channels, 1, bias=False),
+            nn.BatchNorm2d(out_channels)
+        ])
+        
+        self.conv = nn.Sequential(*layers)
+    
+    def forward(self, x):
+        out = self.conv(x)
+        if self.use_residual:
+            out = out + x
+        return out
+
+
+class DenseBlock(nn.Module):
+    """Dense block for DenseNet-style architectures."""
+    def __init__(self, in_channels, growth_rate, num_layers):
+        super(DenseBlock, self).__init__()
+        self.layers = nn.ModuleList()
+        for i in range(num_layers):
+            self.layers.append(DenseLayer(in_channels + i * growth_rate, growth_rate))
+    
+    def forward(self, x):
+        features = [x]
+        for layer in self.layers:
+            new_feature = layer(torch.cat(features, 1))
+            features.append(new_feature)
+        return torch.cat(features, 1)
+
+
+class DenseLayer(nn.Module):
+    """Dense layer for DenseNet."""
+    def __init__(self, in_channels, growth_rate):
+        super(DenseLayer, self).__init__()
+        self.bn1 = nn.BatchNorm2d(in_channels)
+        self.conv1 = nn.Conv2d(in_channels, 4 * growth_rate, 1, bias=False)
+        self.bn2 = nn.BatchNorm2d(4 * growth_rate)
+        self.conv2 = nn.Conv2d(4 * growth_rate, growth_rate, 3, padding=1, bias=False)
+    
+    def forward(self, x):
+        out = self.conv1(F.relu(self.bn1(x)))
+        out = self.conv2(F.relu(self.bn2(out)))
+        return out
+
+
+class TransitionLayer(nn.Module):
+    """Transition layer for DenseNet."""
+    def __init__(self, in_channels, out_channels):
+        super(TransitionLayer, self).__init__()
+        self.bn = nn.BatchNorm2d(in_channels)
+        self.conv = nn.Conv2d(in_channels, out_channels, 1, bias=False)
+        self.pool = nn.AvgPool2d(2, stride=2)
+    
+    def forward(self, x):
+        out = self.conv(F.relu(self.bn(x)))
+        out = self.pool(out)
+        return out
+
+
+class InceptionBlock(nn.Module):
+    """Inception module with parallel convolutions."""
+    def __init__(self, in_channels, ch1x1, ch3x3red, ch3x3, ch5x5red, ch5x5, pool_proj):
+        super(InceptionBlock, self).__init__()
+        
+        self.branch1 = nn.Conv2d(in_channels, ch1x1, kernel_size=1)
+        
+        self.branch2 = nn.Sequential(
+            nn.Conv2d(in_channels, ch3x3red, kernel_size=1),
+            nn.Conv2d(ch3x3red, ch3x3, kernel_size=3, padding=1)
+        )
+        
+        self.branch3 = nn.Sequential(
+            nn.Conv2d(in_channels, ch5x5red, kernel_size=1),
+            nn.Conv2d(ch5x5red, ch5x5, kernel_size=5, padding=2)
+        )
+        
+        self.branch4 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels, pool_proj, kernel_size=1)
+        )
+    
+    def forward(self, x):
+        branch1 = self.branch1(x)
+        branch2 = self.branch2(x)
+        branch3 = self.branch3(x)
+        branch4 = self.branch4(x)
+        return torch.cat([branch1, branch2, branch3, branch4], 1)
+
+
+class WideResidualBlock(nn.Module):
+    """Wide residual block with increased channel width."""
+    def __init__(self, in_channels, out_channels, stride=1, dropout_p=0.0):
+        super(WideResidualBlock, self).__init__()
+        
+        self.bn1 = nn.BatchNorm2d(in_channels)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1)
+        self.dropout = nn.Dropout(dropout_p)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
+    
+    def forward(self, x):
+        out = self.dropout(self.conv1(F.relu(self.bn1(x))))
+        out = self.conv2(F.relu(self.bn2(out)))
+        out += self.shortcut(x)
+        return out
+
+
+class ShuffleNetUnit(nn.Module):
+    """ShuffleNet unit with channel shuffling."""
+    def __init__(self, in_channels, out_channels, stride, groups):
+        super(ShuffleNetUnit, self).__init__()
+        self.stride = stride
+        self.groups = groups
+        
+        mid_channels = out_channels // 4
+        
+        self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=1, groups=groups)
+        self.bn1 = nn.BatchNorm2d(mid_channels)
+        
+        self.conv2 = nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=stride, 
+                              padding=1, groups=mid_channels)
+        self.bn2 = nn.BatchNorm2d(mid_channels)
+        
+        self.conv3 = nn.Conv2d(mid_channels, out_channels, kernel_size=1, groups=groups)
+        self.bn3 = nn.BatchNorm2d(out_channels)
+        
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.AvgPool2d(3, stride=stride, padding=1),
+                nn.Conv2d(in_channels, out_channels, kernel_size=1),
+                nn.BatchNorm2d(out_channels)
+            )
+    
+    def channel_shuffle(self, x):
+        batch_size, channels, height, width = x.size()
+        channels_per_group = channels // self.groups
+        
+        x = x.view(batch_size, self.groups, channels_per_group, height, width)
+        x = x.transpose(1, 2).contiguous()
+        x = x.view(batch_size, -1, height, width)
+        return x
+    
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.channel_shuffle(out)
+        out = F.relu(self.bn2(self.conv2(out)))
+        out = self.bn3(self.conv3(out))
+        
+        if self.stride == 1:
+            out += self.shortcut(x)
+        else:
+            out = torch.cat([out, self.shortcut(x)], 1)
+        
+        return F.relu(out)
+
+
+class RegNetBlock(nn.Module):
+    """RegNet block with systematic design."""
+    def __init__(self, in_channels, out_channels, stride=1, groups=1):
+        super(RegNetBlock, self).__init__()
+        
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, 
+                              padding=1, groups=groups, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        
+        self.conv3 = nn.Conv2d(out_channels, out_channels, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(out_channels)
+        
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+    
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = F.relu(self.bn2(self.conv2(out)))
+        out = self.bn3(self.conv3(out))
+        out += self.shortcut(x)
+        out = F.relu(out)
+        return out
+
+
+# Main CNN Architectures for Bird Classification
+class BirdCNN_v1(nn.Module):
+    """
+    Convolutional Neural Network for bird species classification from spectrograms.
+    
+    This model is specifically designed to process mel-spectrogram features with dimensions
+    (N, 1, 224, 313) where 224 represents frequency bins (height) and 313 represents 
+    time frames (width). The architecture uses residual connections to enable deeper 
+    training and better gradient flow.
+    
+    Architecture:
+    - Initial conv layer with asymmetric kernel (7x9) to handle wider time dimension
+    - Three residual layers with progressively increasing channels (64->128->256)
+    - Global average pooling for translation invariance
+    - Fully connected layer for classification
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+        
+    Input Shape:
+        (batch_size, 1, 224, 313) - Single channel spectrogram
+        
+    Output Shape:
+        (batch_size, num_classes) - Raw logits for each class
+        
+    Example:
+        >>> model = BirdCNN(num_classes=50, dropout_p=0.3)
+        >>> x = torch.randn(32, 1, 224, 313)  # Batch of 32 spectrograms
+        >>> logits = model(x)  # Shape: (32, 50)
+        >>> probabilities = model.predict_proba(x)  # Shape: (32, 50)
+    """
+    def __init__(self, num_classes, dropout_p=0.5):
+        super(BirdCNN_v1, self).__init__()
+        
+        # Input: (N, 1, 224, 313) - (batch, channels, freq_height, time_width)
+        # Conv1: kernel (7x9) to handle wider time dimension better
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 9), stride=2, padding=(3, 4))
+        self.bn1 = nn.BatchNorm2d(64)
+        # After conv1 + stride 2: (N, 64, 112, 157) - (batch, channels, freq_height, time_width)
+        self.pool1 = nn.MaxPool2d((3, 3), stride=2, padding=1)
+        # After pool1: (N, 64, 56, 79) - (batch, channels, freq_height, time_width)
+        
+        # Residual blocks
+        # layer1: maintains spatial dimensions (56, 79) - (freq_height, time_width)
+        self.layer1 = self._make_layer(64, 64, 2, stride=1)
+        # layer2: reduces to (28, 40) - (freq_height, time_width)
+        self.layer2 = self._make_layer(64, 128, 2, stride=2)
+        # layer3: reduces to (14, 20) - (freq_height, time_width)
+        self.layer3 = self._make_layer(128, 256, 2, stride=2)
+        
+        # Global pooling: (14, 20) -> (1, 1) - (freq_height, time_width) -> (1, 1)
+        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(256, num_classes)
+        self.dropout = nn.Dropout(dropout_p)
+        
+    def _make_layer(self, in_channels, out_channels, blocks, stride):
+        """
+        Create a sequential layer of residual blocks.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            blocks (int): Number of residual blocks in this layer
+            stride (int): Stride for the first block (subsequent blocks use stride=1)
+            
+        Returns:
+            nn.Sequential: Sequential container of residual blocks
+            
+        Note:
+            The first block handles channel dimension changes and spatial downsampling,
+            while subsequent blocks maintain the same dimensions.
+        """
+        layers = []
+        # First block may change dimensions
+        layers.append(ResidualBlock(in_channels, out_channels, stride))
+        # Remaining blocks maintain dimensions
+        for _ in range(1, blocks):
+            layers.append(ResidualBlock(out_channels, out_channels, 1))
+        return nn.Sequential(*layers)
+        
+    def forward(self, x):
+        """
+        Forward pass through the network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor of shape (N, 1, 224, 313)
+                            where N is batch size, 224 is frequency bins, 313 is time frames
+                            
+        Returns:
+            torch.Tensor: Raw logits of shape (N, num_classes)
+            
+        Example:
+            >>> model = BirdCNN(num_classes=10)
+            >>> x = torch.randn(4, 1, 224, 313)
+            >>> logits = model.forward(x)  # Shape: (4, 10)
+        """
+        # x shape: (N, 1, 224, 313) - (batch, channels, freq_height, time_width)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.pool1(x)
+        
+        # Pass through residual layers with progressive downsampling
+        x = self.layer1(x)  # Maintains spatial dimensions
+        x = self.layer2(x)  # Reduces spatial dimensions by half
+        x = self.layer3(x)  # Reduces spatial dimensions by half again
+        
+        # x shape before global_pool: (N, 256, 14, 20) - (batch, channels, freq_height, time_width)
+        x = self.global_pool(x)  # Adaptive pooling to (1, 1)
+        # x shape after global_pool: (N, 256, 1, 1)
+        x = torch.flatten(x, 1)  # Flatten to (N, 256)
+        # x shape after flatten: (N, 256)
+        x = self.dropout(x)  # Apply dropout for regularization
+        x = self.fc(x)  # Final classification layer
+
+        return x
+    
+    def predict_proba(self, x):
+        """
+        Forward pass with softmax applied for inference.
+        
+        This method applies softmax to convert raw logits into class probabilities,
+        making it suitable for inference where you need probability scores.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor of shape (N, 1, 224, 313)
+            
+        Returns:
+            torch.Tensor: Class probabilities of shape (N, num_classes)
+                        Each row sums to 1.0
+                        
+        Example:
+            >>> model = BirdCNN(num_classes=5)
+            >>> model.eval()  # Set to evaluation mode
+            >>> x = torch.randn(2, 1, 224, 313)
+            >>> probs = model.predict_proba(x)  # Shape: (2, 5)
+            >>> print(probs[0].sum())  # Should print ~1.0
+        """
+        with torch.no_grad():  # Disable gradient computation for efficiency
+            logits = self.forward(x)
+            probabilities = F.softmax(logits, dim=1)  # Convert logits to probabilities
+            return probabilities
+    
+    def predict(self, x):
+        """
+        Forward pass returning predicted class indices.
+        
+        This method returns the class with the highest probability for each input,
+        suitable for making final predictions.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor of shape (N, 1, 224, 313)
+            
+        Returns:
+            torch.Tensor: Predicted class indices of shape (N,)
+                        Each element is an integer in range [0, num_classes-1]
+                        
+        Example
+            >>> model = BirdCNN(num_classes=5)
+            >>> model.eval()  # Set to evaluation mode
+            >>> x = torch.randn(3, 1, 224, 313)
+            >>> predictions = model.predict(x)  # Shape: (3,)
+            >>> print(predictions)  # e.g., tensor([2, 0, 4])
+        """
+        with torch.no_grad():  # Disable gradient computation for efficiency
+            logits = self.forward(x)
+            predictions = torch.argmax(logits, dim=1)  # Get class with highest logit
+            return predictions
+
+
+class BirdCNN_v2(nn.Module):
+    """
+    VGG-inspired CNN with deeper layers and smaller filters.
+    Uses 3x3 convolutions throughout and more layers for detailed feature extraction.
+    """
+    def __init__(self, num_classes, dropout_p=0.5):
+        super(BirdCNN_v2, self).__init__()
+        
+        # VGG-style architecture with 3x3 convs
+        self.features = nn.Sequential(
+            # Block 1
+            nn.Conv2d(1, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, 3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, stride=2),  # 224x313 -> 112x156
+            
+            # Block 2  
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, 3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, stride=2),  # 112x156 -> 56x78
+            
+            # Block 3
+            nn.Conv2d(128, 256, 3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, 3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, 3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, stride=2),  # 56x78 -> 28x39
+            
+            # Block 4
+            nn.Conv2d(256, 512, 3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, 3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(512, 512, 3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, stride=2),  # 28x39 -> 14x19
+        )
+        
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
             nn.Dropout(dropout_p),
             nn.Linear(512, 256),
             nn.ReLU(inplace=True),
@@ -1282,12 +1900,26 @@ class BirdCNN_v16(nn.Module):
         )
     
     def forward(self, x):
-        x = self.conv_features(x)
-        x = self.freq_pool(x)
-        x = x.squeeze(2)
-        x = x.transpose(1, 2)
-        
-        lstm_out, (h_n, c_n) = self.lstm(x)
-        x = lstm_out[:, -1, :]
+        x = self.features(x)
         x = self.classifier(x)
         return x
+
+
+class BirdCNN_v3(nn.Module):
+    """
+    ResNet-inspired deeper network with bottleneck blocks.
+    Better gradient flow with more sophisticated residual connections.
+    """
+    def __init__(self, num_classes, dropout_p=0.5):
+        super(BirdCNN_v3, self).__init__()
+        
+        # Initial conv layer
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.pool1 = nn.MaxPool2d(3, stride=2, padding=1)
+        
+        # ResNet layers with bottleneck blocks
+        self.layer1 = self._make_layer(64, 64, 256, 3, stride=1)   # 56x78
+        self.layer2 = self._make_layer(256, 128, 512, 4, stride=2) # 28x39
+        self.layer3 = self._make_layer(512, 256, 1024, 6, stride=2) # 14x19
+        self.layer4 = self._make_layer(1024, 512
