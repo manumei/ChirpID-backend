@@ -13,8 +13,8 @@ This document summarizes the optimization implementations performed on the Chirp
 - `utils/training_core.py` - Added `mixed_precision: True` to default config
 
 **Implementation Details**:
-- Added `torch.cuda.amp.GradScaler()` for gradient scaling
-- Wrapped forward pass with `torch.cuda.amp.autocast()`
+- Added `torch.amp.GradScaler()` for gradient scaling
+- Wrapped forward pass with `torch.amp.autocast()`
 - Implemented scaled backward pass and optimizer stepping
 - Enabled by default for RTX 5080 GPU
 
@@ -66,7 +66,7 @@ This document summarizes the optimization implementations performed on the Chirp
 ### 5. Figure Memory Management
 **Status**: ✅ IMPLEMENTED
 **Files Modified**:
-- `utils/evaluation_utils.py` - Added `plt.close()` after all `plt.show()`
+- `utils/metrics.py` - Added `plt.close()` after all `plt.show()`
 - `utils/util_backup.py` - Added `plt.close()` after plotting functions
 
 **Implementation Details**:

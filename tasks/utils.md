@@ -51,7 +51,7 @@ This document describes the purpose and contents of each file in the `utils/` di
 - Cross-validation logic with proper author grouping to prevent data leakage
 - Fold-wise training and aggregation of results
 
-#### `evaluation_utils.py`
+#### `metrics.py`
 **Purpose**: Model evaluation, visualization, and result analysis
 **Functions**:
 - `plot_kfold_results()` - K-fold results visualization with accuracy and loss curves
@@ -116,7 +116,7 @@ util.function_name()
 
 # NEW - Modular imports  
 from utils.training_utils import train_single_fold
-from utils.evaluation_utils import plot_confusion_matrix
+from utils.metrics import plot_confusion_matrix
 from utils.dataset_utils import StandardizedDataset
 from utils.models import BirdCNN
 ```

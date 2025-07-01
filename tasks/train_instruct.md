@@ -79,13 +79,13 @@ results = single_fold_training(
 
 **For Cross-Validation:**
 ```python
-from utils.evaluation_utils import plot_kfold_results
+from utils.metrics import plot_kfold_results
 plot_kfold_results(results, best_results)
 ```
 
 **For Single Fold:**
 ```python
-from utils.evaluation_utils import plot_single_fold_curve, print_single_fold_results
+from utils.metrics import plot_single_fold_curve, print_single_fold_results
 
 plot_single_fold_curve(results, metric_key='accuracies', title="Accuracy Curves", ylabel="Accuracy")
 plot_single_fold_curve(results, metric_key='losses', title="Loss Curves", ylabel="Loss")
@@ -125,7 +125,7 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))
 
 from utils.training_core import cross_val_training, single_fold_training
 from utils.models import BirdCNN
-from utils.evaluation_utils import plot_kfold_results, plot_single_fold_curve, print_single_fold_results
+from utils.metrics import plot_kfold_results, plot_single_fold_curve, print_single_fold_results
 
 # Load data
 data_path = '../database/meta/final/train_data.csv'
