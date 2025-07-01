@@ -4,8 +4,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 # Add the parent directory to sys.path to import utils
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -64,58 +62,6 @@ def matrices_to_tensor(segment_matrix, device):
     
     return tensor
 
-def plot_segment_probabilities(all_probabilities, save_path=None):
-    """
-    Plot probabilities for each segment across all classes. Creates one plot per segment.
-    
-    Args:
-        all_probabilities (numpy.ndarray): Array of shape (num_segments, 28) containing probabilities
-        save_path (str, optional): Directory path to save the plots. If None, displays the plots.
-    """
-    num_segments = all_probabilities.shape[0]
-    num_classes = all_probabilities.shape[1]
-    
-    for segment_idx in range(num_segments):
-        plt.figure(figsize=(12, 6))
-        
-        # Get probabilities for this segment
-        segment_probs = all_probabilities[segment_idx]
-        class_indices = np.arange(num_classes)
-        
-        # Create bar plot
-        bars = plt.bar(class_indices, segment_probs, color='skyblue', alpha=0.7)
-        
-        # Highlight the highest probability
-        max_prob_idx = np.argmax(segment_probs)
-        bars[max_prob_idx].set_color('orange')
-        
-        plt.title(f'Segment {segment_idx + 1} - Class Probabilities')
-        plt.xlabel('Bird Class ID')
-        plt.ylabel('Probability')
-        plt.xticks(class_indices)
-        plt.ylim(0, 1)
-        plt.grid(True, alpha=0.3)
-        
-        # Add probability values on top of bars for highest probabilities
-        for i, prob in enumerate(segment_probs):
-            if prob > 0.1:  # Only show labels for probabilities > 10%
-                plt.text(i, prob + 0.01, f'{prob:.3f}', ha='center', va='bottom', fontsize=8)
-        
-        plt.tight_layout()
-        
-        if save_path:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            plot_filename = os.path.join(save_path, f'segment_{segment_idx + 1}_probabilities.png')
-            plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
-            print(f"Plot for segment {segment_idx + 1} saved to: {plot_filename}")
-        else:
-            plt.show()
-        
-        plt.close()
-    
-    print(f"Created {num_segments} probability plots")
-
 def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=True):
     """
     Perform inference on an audio file using a trained CNN model.
@@ -145,21 +91,15 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Tr
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model weights file not found: {model_path}")
-    
-    print(f"Starting inference for: {audio_path}")
-    
+        
     # Step 1: Extract segment_matrices from audio using audio_process
     segment_matrices = audio_process(audio_path, reduce_noise=reduce_noise)
     
     if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
     
-    print(f"Extracted {len(segment_matrices)} segments for inference")
-    
     # Step 2: Load the model
-    model, device = load_model_weights(model_class, model_path, num_classes=28)
-    print(f"Model loaded on device: {device}")
-    
+    model, device = load_model_weights(model_class, model_path, num_classes=28)    
     # Step 3 & 4: Process each segment individually and perform inference
     all_probabilities = []
     
@@ -179,12 +119,6 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Tr
     # Step 5: Calculate average probabilities across all segments
     all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, 28)
     average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (28,)
-    
-    print(f"Inference completed. Processed {len(all_probabilities)} segments")
-    print(f"Average probabilities calculated for 28 classes")
-    
-    # Plot segment probabilities
-    plot_segment_probabilities(all_probabilities)
     
     # Return as list for classes 0-26
     return average_probabilities.tolist()
@@ -237,9 +171,6 @@ def predict_bird(audio_path, model_class, model_path, mapping_csv, reduce_noise=
     common_name = bird_info.iloc[0]['common_name']
     scientific_name = bird_info.iloc[0]['scientific_name']
     
-    # # Print results
-    # print(f"Predicted Bird is {common_name} ({scientific_name}), confidence of {confidence_pct:.2f}%")
-    
     # Return structured results
     return {
         'species': common_name,
@@ -247,7 +178,7 @@ def predict_bird(audio_path, model_class, model_path, mapping_csv, reduce_noise=
         'confidence': float(confidence),
     }
 
-def inferencia_prueba(path):
+def process_audio(path):
     """
     Test function to demonstrate inference on a sample audio file.
     
@@ -263,9 +194,3 @@ def inferencia_prueba(path):
     mapping_csv = os.path.join(repo_root_path, 'database', 'meta', 'class_mapping.csv')
     
     return predict_bird(path, model_class, model_path, mapping_csv, reduce_noise=True)
-
-path = os.path.join('database', 'audio', 'dev', 'XC73767.ogg')
-if __name__ == "__main__":
-    # Example usage
-    result = inferencia_prueba(path)
-    print(result)
