@@ -344,7 +344,7 @@ def get_set_seed_indices(features, labels, authors, test_size, seed):
     train_indices = dev_df['sample_idx'].values
     val_indices = test_df['sample_idx'].values
     
-    return train_indices, val_indices, best_score
+    return train_indices, val_indices, best_score, seed
 
 def get_set_seed_kfold_indices(features, labels, authors, n_splits, seed):
     ''' Returns the train_indices and val_indices for a set seed in k-fold '''
