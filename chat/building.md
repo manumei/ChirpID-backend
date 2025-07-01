@@ -17,3 +17,5 @@ Then, since I want 16 models for initial testing, I want one more cell in ModelB
 Also add a Cell like the one we had in ModelConfiguring.ipynb, that takes all information from the top performance of each mode, makes an analysis of the different architectural features (amount of layers, total parameters, conv blocks, residual or not, etc.) and prepares a short indication of how the next potential model could be built for the best performance (with these suggested features).
 
 Lastly, as a detail, add a Cell that saves the models (similar to ModelConfiguring.ipynb last cell, Cell 23), saving to models/reports/ the complete_building_results.json and building_results.csv, with the relevant information.
+
+Remember, work on ModelBuilding.ipynb and models.py, do not modify ModelConfiguring.ipynb. If you see necessary any modifications of util files, you may do them and report them at the end of the implementation. In ModelBuilding, there is most likely no need to modify anything above the "##Training" markdown cell. The Data Pre-Loading Cells are complete as they are.
