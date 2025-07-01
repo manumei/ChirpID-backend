@@ -128,7 +128,7 @@ class TrainingEngine:
         Returns:
             dict: Training results
         """
-        print(f"\\nStarting single fold training...")
+        print(f"Starting single fold training...")
         print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
         
         # Use the existing single fold training logic
