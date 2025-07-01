@@ -7,13 +7,15 @@ import pandas as pd
 from utils.oldmodels import OldBirdCNN
 from utils.data_processing import audio_process
 
-def load_model_weights(model_class, model_weights_path, num_classes=27, device=None):
+NUM_CLASSES = 33  # Default number of classes, can be overridden
+
+def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=None):
     """
     Load the CNN model with pretrained weights.
     
     Args:
-        model_weights_path (str): Path to the .pth model weights file
-        num_classes (int): Number of classes (default: 27)
+        model_path (str): Path to the .pth model weights file
+        num_classes (int): Number of classes (default: NUM_CLASSES)
         device (torch.device): Device to load the model on
     
     Returns:
@@ -26,7 +28,7 @@ def load_model_weights(model_class, model_weights_path, num_classes=27, device=N
     model = model_class(num_classes=num_classes)
     
     # Load the weights
-    checkpoint = torch.load(model_weights_path, map_location=device)
+    checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint)
     
     # Set to evaluation mode and move to device
@@ -35,94 +37,95 @@ def load_model_weights(model_class, model_weights_path, num_classes=27, device=N
     
     return model, device
 
-def matrices_to_tensor(matrices, device):
+def matrices_to_tensor(segment_matrix, device):
     """
-    Convert list of matrices to a tensor batch ready for CNN inference.
+    Convert a single segment matrix to a tensor ready for CNN inference.
     
     Args:
-        matrices (list): List of 2D numpy arrays (grayscale spectrogram matrices)
+        segment_matrix (numpy.ndarray): Single 2D numpy array (grayscale spectrogram segment)
         device (torch.device): Device to move tensor to
     
     Returns:
-        torch.Tensor: Tensor of shape (batch_size, 1, height, width)
+        torch.Tensor: Tensor of shape (1, 1, height, width)
     """
-    if not matrices:
-        raise ValueError("Input matrices list is empty. Cannot convert to tensor.")
+    if segment_matrix is None or segment_matrix.size == 0:
+        raise ValueError("Input segment matrix is empty or None. Cannot convert to tensor.")
     
-    # Convert to numpy array and add channel dimension
-    batch = np.array(matrices)  # (batch_size, height, width)
-    batch = np.expand_dims(batch, axis=1)  # (batch_size, 1, height, width)
+    # Add batch and channel dimensions
+    matrix = np.expand_dims(segment_matrix, axis=0)  # (1, height, width)
+    matrix = np.expand_dims(matrix, axis=0)  # (1, 1, height, width)
     
     # Convert to tensor and move to device
-    tensor = torch.from_numpy(batch).float().to(device)
+    tensor = torch.from_numpy(matrix).float().to(device)
     
     return tensor
 
-def perform_audio_inference(audio_path, model_class, model_weights_path, reduce_noise=True):
+def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=True):
     """
     Perform inference on an audio file using a trained CNN model.
     
     This function processes an audio file by:
-    1. Extracting grayscale log-mel-spectrogram matrices for each usable segment
+    1. Extracting grayscale log-mel-spectrogram segment_matrices for each usable segment
     2. Loading the pretrained CNN model
-    3. Running inference on each segment
+    3. Running inference on each segment individually
     4. Returning the average softmax probabilities across all segments
     
     Args:
         audio_path (str): Path to the audio file to analyze
         model_class (type): Class of the CNN model to use (e.g., OldBirdCNN)
-        model_weights_path (str): Path to the .pth model weights file
+        model_path (str): Path to the .pth model weights file
         reduce_noise (bool): Whether to apply noise reduction to audio segments
     
     Returns:
-        list: Average softmax probabilities for each of the 27 classes (indices 0-26)
+        list: Average softmax probabilities for each of the NUM_CLASSES classes (indices 0-26)
         
     Raises:
-        FileNotFoundError: If audio_path or model_weights_path don't exist
+        FileNotFoundError: If audio_path or model_path don't exist
         ValueError: If no usable segments are extracted from the audio
     """
     
     # Validate input files
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
-    if not os.path.exists(model_weights_path):
-        raise FileNotFoundError(f"Model weights file not found: {model_weights_path}")
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model weights file not found: {model_path}")
     
     print(f"Starting inference for: {audio_path}")
     
-    # Step 1: Extract matrices from audio using audio_process
-    matrices = audio_process(audio_path, reduce_noise=reduce_noise)
+    # Step 1: Extract segment_matrices from audio using audio_process
+    segment_matrices = audio_process(audio_path, reduce_noise=reduce_noise)
     
-    if not matrices:
+    if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
     
-    print(f"Extracted {len(matrices)} segments for inference")
+    print(f"Extracted {len(segment_matrices)} segments for inference")
     
     # Step 2: Load the model
-    model, device = load_model_weights(model_class, model_weights_path, num_classes=27)
+    model, device = load_model_weights(model_class, model_path, num_classes=NUM_CLASSES)
     print(f"Model loaded on device: {device}")
     
-    # Step 3: Convert matrices to tensor batch
-    input_tensor = matrices_to_tensor(matrices, device)
-    
-    # Step 4: Perform inference
+    # Step 3 & 4: Process each segment individually and perform inference
     all_probabilities = []
     
     with torch.no_grad():
-        # Run inference on the batch
-        logits = model(input_tensor)
-        probabilities = torch.softmax(logits, dim=1)  # Shape: (num_segments, 27)
-        
-        # Convert to numpy for easier handling
-        probabilities_np = probabilities.cpu().numpy()
-        all_probabilities.extend(probabilities_np)
+        for i, segment_matrix in enumerate(segment_matrices):
+            # Convert single segment to tensor
+            input_tensor = matrices_to_tensor(segment_matrix, device)
+            
+            # Run inference on the single segment
+            logits = model(input_tensor)
+            probabilities = torch.softmax(logits, dim=1)  # Shape: (1, NUM_CLASSES)
+            
+            # Convert to numpy and store
+            probabilities_np = probabilities.cpu().numpy()[0]  # Shape: (NUM_CLASSES,)
+            all_probabilities.append(probabilities_np)
     
     # Step 5: Calculate average probabilities across all segments
-    all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, 27)
-    average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (27,)
+    all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, NUM_CLASSES)
+    average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (NUM_CLASSES,)
     
     print(f"Inference completed. Processed {len(all_probabilities)} segments")
-    print(f"Average probabilities calculated for 27 classes")
+    print(f"Average probabilities calculated for NUM_CLASSES classes")
     
     # Return as list for classes 0-26
     return average_probabilities.tolist()
