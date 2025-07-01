@@ -62,11 +62,15 @@ def cross_val_training(data_path=None, features=None, labels=None, authors=None,
         'debug_dataloaders': False,  # Set to True for debugging
         'benchmark_performance': False,  # Set to True for performance testing
         # Mixed precision and gradient clipping optimizations
-        'mixed_precision': True,  # Enable AMP for RTX 5080
+        'mixed_precision': False,  # Enable AMP for RTX 5080
         'gradient_clipping': 1.0,  # Gradient clipping value (0 to disable)
         # Parallel fold training optimization
         'parallel_folds': False,  # Enable parallel fold training (always uses GPU parallel)
         'max_parallel_folds': 3,  # Max concurrent folds (adjust for GPU memory)
+        # Optimizer settings
+        'use_adam': True,  # Optimizer: False (SGD), True/'adam' (Adam), 'adamw' (AdamW)
+        'l2_regularization': 1e-4,  # L2 regularization strength
+        'momentum': 0.9,  # Momentum for SGD optimizer
     }
     config = {**default_config, **(config or {})}
     
@@ -174,8 +178,9 @@ def single_fold_training(data_path=None, features=None, labels=None, authors=Non
         'debug_dataloaders': False,  # Set to True for debugging
         'benchmark_performance': False,  # Set to True for performance testing
         # Additional training parameters
-        'use_adam': True,  # Whether to use Adam optimizer
+        'use_adam': True,  # Optimizer: False (SGD), True/'adam' (Adam), 'adamw' (AdamW)
         'l2_regularization': 1e-4,  # L2 regularization strength
+        'momentum': 0.9,  # Momentum for SGD optimizer
         'lr_schedule': None  # Learning rate schedule configuration
     }
     config = {**default_config, **(config or {})}

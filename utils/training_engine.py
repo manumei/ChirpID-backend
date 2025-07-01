@@ -338,18 +338,27 @@ class TrainingEngine:
             class_weights = self._compute_class_weights(train_indices, dataset)
             criterion = nn.CrossEntropyLoss(weight=class_weights)
         
-        # Initialize optimizer - use config to decide between Adam and SGD
+        # Initialize optimizer - use config to decide between Adam, AdamW, and SGD
         use_adam = self.config.get('use_adam', True)  # Default to Adam if not specified
         learning_rate = self.config.get('learning_rate', self.config.get('initial_lr', 0.001))
         l2_reg = self.config.get('l2_regularization', 0)
         
-        if use_adam:
+        if use_adam == 'adamw':
+            # Use AdamW optimizer (better weight decay handling)
+            optimizer = optim.AdamW(
+                model.parameters(), 
+                lr=learning_rate,
+                weight_decay=l2_reg
+            )
+        elif use_adam is True or use_adam == 'adam':
+            # Use standard Adam optimizer
             optimizer = optim.Adam(
                 model.parameters(), 
                 lr=learning_rate,
                 weight_decay=l2_reg
             )
         else:
+            # Use SGD optimizer (use_adam == False)
             momentum = self.config.get('momentum', 0.9)  # Allow configurable momentum
             optimizer = optim.SGD(
                 model.parameters(), 
@@ -529,7 +538,7 @@ class TrainingEngine:
         all_preds, all_targets = [], []
         
         # Mixed precision training components
-        use_amp = self.config.get('mixed_precision', True)  # Default enabled for RTX 5080
+        use_amp = self.config.get('mixed_precision', False)
         gradient_clipping = self.config.get('gradient_clipping', 1.0)  # Default clip value
         
         if use_amp and hasattr(torch.cuda, 'amp'):

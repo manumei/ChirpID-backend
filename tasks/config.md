@@ -11,18 +11,21 @@ This guide explains how to properly configure hyperparameters for bird song clas
 ## Hyperparameter Reference
 
 ### 1. Optimizer Selection (`use_adam`)
-**Type**: Boolean  
+**Type**: Boolean or String  
 **Default**: `True`
+**Options**: `False`, `True`/`'adam'`, `'adamw'`
 
-**Description**: Chooses between Adam and SGD with momentum optimizers.
+**Description**: Chooses between SGD, Adam, and AdamW optimizers.
 
 **Guidelines**:
-- **Adam (`True`)**: Generally better for deep learning, adaptive learning rates, works well with default settings
-- **SGD (`False`)**: Can achieve better final performance but requires careful learning rate tuning
+- **SGD (`False`)**: Traditional optimizer with momentum, can achieve best final performance but requires careful tuning
+- **Adam (`True` or `'adam'`)**: Adaptive learning rate optimizer, generally better for deep learning, works well with default settings
+- **AdamW (`'adamw'`)**: Improved version of Adam with better weight decay handling, recommended for large models
 
 **For our dataset**:
-- Adam is recommended for initial experiments
-- SGD requires 5-10x higher learning rates (0.01-0.05 vs 0.001-0.005)
+- **AdamW** is recommended for most experiments (best generalization)
+- **Adam** is good for quick prototyping and baseline experiments
+- **SGD** requires 5-10x higher learning rates (0.01-0.05 vs 0.001-0.005) but can achieve superior final performance
 - With ~3,200 samples, Adam's adaptive nature helps with small dataset challenges
 
 ### 2. Early Stopping Threshold (`estop_thresh`)

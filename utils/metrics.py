@@ -173,16 +173,13 @@ def plot_full_metrics(config_id, history: dict, cm: np.ndarray):
     elif hasattr(cm, 'cpu'):
         cm = cm.cpu().numpy()
     
-    # Normalize confusion matrix to percentages
-    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
-    
-    # Create heatmap on the subplot
-    sns.heatmap(cm_normalized, 
+    # Create heatmap on the subplot with counts
+    sns.heatmap(cm, 
                 annot=True, 
-                fmt='.1f',
+                fmt='d',
                 cmap='Blues',
                 square=True,
-                cbar_kws={'label': 'Percentage (%)'},
+                cbar_kws={'label': 'Count'},
                 ax=axes[1, 1])
     
     axes[1, 1].set_title('Confusion Matrix', fontsize=12)
@@ -197,7 +194,7 @@ def plot_metrics(config_id, results):
     history = results.get('history', {})
     conf_matrix = results.get('confusion_matrix', None)
     
-    if not history or not conf_matrix:
+    if not history or conf_matrix is None:
         raise ValueError(f"Results must contain 'history' and 'confusion_matrix' keys. Currently got: {results}")
     
     plot_full_metrics(config_id, history, conf_matrix)
