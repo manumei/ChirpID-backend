@@ -19,7 +19,7 @@ Transformed the monolithic `utils/util.py` (2000+ lines) into focused, specializ
 - **`utils/dataset_utils.py`**: PyTorch dataset classes, standardization, augmentation support, and spectrogram matrix loading
 - **`utils/training_utils.py`**: Model training, validation, single-fold training, early stopping, and SpecAugment integration
 - **`utils/cross_validation.py`**: K-fold cross-validation logic with proper author grouping
-- **`utils/evaluation_utils.py`**: Confusion matrix analysis, result visualization, model save/load utilities
+- **`utils/metrics.py`**: Confusion matrix analysis, result visualization, model save/load utilities
 
 ### 2. Notebooks Successfully Refactored
 
@@ -29,13 +29,13 @@ Updated three target notebooks to use the new modular structure:
 - ✅ Updated imports to use new modular structure
 - ✅ Replaced old function calls (`util.function()` → `module.function()`)
 - ✅ Updated training functions to use `train_single_fold()` and `fast_single_fold_training_with_augmentation()`
-- ✅ Updated evaluation functions to use new evaluation_utils module
+- ✅ Updated evaluation functions to use new metrics module
 - ✅ Maintained all existing functionality including SpecAugment training
 
 #### `notebooks/ModelTraining.ipynb`:
 - ✅ Updated imports for modular structure
 - ✅ Updated K-fold cross-validation to use `k_fold_cross_validation_with_predefined_folds()`
-- ✅ Updated plotting functions to use new evaluation_utils
+- ✅ Updated plotting functions to use new metrics
 - ✅ Maintained compatibility with existing training workflows
 
 #### `notebooks/ModelSweeping.ipynb`:
@@ -55,7 +55,7 @@ util.some_function()
 **After (Modular)**:
 ```python
 from utils.training_utils import train_single_fold
-from utils.evaluation_utils import plot_confusion_matrix
+from utils.metrics import plot_confusion_matrix
 from utils.dataset_utils import StandardizedDataset
 from utils.models import BirdCNN
 ```
@@ -88,7 +88,7 @@ from utils.models import BirdCNN
 - `utils/dataset_utils.py` (new) 
 - `utils/training_utils.py` (new)
 - `utils/cross_validation.py` (new)
-- `utils/evaluation_utils.py` (new)
+- `utils/metrics.py` (new)
 - `tasks/utils.md` (new)
 - `tasks/agent_report_1.md` (this file)
 
@@ -121,9 +121,9 @@ from utils.models import BirdCNN
 - `fast_single_fold_training_with_augmentation()` → `utils/training_utils.py`
 
 ### Evaluation Functions Migration:
-- `plot_kfold_results()` → `utils/evaluation_utils.py`
-- `plot_confusion_matrix()` → `utils/evaluation_utils.py`
-- `save_model()`, `load_model()` → `utils/evaluation_utils.py`
+- `plot_kfold_results()` → `utils/metrics.py`
+- `plot_confusion_matrix()` → `utils/metrics.py`
+- `save_model()`, `load_model()` → `utils/metrics.py`
 
 ## Benefits Achieved
 

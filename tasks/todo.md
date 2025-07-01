@@ -20,7 +20,7 @@ Asi retornea una lista de vectores flats, en vez de matrices, como necesita la f
 Despues en models.py crea el modelo, uno nuevo abajo del que ya tenemos de BirdCNN. Avisale a Chat que considere que las dimensiones de los vectores de features de input son (70,112)
 
 **Barridos & Grid Search** (Mei)
-Try learning rate momentum? Ask if good idea
+Once model is defined:
 Instead of just varying techniques and architectures, also vary some arbitrary values for data-processing.
 Try varying the threshold_factor, the segment durations, and maybe even some others? hop_len, nfft, mel_bins? might be too much though.
 Train based on loss. Pick based on F1 Score.

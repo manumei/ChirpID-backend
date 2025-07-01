@@ -34,21 +34,15 @@ def prepare_training_data(data_path=None, features=None, labels=None, authors=No
         # Reshape for CNN input (batch_size, channels, height, width)
         features = features.reshape(-1, 1, 313, 224)
         
-        print(f"Loaded data from CSV:")
-        print(f"  Features shape: {features.shape}")
-        print(f"  Labels shape: {labels.shape}")
-        print(f"  Authors shape: {authors.shape}")
+        # print(f"Loaded data from CSV:")
+        # print(f"  Features shape: {features.shape}")
+        # print(f"  Labels shape: {labels.shape}")
+        # print(f"  Authors shape: {authors.shape}")
         
     elif features is not None and labels is not None and authors is not None:
         print("Using provided arrays")
-        features = np.array(features)
-        labels = np.array(labels)
-        authors = np.array(authors)
-        
-        print(f"Using provided data:")
-        print(f"  Features shape: {features.shape}")
-        print(f"  Labels shape: {labels.shape}")
-        print(f"  Authors shape: {authors.shape}")
+        if not isinstance(features, np.ndarray) or not isinstance(labels, np.ndarray) or not isinstance(authors, np.ndarray):
+            raise TypeError("Features, labels, and authors must be numpy arrays")
         
     else:
         raise ValueError("Either data_path or (features, labels, authors) must be provided")
@@ -56,11 +50,6 @@ def prepare_training_data(data_path=None, features=None, labels=None, authors=No
     # Validation
     if len(features) != len(labels) or len(labels) != len(authors):
         raise ValueError("Features, labels, and authors must have the same length")
-    
-    print(f"Data prepared successfully:")
-    print(f"  Total samples: {len(features)}")
-    print(f"  Unique authors: {len(np.unique(authors))}")
-    print(f"  Unique classes: {len(np.unique(labels))}")
     
     return features, labels, authors
 
@@ -87,10 +76,10 @@ def create_metadata_dataframe(labels, authors, sample_indices=None):
         'usable_segments': 1  # Each sample represents 1 segment
     })
     
-    print(f"Created metadata DataFrame:")
-    print(f"  Shape: {metadata_df.shape}")
-    print(f"  Unique authors: {len(metadata_df['author'].unique())}")
-    print(f"  Unique classes: {len(metadata_df['class_id'].unique())}")
+    # print(f"Created metadata DataFrame:")
+    # print(f"  Shape: {metadata_df.shape}")
+    # print(f"  Unique authors: {len(metadata_df['author'].unique())}")
+    # print(f"  Unique classes: {len(metadata_df['class_id'].unique())}")
     
     return metadata_df
 
