@@ -1,124 +1,67 @@
 {
   "metadata": {
-    "test_date": "2025-06-24T00:07:09.110117",
-    "total_configs_tested": 20,
-    "successful_configs": 11,
-    "failed_configs": 9,
-    "total_duration_hours": 0.4775317236111111,
+    "test_date": "2025-07-01T16:30:46.813224",
+    "total_configs_tested": 9,
+    "successful_configs": 9,
+    "failed_configs": 0,
+    "total_duration_hours": 0.4490102747222222,
     "dataset_info": {
-      "total_samples": 2987,
+      "total_samples": 2985,
       "num_classes": 33,
       "num_authors": 106,
       "feature_shape": [
-        2987,
+        2985,
         1,
         224,
         313
       ]
-    }
+    },
+    "note": "All metrics are from best model state (early stopping), not final training epoch"
   },
   "configurations": {
     "config0": {
-      "name": "Conservative Baseline (Optimized)",
+      "name": "Chaos Theory Adam",
       "use_adam": true,
-      "estop_thresh": 35,
-      "batch_size": 24,
-      "use_class_weights": false,
-      "l2_regularization": 0.0001,
-      "lr_schedule": null,
-      "initial_lr": 0.001,
-      "standardize": true,
-      "spec_augment": false,
+      "estop_thresh": 37,
+      "batch_size": 45,
+      "use_class_weights": true,
+      "l2_regularization": 0.00037,
+      "lr_schedule": {
+        "type": "cosine",
+        "T_max": 73
+      },
+      "initial_lr": 0.00137,
+      "standardize": false,
+      "spec_augment": true,
       "noise_augment": false,
-      "num_epochs": 200,
+      "num_epochs": 247,
       "mixed_precision": true,
-      "gradient_clipping": 1.0,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
+      "gradient_clipping": 0.73,
+      "parallel_folds": false,
+      "max_parallel_folds": -1
     },
     "config1": {
-      "name": "Aggressive Baseline (Optimized)",
+      "name": "Balanced Classes Focus",
       "use_adam": true,
-      "estop_thresh": 25,
-      "batch_size": 48,
+      "estop_thresh": 35,
+      "batch_size": 28,
       "use_class_weights": true,
-      "l2_regularization": 0.0005,
-      "lr_schedule": null,
-      "initial_lr": 0.002,
-      "standardize": true,
-      "spec_augment": true,
-      "noise_augment": true,
-      "num_epochs": 250,
-      "mixed_precision": true,
-      "gradient_clipping": 1.0,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
-    },
-    "config2": {
-      "name": "Exponential LR Decay (Optimized)",
-      "use_adam": true,
-      "estop_thresh": 40,
-      "batch_size": 40,
-      "use_class_weights": false,
-      "l2_regularization": 0.0001,
+      "l2_regularization": 0.0003,
       "lr_schedule": {
         "type": "exponential",
-        "gamma": 0.95
+        "gamma": 0.96
       },
-      "initial_lr": 0.003,
+      "initial_lr": 0.0012,
       "standardize": true,
       "spec_augment": true,
       "noise_augment": false,
       "num_epochs": 220,
       "mixed_precision": true,
       "gradient_clipping": 1.0,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
+      "parallel_folds": false,
+      "max_parallel_folds": -1
     },
-    "config3": {
-      "name": "ReduceLROnPlateau (Optimized)",
-      "use_adam": true,
-      "estop_thresh": 50,
-      "batch_size": 32,
-      "use_class_weights": true,
-      "l2_regularization": 0.0002,
-      "lr_schedule": {
-        "type": "plateau",
-        "factor": 0.5,
-        "patience": 10
-      },
-      "initial_lr": 0.001,
-      "standardize": true,
-      "spec_augment": false,
-      "noise_augment": true,
-      "num_epochs": 300,
-      "mixed_precision": true,
-      "gradient_clipping": 1.2,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
-    },
-    "config4": {
-      "name": "Cosine Annealing (Optimized)",
-      "use_adam": true,
-      "estop_thresh": 30,
-      "batch_size": 24,
-      "use_class_weights": false,
-      "l2_regularization": 1e-05,
-      "lr_schedule": {
-        "type": "cosine",
-        "T_max": 50
-      },
-      "initial_lr": 0.005,
-      "standardize": true,
-      "spec_augment": true,
-      "noise_augment": true,
-      "num_epochs": 200,
-      "mixed_precision": true,
-      "gradient_clipping": 0.8,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
-    },
-    "config5": {
+    "config2": {
       "name": "Small Batch High LR (AMP Optimized)",
       "use_adam": true,
       "estop_thresh": 35,
@@ -136,26 +79,92 @@
       "num_epochs": 180,
       "mixed_precision": true,
       "gradient_clipping": 1.0,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
+      "parallel_folds": false,
+      "max_parallel_folds": -1
+    },
+    "config3": {
+      "name": "Balanced Classes Focus (Spec+Noise Aug)",
+      "use_adam": true,
+      "estop_thresh": 35,
+      "batch_size": 28,
+      "use_class_weights": true,
+      "l2_regularization": 0.0003,
+      "lr_schedule": {
+        "type": "exponential",
+        "gamma": 0.96
+      },
+      "initial_lr": 0.0012,
+      "standardize": true,
+      "spec_augment": true,
+      "noise_augment": true,
+      "num_epochs": 220,
+      "mixed_precision": true,
+      "gradient_clipping": 1.0,
+      "parallel_folds": false,
+      "max_parallel_folds": -1
+    },
+    "config4": {
+      "name": "Balanced Classes (Higher Batch)",
+      "use_adam": true,
+      "estop_thresh": 35,
+      "batch_size": 40,
+      "use_class_weights": true,
+      "l2_regularization": 0.0003,
+      "lr_schedule": {
+        "type": "exponential",
+        "gamma": 0.96
+      },
+      "initial_lr": 0.0012,
+      "standardize": true,
+      "spec_augment": true,
+      "noise_augment": false,
+      "num_epochs": 220,
+      "mixed_precision": true,
+      "gradient_clipping": 1.0,
+      "parallel_folds": false,
+      "max_parallel_folds": -1
+    },
+    "config5": {
+      "name": "Exponential LR + Dual Augment",
+      "use_adam": true,
+      "estop_thresh": 35,
+      "batch_size": 40,
+      "use_class_weights": true,
+      "l2_regularization": 0.0003,
+      "lr_schedule": {
+        "type": "exponential",
+        "gamma": 0.96
+      },
+      "initial_lr": 0.0025,
+      "standardize": true,
+      "spec_augment": true,
+      "noise_augment": true,
+      "num_epochs": 200,
+      "mixed_precision": true,
+      "gradient_clipping": 1.0,
+      "parallel_folds": false,
+      "max_parallel_folds": -1
     },
     "config6": {
-      "name": "Large Batch Conservative (AMP Optimized)",
-      "use_adam": true,
-      "estop_thresh": 45,
-      "batch_size": 80,
-      "use_class_weights": false,
-      "l2_regularization": 0.0001,
-      "lr_schedule": null,
-      "initial_lr": 0.0005,
+      "name": "Balanced Classes AdamW",
+      "use_adam": "adamw",
+      "estop_thresh": 35,
+      "batch_size": 28,
+      "use_class_weights": true,
+      "l2_regularization": 0.0003,
+      "lr_schedule": {
+        "type": "exponential",
+        "gamma": 0.96
+      },
+      "initial_lr": 0.0012,
       "standardize": true,
-      "spec_augment": false,
+      "spec_augment": true,
       "noise_augment": false,
-      "num_epochs": 250,
+      "num_epochs": 220,
       "mixed_precision": true,
-      "gradient_clipping": 1.5,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
+      "gradient_clipping": 1.0,
+      "parallel_folds": false,
+      "max_parallel_folds": -1
     },
     "config7": {
       "name": "Heavy Regularization (Optimized)",
@@ -176,360 +185,126 @@
       "num_epochs": 300,
       "mixed_precision": true,
       "gradient_clipping": 1.2,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
+      "parallel_folds": false,
+      "max_parallel_folds": -1
     },
     "config8": {
-      "name": "Light Regularization (Optimized)",
+      "name": "Best Results Frankenstein",
       "use_adam": true,
-      "estop_thresh": 25,
-      "batch_size": 64,
-      "use_class_weights": false,
-      "l2_regularization": 1e-05,
-      "lr_schedule": null,
-      "initial_lr": 0.002,
-      "standardize": true,
-      "spec_augment": false,
-      "noise_augment": false,
-      "num_epochs": 150,
-      "mixed_precision": true,
-      "gradient_clipping": 0.8,
-      "parallel_folds": true,
-      "max_parallel_folds": 3
-    },
-    "config9": {
-      "name": "SGD with Momentum",
-      "use_adam": false,
-      "estop_thresh": 40,
-      "batch_size": 32,
-      "use_class_weights": true,
-      "l2_regularization": 0.0001,
-      "lr_schedule": {
-        "type": "exponential",
-        "gamma": 0.9
-      },
-      "initial_lr": 0.01,
-      "standardize": true,
-      "spec_augment": true,
-      "noise_augment": false,
-      "num_epochs": 200
-    },
-    "config10": {
-      "name": "SGD High Learning Rate",
-      "use_adam": false,
-      "estop_thresh": 30,
-      "batch_size": 24,
-      "use_class_weights": false,
-      "l2_regularization": 0.0005,
-      "lr_schedule": {
-        "type": "cosine",
-        "T_max": 40
-      },
-      "initial_lr": 0.05,
-      "standardize": true,
-      "spec_augment": false,
-      "noise_augment": true,
-      "num_epochs": 180
-    },
-    "config11": {
-      "name": "Full Augmentation Suite",
-      "use_adam": true,
-      "estop_thresh": 45,
-      "batch_size": 20,
-      "use_class_weights": true,
-      "l2_regularization": 0.0002,
-      "lr_schedule": {
-        "type": "plateau",
-        "factor": 0.6,
-        "patience": 12
-      },
-      "initial_lr": 0.0015,
-      "standardize": true,
-      "spec_augment": true,
-      "noise_augment": true,
-      "num_epochs": 280
-    },
-    "config12": {
-      "name": "No Augmentation Fast",
-      "use_adam": true,
-      "estop_thresh": 20,
-      "batch_size": 48,
-      "use_class_weights": false,
-      "l2_regularization": 0.0001,
-      "lr_schedule": null,
-      "initial_lr": 0.003,
-      "standardize": false,
-      "spec_augment": false,
-      "noise_augment": false,
-      "num_epochs": 120
-    },
-    "config13": {
-      "name": "Balanced Classes Focus",
-      "use_adam": true,
-      "estop_thresh": 35,
-      "batch_size": 28,
+      "estop_thresh": 36,
+      "batch_size": 40,
       "use_class_weights": true,
       "l2_regularization": 0.0003,
       "lr_schedule": {
         "type": "exponential",
-        "gamma": 0.96
+        "gamma": 0.97
       },
-      "initial_lr": 0.0012,
+      "initial_lr": 0.0024,
       "standardize": true,
       "spec_augment": true,
       "noise_augment": false,
-      "num_epochs": 220
-    },
-    "config14": {
-      "name": "Fine-tuning Style",
-      "use_adam": true,
-      "estop_thresh": 15,
-      "batch_size": 16,
-      "use_class_weights": false,
-      "l2_regularization": 1e-05,
-      "lr_schedule": null,
-      "initial_lr": 0.0001,
-      "standardize": true,
-      "spec_augment": false,
-      "noise_augment": false,
-      "num_epochs": 100
-    },
-    "config15": {
-      "name": "High Capacity",
-      "use_adam": true,
-      "estop_thresh": 25,
-      "batch_size": 64,
-      "use_class_weights": true,
-      "l2_regularization": 1e-06,
-      "lr_schedule": {
-        "type": "cosine",
-        "T_max": 60
-      },
-      "initial_lr": 0.006,
-      "standardize": true,
-      "spec_augment": true,
-      "noise_augment": true,
-      "num_epochs": 240
-    },
-    "config16": {
-      "name": "Conservative Long Train",
-      "use_adam": true,
-      "estop_thresh": 80,
-      "batch_size": 20,
-      "use_class_weights": false,
-      "l2_regularization": 0.001,
-      "lr_schedule": {
-        "type": "plateau",
-        "factor": 0.8,
-        "patience": 20
-      },
-      "initial_lr": 0.0008,
-      "standardize": true,
-      "spec_augment": false,
-      "noise_augment": true,
-      "num_epochs": 400
-    },
-    "config17": {
-      "name": "Adaptive Mixed",
-      "use_adam": true,
-      "estop_thresh": 35,
-      "batch_size": 36,
-      "use_class_weights": true,
-      "l2_regularization": 0.0004,
-      "lr_schedule": {
-        "type": "exponential",
-        "gamma": 0.94
-      },
-      "initial_lr": 0.0018,
-      "standardize": true,
-      "spec_augment": true,
-      "noise_augment": false,
-      "num_epochs": 200
-    },
-    "config18": {
-      "name": "Quick Convergence",
-      "use_adam": true,
-      "estop_thresh": 15,
-      "batch_size": 52,
-      "use_class_weights": false,
-      "l2_regularization": 0.0002,
-      "lr_schedule": null,
-      "initial_lr": 0.0025,
-      "standardize": true,
-      "spec_augment": false,
-      "noise_augment": false,
-      "num_epochs": 100
-    },
-    "config19": {
-      "name": "Robust Generalization",
-      "use_adam": true,
-      "estop_thresh": 50,
-      "batch_size": 24,
-      "use_class_weights": true,
-      "l2_regularization": 0.0006,
-      "lr_schedule": {
-        "type": "cosine",
-        "T_max": 80
-      },
-      "initial_lr": 0.0014,
-      "standardize": true,
-      "spec_augment": true,
-      "noise_augment": true,
-      "num_epochs": 320
+      "num_epochs": 220,
+      "mixed_precision": true,
+      "gradient_clipping": 1.0,
+      "parallel_folds": false,
+      "max_parallel_folds": 2,
+      "optimize_dataloaders": true
     }
   },
   "results": {
     "config0": {
       "config": {
-        "name": "Conservative Baseline (Optimized)",
+        "name": "Chaos Theory Adam",
         "use_adam": true,
-        "estop_thresh": 35,
-        "batch_size": 24,
-        "use_class_weights": false,
-        "l2_regularization": 0.0001,
-        "lr_schedule": null,
-        "initial_lr": 0.001,
-        "standardize": true,
-        "spec_augment": false,
+        "estop_thresh": 37,
+        "batch_size": 45,
+        "use_class_weights": true,
+        "l2_regularization": 0.00037,
+        "lr_schedule": {
+          "type": "cosine",
+          "T_max": 73
+        },
+        "initial_lr": 0.00137,
+        "standardize": false,
+        "spec_augment": true,
         "noise_augment": false,
-        "num_epochs": 200,
+        "num_epochs": 247,
         "mixed_precision": true,
-        "gradient_clipping": 1.0,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
+        "gradient_clipping": 0.73,
+        "parallel_folds": false,
+        "max_parallel_folds": -1
       },
-      "status": "failed",
+      "status": "success",
       "optimization_metadata": {
         "mixed_precision_used": true,
-        "error_during_optimization": true
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": true
       },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
+      "timestamp": "2025-07-01T16:33:42.060357",
+      "training_time_seconds": 175.24667143821716,
+      "result": {
+        "best_val_acc": 0.5158730158730159,
+        "best_val_f1": 0.4984945316042881,
+        "best_val_loss": 2.1303767817361012,
+        "training_time": 173.44819808006287,
+        "training_type": "single_fold",
+        "parallel_execution": false,
+        "history": {
+          "early_stopped": true,
+          "best_epoch": 81,
+          "total_epochs": 118
+        }
+      }
     },
     "config1": {
       "config": {
-        "name": "Aggressive Baseline (Optimized)",
+        "name": "Balanced Classes Focus",
         "use_adam": true,
-        "estop_thresh": 25,
-        "batch_size": 48,
+        "estop_thresh": 35,
+        "batch_size": 28,
         "use_class_weights": true,
-        "l2_regularization": 0.0005,
-        "lr_schedule": null,
-        "initial_lr": 0.002,
-        "standardize": true,
-        "spec_augment": true,
-        "noise_augment": true,
-        "num_epochs": 250,
-        "mixed_precision": true,
-        "gradient_clipping": 1.0,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
-      },
-      "status": "failed",
-      "optimization_metadata": {
-        "mixed_precision_used": true,
-        "error_during_optimization": true
-      },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
-    },
-    "config2": {
-      "config": {
-        "name": "Exponential LR Decay (Optimized)",
-        "use_adam": true,
-        "estop_thresh": 40,
-        "batch_size": 40,
-        "use_class_weights": false,
-        "l2_regularization": 0.0001,
+        "l2_regularization": 0.0003,
         "lr_schedule": {
           "type": "exponential",
-          "gamma": 0.95
+          "gamma": 0.96
         },
-        "initial_lr": 0.003,
+        "initial_lr": 0.0012,
         "standardize": true,
         "spec_augment": true,
         "noise_augment": false,
         "num_epochs": 220,
         "mixed_precision": true,
         "gradient_clipping": 1.0,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
+        "parallel_folds": false,
+        "max_parallel_folds": -1
       },
-      "status": "failed",
+      "status": "success",
       "optimization_metadata": {
         "mixed_precision_used": true,
-        "error_during_optimization": true
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": false
       },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
+      "timestamp": "2025-07-01T16:36:24.347136",
+      "training_time_seconds": 162.2863461971283,
+      "result": {
+        "best_val_acc": 0.5559006211180124,
+        "best_val_f1": 0.5408143629474959,
+        "best_val_loss": 1.8980604487916697,
+        "training_time": 160.61140203475952,
+        "training_type": "single_fold",
+        "parallel_execution": false,
+        "history": {
+          "early_stopped": true,
+          "best_epoch": 72,
+          "total_epochs": 107
+        }
+      }
     },
-    "config3": {
-      "config": {
-        "name": "ReduceLROnPlateau (Optimized)",
-        "use_adam": true,
-        "estop_thresh": 50,
-        "batch_size": 32,
-        "use_class_weights": true,
-        "l2_regularization": 0.0002,
-        "lr_schedule": {
-          "type": "plateau",
-          "factor": 0.5,
-          "patience": 10
-        },
-        "initial_lr": 0.001,
-        "standardize": true,
-        "spec_augment": false,
-        "noise_augment": true,
-        "num_epochs": 300,
-        "mixed_precision": true,
-        "gradient_clipping": 1.2,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
-      },
-      "status": "failed",
-      "optimization_metadata": {
-        "mixed_precision_used": true,
-        "error_during_optimization": true
-      },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
-    },
-    "config4": {
-      "config": {
-        "name": "Cosine Annealing (Optimized)",
-        "use_adam": true,
-        "estop_thresh": 30,
-        "batch_size": 24,
-        "use_class_weights": false,
-        "l2_regularization": 1e-05,
-        "lr_schedule": {
-          "type": "cosine",
-          "T_max": 50
-        },
-        "initial_lr": 0.005,
-        "standardize": true,
-        "spec_augment": true,
-        "noise_augment": true,
-        "num_epochs": 200,
-        "mixed_precision": true,
-        "gradient_clipping": 0.8,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
-      },
-      "status": "failed",
-      "optimization_metadata": {
-        "mixed_precision_used": true,
-        "error_during_optimization": true
-      },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
-    },
-    "config5": {
+    "config2": {
       "config": {
         "name": "Small Batch High LR (AMP Optimized)",
         "use_adam": true,
@@ -548,45 +323,216 @@
         "num_epochs": 180,
         "mixed_precision": true,
         "gradient_clipping": 1.0,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
+        "parallel_folds": false,
+        "max_parallel_folds": -1
       },
-      "status": "failed",
+      "status": "success",
       "optimization_metadata": {
         "mixed_precision_used": true,
-        "error_during_optimization": true
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": false
       },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
+      "timestamp": "2025-07-01T16:38:12.699867",
+      "training_time_seconds": 108.3521842956543,
+      "result": {
+        "best_val_acc": 0.48148148148148145,
+        "best_val_f1": 0.46913463280153916,
+        "best_val_loss": 2.0959825648201837,
+        "training_time": 106.64752268791199,
+        "training_type": "single_fold",
+        "parallel_execution": false,
+        "history": {
+          "early_stopped": true,
+          "best_epoch": 32,
+          "total_epochs": 67
+        }
+      }
+    },
+    "config3": {
+      "config": {
+        "name": "Balanced Classes Focus (Spec+Noise Aug)",
+        "use_adam": true,
+        "estop_thresh": 35,
+        "batch_size": 28,
+        "use_class_weights": true,
+        "l2_regularization": 0.0003,
+        "lr_schedule": {
+          "type": "exponential",
+          "gamma": 0.96
+        },
+        "initial_lr": 0.0012,
+        "standardize": true,
+        "spec_augment": true,
+        "noise_augment": true,
+        "num_epochs": 220,
+        "mixed_precision": true,
+        "gradient_clipping": 1.0,
+        "parallel_folds": false,
+        "max_parallel_folds": -1
+      },
+      "status": "success",
+      "optimization_metadata": {
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": false
+      },
+      "timestamp": "2025-07-01T16:42:23.317580",
+      "training_time_seconds": 250.61720776557922,
+      "result": {
+        "best_val_acc": 0.4332298136645963,
+        "best_val_f1": 0.4143985817632861,
+        "best_val_loss": 2.342810835527337,
+        "training_time": 248.99894261360168,
+        "training_type": "single_fold",
+        "parallel_execution": false,
+        "history": {
+          "early_stopped": true,
+          "best_epoch": 133,
+          "total_epochs": 168
+        }
+      }
+    },
+    "config4": {
+      "config": {
+        "name": "Balanced Classes (Higher Batch)",
+        "use_adam": true,
+        "estop_thresh": 35,
+        "batch_size": 40,
+        "use_class_weights": true,
+        "l2_regularization": 0.0003,
+        "lr_schedule": {
+          "type": "exponential",
+          "gamma": 0.96
+        },
+        "initial_lr": 0.0012,
+        "standardize": true,
+        "spec_augment": true,
+        "noise_augment": false,
+        "num_epochs": 220,
+        "mixed_precision": true,
+        "gradient_clipping": 1.0,
+        "parallel_folds": false,
+        "max_parallel_folds": -1
+      },
+      "status": "success",
+      "optimization_metadata": {
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": true
+      },
+      "timestamp": "2025-07-01T16:44:50.671107",
+      "training_time_seconds": 147.35291528701782,
+      "result": {
+        "best_val_acc": 0.4921875,
+        "best_val_f1": 0.47996819544543295,
+        "best_val_loss": 2.2192872390151024,
+        "training_time": 145.73580646514893,
+        "training_type": "single_fold",
+        "parallel_execution": false,
+        "history": {
+          "early_stopped": true,
+          "best_epoch": 63,
+          "total_epochs": 98
+        }
+      }
+    },
+    "config5": {
+      "config": {
+        "name": "Exponential LR + Dual Augment",
+        "use_adam": true,
+        "estop_thresh": 35,
+        "batch_size": 40,
+        "use_class_weights": true,
+        "l2_regularization": 0.0003,
+        "lr_schedule": {
+          "type": "exponential",
+          "gamma": 0.96
+        },
+        "initial_lr": 0.0025,
+        "standardize": true,
+        "spec_augment": true,
+        "noise_augment": true,
+        "num_epochs": 200,
+        "mixed_precision": true,
+        "gradient_clipping": 1.0,
+        "parallel_folds": false,
+        "max_parallel_folds": -1
+      },
+      "status": "success",
+      "optimization_metadata": {
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": true
+      },
+      "timestamp": "2025-07-01T16:48:02.949876",
+      "training_time_seconds": 192.27841901779175,
+      "result": {
+        "best_val_acc": 0.490625,
+        "best_val_f1": 0.4764419899222933,
+        "best_val_loss": 2.2566513046622276,
+        "training_time": 190.59436678886414,
+        "training_type": "single_fold",
+        "parallel_execution": false,
+        "history": {
+          "early_stopped": true,
+          "best_epoch": 100,
+          "total_epochs": 135
+        }
+      }
     },
     "config6": {
       "config": {
-        "name": "Large Batch Conservative (AMP Optimized)",
-        "use_adam": true,
-        "estop_thresh": 45,
-        "batch_size": 80,
-        "use_class_weights": false,
-        "l2_regularization": 0.0001,
-        "lr_schedule": null,
-        "initial_lr": 0.0005,
+        "name": "Balanced Classes AdamW",
+        "use_adam": "adamw",
+        "estop_thresh": 35,
+        "batch_size": 28,
+        "use_class_weights": true,
+        "l2_regularization": 0.0003,
+        "lr_schedule": {
+          "type": "exponential",
+          "gamma": 0.96
+        },
+        "initial_lr": 0.0012,
         "standardize": true,
-        "spec_augment": false,
+        "spec_augment": true,
         "noise_augment": false,
-        "num_epochs": 250,
+        "num_epochs": 220,
         "mixed_precision": true,
-        "gradient_clipping": 1.5,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
+        "gradient_clipping": 1.0,
+        "parallel_folds": false,
+        "max_parallel_folds": -1
       },
-      "status": "failed",
+      "status": "success",
       "optimization_metadata": {
         "mixed_precision_used": true,
-        "error_during_optimization": true
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": false
       },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
+      "timestamp": "2025-07-01T16:49:35.798619",
+      "training_time_seconds": 92.84823560714722,
+      "result": {
+        "best_val_acc": 0.4658385093167702,
+        "best_val_f1": 0.4479919338389538,
+        "best_val_loss": 2.5071345308552617,
+        "training_time": 91.16318607330322,
+        "training_type": "single_fold",
+        "parallel_execution": false,
+        "history": {
+          "early_stopped": true,
+          "best_epoch": 26,
+          "total_epochs": 61
+        }
+      }
     },
     "config7": {
       "config": {
@@ -608,520 +554,77 @@
         "num_epochs": 300,
         "mixed_precision": true,
         "gradient_clipping": 1.2,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
+        "parallel_folds": false,
+        "max_parallel_folds": -1
       },
-      "status": "failed",
+      "status": "success",
       "optimization_metadata": {
         "mixed_precision_used": true,
-        "error_during_optimization": true
-      },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
-    },
-    "config8": {
-      "config": {
-        "name": "Light Regularization (Optimized)",
-        "use_adam": true,
-        "estop_thresh": 25,
-        "batch_size": 64,
-        "use_class_weights": false,
-        "l2_regularization": 1e-05,
-        "lr_schedule": null,
-        "initial_lr": 0.002,
-        "standardize": true,
-        "spec_augment": false,
-        "noise_augment": false,
-        "num_epochs": 150,
-        "mixed_precision": true,
-        "gradient_clipping": 0.8,
-        "parallel_folds": true,
-        "max_parallel_folds": 3
-      },
-      "status": "failed",
-      "optimization_metadata": {
-        "mixed_precision_used": true,
-        "error_during_optimization": true
-      },
-      "timestamp": "",
-      "training_time_seconds": 0,
-      "error": "'TrainingEngine' object has no attribute 'run_cross_validation_parallel'"
-    },
-    "config9": {
-      "config": {
-        "name": "SGD with Momentum",
-        "use_adam": false,
-        "estop_thresh": 40,
-        "batch_size": 32,
-        "use_class_weights": true,
-        "l2_regularization": 0.0001,
-        "lr_schedule": {
-          "type": "exponential",
-          "gamma": 0.9
-        },
-        "initial_lr": 0.01,
-        "standardize": true,
-        "spec_augment": true,
-        "noise_augment": false,
-        "num_epochs": 200
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false
-      },
-      "timestamp": "2025-06-24T00:09:29.361740",
-      "training_time_seconds": 138.41742038726807,
-      "result": {
-        "final_val_acc": 0.38235294117647056,
-        "final_val_f1": 0.35469483692799336,
-        "final_val_loss": 3.509362858884475,
-        "best_val_acc": 0.4007352941176471,
-        "best_val_f1": 0.3773441900721012,
-        "training_time": 136.5205807685852,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 17,
-          "total_epochs": 57
-        }
-      }
-    },
-    "config10": {
-      "config": {
-        "name": "SGD High Learning Rate",
-        "use_adam": false,
-        "estop_thresh": 30,
-        "batch_size": 24,
-        "use_class_weights": false,
-        "l2_regularization": 0.0005,
-        "lr_schedule": {
-          "type": "cosine",
-          "T_max": 40
-        },
-        "initial_lr": 0.05,
-        "standardize": true,
-        "spec_augment": false,
-        "noise_augment": true,
-        "num_epochs": 180
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false
-      },
-      "timestamp": "2025-06-24T00:12:59.388664",
-      "training_time_seconds": 210.02608919143677,
-      "result": {
-        "final_val_acc": 0.29891304347826086,
-        "final_val_f1": 0.2526575572834609,
-        "final_val_loss": 2.573716464249984,
-        "best_val_acc": 0.3170289855072464,
-        "best_val_f1": 0.2526575572834609,
-        "training_time": 208.19344472885132,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 61,
-          "total_epochs": 91
-        }
-      }
-    },
-    "config11": {
-      "config": {
-        "name": "Full Augmentation Suite",
-        "use_adam": true,
-        "estop_thresh": 45,
-        "batch_size": 20,
-        "use_class_weights": true,
-        "l2_regularization": 0.0002,
-        "lr_schedule": {
-          "type": "plateau",
-          "factor": 0.6,
-          "patience": 12
-        },
-        "initial_lr": 0.0015,
-        "standardize": true,
-        "spec_augment": true,
-        "noise_augment": true,
-        "num_epochs": 280
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false
-      },
-      "timestamp": "2025-06-24T00:15:32.317400",
-      "training_time_seconds": 152.9284110069275,
-      "result": {
-        "final_val_acc": 0.35555555555555557,
-        "final_val_f1": 0.31376104368919017,
-        "final_val_loss": 3.7793289643746837,
-        "best_val_acc": 0.37037037037037035,
-        "best_val_f1": 0.32313002553967496,
-        "training_time": 150.68834471702576,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 15,
-          "total_epochs": 60
-        }
-      }
-    },
-    "config12": {
-      "config": {
-        "name": "No Augmentation Fast",
-        "use_adam": true,
-        "estop_thresh": 20,
-        "batch_size": 48,
-        "use_class_weights": false,
-        "l2_regularization": 0.0001,
-        "lr_schedule": null,
-        "initial_lr": 0.003,
-        "standardize": false,
-        "spec_augment": false,
-        "noise_augment": false,
-        "num_epochs": 120
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
+        "gradient_clipping_used": true,
         "parallel_folds_used": false,
         "optimized_dataloaders": true,
         "batch_size_optimized": true
       },
-      "timestamp": "2025-06-24T00:17:36.365652",
-      "training_time_seconds": 124.04784679412842,
+      "timestamp": "2025-07-01T16:53:34.349275",
+      "training_time_seconds": 238.5501425266266,
       "result": {
-        "final_val_acc": 0.49053030303030304,
-        "final_val_f1": 0.417048708042753,
-        "final_val_loss": 3.00305531241677,
-        "best_val_acc": 0.4962121212121212,
-        "best_val_f1": 0.42490979580737437,
-        "training_time": 122.64067220687866,
+        "best_val_acc": 0.446875,
+        "best_val_f1": 0.4122781142372811,
+        "best_val_loss": 2.170434668660164,
+        "training_time": 236.8631739616394,
         "training_type": "single_fold",
         "parallel_execution": false,
         "history": {
           "early_stopped": true,
-          "best_epoch": 30,
-          "total_epochs": 50
+          "best_epoch": 106,
+          "total_epochs": 166
         }
       }
     },
-    "config13": {
+    "config8": {
       "config": {
-        "name": "Balanced Classes Focus",
+        "name": "Best Results Frankenstein",
         "use_adam": true,
-        "estop_thresh": 35,
-        "batch_size": 28,
+        "estop_thresh": 36,
+        "batch_size": 40,
         "use_class_weights": true,
         "l2_regularization": 0.0003,
         "lr_schedule": {
           "type": "exponential",
-          "gamma": 0.96
+          "gamma": 0.97
         },
-        "initial_lr": 0.0012,
+        "initial_lr": 0.0024,
         "standardize": true,
         "spec_augment": true,
         "noise_augment": false,
-        "num_epochs": 220
+        "num_epochs": 220,
+        "mixed_precision": true,
+        "gradient_clipping": 1.0,
+        "parallel_folds": false,
+        "max_parallel_folds": 2,
+        "optimize_dataloaders": true
       },
       "status": "success",
       "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false
-      },
-      "timestamp": "2025-06-24T00:19:56.805270",
-      "training_time_seconds": 140.43920135498047,
-      "result": {
-        "final_val_acc": 0.5206766917293233,
-        "final_val_f1": 0.4715281813580575,
-        "final_val_loss": 2.3127201795578003,
-        "best_val_acc": 0.5300751879699248,
-        "best_val_f1": 0.47420499711955255,
-        "training_time": 138.55903959274292,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 31,
-          "total_epochs": 66
-        }
-      }
-    },
-    "config14": {
-      "config": {
-        "name": "Fine-tuning Style",
-        "use_adam": true,
-        "estop_thresh": 15,
-        "batch_size": 16,
-        "use_class_weights": false,
-        "l2_regularization": 1e-05,
-        "lr_schedule": null,
-        "initial_lr": 0.0001,
-        "standardize": true,
-        "spec_augment": false,
-        "noise_augment": false,
-        "num_epochs": 100
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false
-      },
-      "timestamp": "2025-06-24T00:22:53.298939",
-      "training_time_seconds": 176.49336099624634,
-      "result": {
-        "final_val_acc": 0.44485294117647056,
-        "final_val_f1": 0.4063510399047828,
-        "final_val_loss": 2.254196815630969,
-        "best_val_acc": 0.46139705882352944,
-        "best_val_f1": 0.4173748843054287,
-        "training_time": 174.4479718208313,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 69,
-          "total_epochs": 84
-        }
-      }
-    },
-    "config15": {
-      "config": {
-        "name": "High Capacity",
-        "use_adam": true,
-        "estop_thresh": 25,
-        "batch_size": 64,
-        "use_class_weights": true,
-        "l2_regularization": 1e-06,
-        "lr_schedule": {
-          "type": "cosine",
-          "T_max": 60
-        },
-        "initial_lr": 0.006,
-        "standardize": true,
-        "spec_augment": true,
-        "noise_augment": true,
-        "num_epochs": 240
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
         "parallel_folds_used": false,
         "optimized_dataloaders": true,
         "batch_size_optimized": true
       },
-      "timestamp": "2025-06-24T00:24:42.301585",
-      "training_time_seconds": 109.00223207473755,
+      "timestamp": "2025-07-01T16:57:43.249694",
+      "training_time_seconds": 248.8998885154724,
       "result": {
-        "final_val_acc": 0.44140625,
-        "final_val_f1": 0.39463569496764805,
-        "final_val_loss": 3.024736702442169,
-        "best_val_acc": 0.46875,
-        "best_val_f1": 0.4222262309872463,
-        "training_time": 106.89015054702759,
+        "best_val_acc": 0.5734375,
+        "best_val_f1": 0.5650059320696104,
+        "best_val_loss": 1.9335943534970284,
+        "training_time": 247.21946811676025,
         "training_type": "single_fold",
         "parallel_execution": false,
         "history": {
           "early_stopped": true,
-          "best_epoch": 19,
-          "total_epochs": 44
-        }
-      }
-    },
-    "config16": {
-      "config": {
-        "name": "Conservative Long Train",
-        "use_adam": true,
-        "estop_thresh": 80,
-        "batch_size": 20,
-        "use_class_weights": false,
-        "l2_regularization": 0.001,
-        "lr_schedule": {
-          "type": "plateau",
-          "factor": 0.8,
-          "patience": 20
-        },
-        "initial_lr": 0.0008,
-        "standardize": true,
-        "spec_augment": false,
-        "noise_augment": true,
-        "num_epochs": 400
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false
-      },
-      "timestamp": "2025-06-24T00:28:44.226944",
-      "training_time_seconds": 241.9250361919403,
-      "result": {
-        "final_val_acc": 0.39444444444444443,
-        "final_val_f1": 0.34854774617459,
-        "final_val_loss": 3.0633365092454135,
-        "best_val_acc": 0.4166666666666667,
-        "best_val_f1": 0.36866360376225765,
-        "training_time": 239.98526883125305,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 27,
-          "total_epochs": 107
-        }
-      }
-    },
-    "config17": {
-      "config": {
-        "name": "Adaptive Mixed",
-        "use_adam": true,
-        "estop_thresh": 35,
-        "batch_size": 36,
-        "use_class_weights": true,
-        "l2_regularization": 0.0004,
-        "lr_schedule": {
-          "type": "exponential",
-          "gamma": 0.94
-        },
-        "initial_lr": 0.0018,
-        "standardize": true,
-        "spec_augment": true,
-        "noise_augment": false,
-        "num_epochs": 200
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": true
-      },
-      "timestamp": "2025-06-24T00:31:29.187673",
-      "training_time_seconds": 164.9603853225708,
-      "result": {
-        "final_val_acc": 0.49444444444444446,
-        "final_val_f1": 0.4403795557497063,
-        "final_val_loss": 2.5305733760197957,
-        "best_val_acc": 0.512962962962963,
-        "best_val_f1": 0.4520764506704968,
-        "training_time": 163.17469453811646,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 34,
-          "total_epochs": 69
-        }
-      }
-    },
-    "config18": {
-      "config": {
-        "name": "Quick Convergence",
-        "use_adam": true,
-        "estop_thresh": 15,
-        "batch_size": 52,
-        "use_class_weights": false,
-        "l2_regularization": 0.0002,
-        "lr_schedule": null,
-        "initial_lr": 0.0025,
-        "standardize": true,
-        "spec_augment": false,
-        "noise_augment": false,
-        "num_epochs": 100
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": true
-      },
-      "timestamp": "2025-06-24T00:33:08.324995",
-      "training_time_seconds": 99.13696503639221,
-      "result": {
-        "final_val_acc": 0.46923076923076923,
-        "final_val_f1": 0.4091867404822752,
-        "final_val_loss": 2.668658435344696,
-        "best_val_acc": 0.47692307692307695,
-        "best_val_f1": 0.41693085550714665,
-        "training_time": 97.0295262336731,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 22,
-          "total_epochs": 37
-        }
-      }
-    },
-    "config19": {
-      "config": {
-        "name": "Robust Generalization",
-        "use_adam": true,
-        "estop_thresh": 50,
-        "batch_size": 24,
-        "use_class_weights": true,
-        "l2_regularization": 0.0006,
-        "lr_schedule": {
-          "type": "cosine",
-          "T_max": 80
-        },
-        "initial_lr": 0.0014,
-        "standardize": true,
-        "spec_augment": true,
-        "noise_augment": true,
-        "num_epochs": 320
-      },
-      "status": "success",
-      "optimization_metadata": {
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false
-      },
-      "timestamp": "2025-06-24T00:35:48.223892",
-      "training_time_seconds": 159.89857649803162,
-      "result": {
-        "final_val_acc": 0.4166666666666667,
-        "final_val_f1": 0.3693547188421413,
-        "final_val_loss": 2.901332938152811,
-        "best_val_acc": 0.4438405797101449,
-        "best_val_f1": 0.3943687967904068,
-        "training_time": 158.0470676422119,
-        "training_type": "single_fold",
-        "parallel_execution": false,
-        "history": {
-          "early_stopped": true,
-          "best_epoch": 20,
-          "total_epochs": 70
+          "best_epoch": 135,
+          "total_epochs": 171
         }
       }
     }
@@ -1129,13 +632,38 @@
   "analysis": {
     "top_10_configs": [
       {
-        "config_id": "config13",
+        "config_id": "config8",
+        "config_name": "Best Results Frankenstein",
+        "best_val_acc": 0.5734375,
+        "best_val_f1": 0.5650059320696104,
+        "training_time_min": 4.148331475257874,
+        "training_type": "single_fold",
+        "use_adam": true,
+        "estop_thresh": 36,
+        "batch_size": 40,
+        "use_class_weights": true,
+        "l2_regularization": 0.0003,
+        "has_lr_schedule": true,
+        "lr_schedule_type": "exponential",
+        "initial_lr": 0.0024,
+        "standardize": true,
+        "spec_augment": true,
+        "noise_augment": false,
+        "num_epochs": 220,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": true,
+        "gradient_clipping_value": 1.0,
+        "optimization_score": 5
+      },
+      {
+        "config_id": "config1",
         "config_name": "Balanced Classes Focus",
-        "final_val_acc": 0.5206766917293233,
-        "final_val_f1": 0.4715281813580575,
-        "best_val_acc": 0.5300751879699248,
-        "best_val_f1": 0.47420499711955255,
-        "training_time_min": 2.340653355916341,
+        "best_val_acc": 0.5559006211180124,
+        "best_val_f1": 0.5408143629474959,
+        "training_time_min": 2.704772436618805,
         "training_type": "single_fold",
         "use_adam": true,
         "estop_thresh": 35,
@@ -1149,355 +677,283 @@
         "spec_augment": true,
         "noise_augment": false,
         "num_epochs": 220,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
         "parallel_folds_used": false,
         "optimized_dataloaders": true,
         "batch_size_optimized": false,
-        "gradient_clipping_value": 0,
-        "optimization_score": 1
+        "gradient_clipping_value": 1.0,
+        "optimization_score": 4
       },
       {
-        "config_id": "config17",
-        "config_name": "Adaptive Mixed",
-        "final_val_acc": 0.49444444444444446,
-        "final_val_f1": 0.4403795557497063,
-        "best_val_acc": 0.512962962962963,
-        "best_val_f1": 0.4520764506704968,
-        "training_time_min": 2.74933975537618,
+        "config_id": "config0",
+        "config_name": "Chaos Theory Adam",
+        "best_val_acc": 0.5158730158730159,
+        "best_val_f1": 0.4984945316042881,
+        "training_time_min": 2.9207778573036194,
+        "training_type": "single_fold",
+        "use_adam": true,
+        "estop_thresh": 37,
+        "batch_size": 45,
+        "use_class_weights": true,
+        "l2_regularization": 0.00037,
+        "has_lr_schedule": true,
+        "lr_schedule_type": "cosine",
+        "initial_lr": 0.00137,
+        "standardize": false,
+        "spec_augment": true,
+        "noise_augment": false,
+        "num_epochs": 247,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": true,
+        "gradient_clipping_value": 0.73,
+        "optimization_score": 5
+      },
+      {
+        "config_id": "config4",
+        "config_name": "Balanced Classes (Higher Batch)",
+        "best_val_acc": 0.4921875,
+        "best_val_f1": 0.47996819544543295,
+        "training_time_min": 2.455881921450297,
         "training_type": "single_fold",
         "use_adam": true,
         "estop_thresh": 35,
-        "batch_size": 36,
+        "batch_size": 40,
         "use_class_weights": true,
-        "l2_regularization": 0.0004,
+        "l2_regularization": 0.0003,
         "has_lr_schedule": true,
         "lr_schedule_type": "exponential",
-        "initial_lr": 0.0018,
+        "initial_lr": 0.0012,
         "standardize": true,
         "spec_augment": true,
         "noise_augment": false,
-        "num_epochs": 200,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
+        "num_epochs": 220,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
         "parallel_folds_used": false,
         "optimized_dataloaders": true,
         "batch_size_optimized": true,
-        "gradient_clipping_value": 0,
-        "optimization_score": 2
+        "gradient_clipping_value": 1.0,
+        "optimization_score": 5
       },
       {
-        "config_id": "config12",
-        "config_name": "No Augmentation Fast",
-        "final_val_acc": 0.49053030303030304,
-        "final_val_f1": 0.417048708042753,
-        "best_val_acc": 0.4962121212121212,
-        "best_val_f1": 0.42490979580737437,
-        "training_time_min": 2.0674641132354736,
+        "config_id": "config5",
+        "config_name": "Exponential LR + Dual Augment",
+        "best_val_acc": 0.490625,
+        "best_val_f1": 0.4764419899222933,
+        "training_time_min": 3.2046403169631956,
         "training_type": "single_fold",
         "use_adam": true,
-        "estop_thresh": 20,
-        "batch_size": 48,
-        "use_class_weights": false,
-        "l2_regularization": 0.0001,
-        "has_lr_schedule": false,
-        "lr_schedule_type": "none",
-        "initial_lr": 0.003,
-        "standardize": false,
-        "spec_augment": false,
-        "noise_augment": false,
-        "num_epochs": 120,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": true,
-        "gradient_clipping_value": 0,
-        "optimization_score": 2
-      },
-      {
-        "config_id": "config18",
-        "config_name": "Quick Convergence",
-        "final_val_acc": 0.46923076923076923,
-        "final_val_f1": 0.4091867404822752,
-        "best_val_acc": 0.47692307692307695,
-        "best_val_f1": 0.41693085550714665,
-        "training_time_min": 1.652282750606537,
-        "training_type": "single_fold",
-        "use_adam": true,
-        "estop_thresh": 15,
-        "batch_size": 52,
-        "use_class_weights": false,
-        "l2_regularization": 0.0002,
-        "has_lr_schedule": false,
-        "lr_schedule_type": "none",
+        "estop_thresh": 35,
+        "batch_size": 40,
+        "use_class_weights": true,
+        "l2_regularization": 0.0003,
+        "has_lr_schedule": true,
+        "lr_schedule_type": "exponential",
         "initial_lr": 0.0025,
         "standardize": true,
-        "spec_augment": false,
-        "noise_augment": false,
-        "num_epochs": 100,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": true,
-        "gradient_clipping_value": 0,
-        "optimization_score": 2
-      },
-      {
-        "config_id": "config14",
-        "config_name": "Fine-tuning Style",
-        "final_val_acc": 0.44485294117647056,
-        "final_val_f1": 0.4063510399047828,
-        "best_val_acc": 0.46139705882352944,
-        "best_val_f1": 0.4173748843054287,
-        "training_time_min": 2.9415560166041055,
-        "training_type": "single_fold",
-        "use_adam": true,
-        "estop_thresh": 15,
-        "batch_size": 16,
-        "use_class_weights": false,
-        "l2_regularization": 1e-05,
-        "has_lr_schedule": false,
-        "lr_schedule_type": "none",
-        "initial_lr": 0.0001,
-        "standardize": true,
-        "spec_augment": false,
-        "noise_augment": false,
-        "num_epochs": 100,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false,
-        "gradient_clipping_value": 0,
-        "optimization_score": 1
-      },
-      {
-        "config_id": "config15",
-        "config_name": "High Capacity",
-        "final_val_acc": 0.44140625,
-        "final_val_f1": 0.39463569496764805,
-        "best_val_acc": 0.46875,
-        "best_val_f1": 0.4222262309872463,
-        "training_time_min": 1.8167038679122924,
-        "training_type": "single_fold",
-        "use_adam": true,
-        "estop_thresh": 25,
-        "batch_size": 64,
-        "use_class_weights": true,
-        "l2_regularization": 1e-06,
-        "has_lr_schedule": true,
-        "lr_schedule_type": "cosine",
-        "initial_lr": 0.006,
-        "standardize": true,
         "spec_augment": true,
         "noise_augment": true,
-        "num_epochs": 240,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
+        "num_epochs": 200,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
         "parallel_folds_used": false,
         "optimized_dataloaders": true,
         "batch_size_optimized": true,
-        "gradient_clipping_value": 0,
-        "optimization_score": 2
+        "gradient_clipping_value": 1.0,
+        "optimization_score": 5
       },
       {
-        "config_id": "config19",
-        "config_name": "Robust Generalization",
-        "final_val_acc": 0.4166666666666667,
-        "final_val_f1": 0.3693547188421413,
-        "best_val_acc": 0.4438405797101449,
-        "best_val_f1": 0.3943687967904068,
-        "training_time_min": 2.6649762749671937,
+        "config_id": "config2",
+        "config_name": "Small Batch High LR (AMP Optimized)",
+        "best_val_acc": 0.48148148148148145,
+        "best_val_f1": 0.46913463280153916,
+        "training_time_min": 1.805869738260905,
         "training_type": "single_fold",
         "use_adam": true,
-        "estop_thresh": 50,
+        "estop_thresh": 35,
         "batch_size": 24,
         "use_class_weights": true,
-        "l2_regularization": 0.0006,
-        "has_lr_schedule": true,
-        "lr_schedule_type": "cosine",
-        "initial_lr": 0.0014,
-        "standardize": true,
-        "spec_augment": true,
-        "noise_augment": true,
-        "num_epochs": 320,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false,
-        "gradient_clipping_value": 0,
-        "optimization_score": 1
-      },
-      {
-        "config_id": "config9",
-        "config_name": "SGD with Momentum",
-        "final_val_acc": 0.38235294117647056,
-        "final_val_f1": 0.35469483692799336,
-        "best_val_acc": 0.4007352941176471,
-        "best_val_f1": 0.3773441900721012,
-        "training_time_min": 2.3069570064544678,
-        "training_type": "single_fold",
-        "use_adam": false,
-        "estop_thresh": 40,
-        "batch_size": 32,
-        "use_class_weights": true,
-        "l2_regularization": 0.0001,
+        "l2_regularization": 0.0003,
         "has_lr_schedule": true,
         "lr_schedule_type": "exponential",
-        "initial_lr": 0.01,
+        "initial_lr": 0.004,
         "standardize": true,
         "spec_augment": true,
         "noise_augment": false,
-        "num_epochs": 200,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
+        "num_epochs": 180,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
         "parallel_folds_used": false,
         "optimized_dataloaders": true,
         "batch_size_optimized": false,
-        "gradient_clipping_value": 0,
-        "optimization_score": 1
+        "gradient_clipping_value": 1.0,
+        "optimization_score": 4
       },
       {
-        "config_id": "config16",
-        "config_name": "Conservative Long Train",
-        "final_val_acc": 0.39444444444444443,
-        "final_val_f1": 0.34854774617459,
-        "best_val_acc": 0.4166666666666667,
-        "best_val_f1": 0.36866360376225765,
-        "training_time_min": 4.032083936532339,
+        "config_id": "config6",
+        "config_name": "Balanced Classes AdamW",
+        "best_val_acc": 0.4658385093167702,
+        "best_val_f1": 0.4479919338389538,
+        "training_time_min": 1.5474705934524535,
+        "training_type": "single_fold",
+        "use_adam": "adamw",
+        "estop_thresh": 35,
+        "batch_size": 28,
+        "use_class_weights": true,
+        "l2_regularization": 0.0003,
+        "has_lr_schedule": true,
+        "lr_schedule_type": "exponential",
+        "initial_lr": 0.0012,
+        "standardize": true,
+        "spec_augment": true,
+        "noise_augment": false,
+        "num_epochs": 220,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": false,
+        "gradient_clipping_value": 1.0,
+        "optimization_score": 4
+      },
+      {
+        "config_id": "config3",
+        "config_name": "Balanced Classes Focus (Spec+Noise Aug)",
+        "best_val_acc": 0.4332298136645963,
+        "best_val_f1": 0.4143985817632861,
+        "training_time_min": 4.176953462759654,
         "training_type": "single_fold",
         "use_adam": true,
-        "estop_thresh": 80,
-        "batch_size": 20,
-        "use_class_weights": false,
+        "estop_thresh": 35,
+        "batch_size": 28,
+        "use_class_weights": true,
+        "l2_regularization": 0.0003,
+        "has_lr_schedule": true,
+        "lr_schedule_type": "exponential",
+        "initial_lr": 0.0012,
+        "standardize": true,
+        "spec_augment": true,
+        "noise_augment": true,
+        "num_epochs": 220,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
+        "parallel_folds_used": false,
+        "optimized_dataloaders": true,
+        "batch_size_optimized": false,
+        "gradient_clipping_value": 1.0,
+        "optimization_score": 4
+      },
+      {
+        "config_id": "config7",
+        "config_name": "Heavy Regularization (Optimized)",
+        "best_val_acc": 0.446875,
+        "best_val_f1": 0.4122781142372811,
+        "training_time_min": 3.97583570877711,
+        "training_type": "single_fold",
+        "use_adam": true,
+        "estop_thresh": 60,
+        "batch_size": 40,
+        "use_class_weights": true,
         "l2_regularization": 0.001,
         "has_lr_schedule": true,
         "lr_schedule_type": "plateau",
-        "initial_lr": 0.0008,
-        "standardize": true,
-        "spec_augment": false,
-        "noise_augment": true,
-        "num_epochs": 400,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
-        "parallel_folds_used": false,
-        "optimized_dataloaders": true,
-        "batch_size_optimized": false,
-        "gradient_clipping_value": 0,
-        "optimization_score": 1
-      },
-      {
-        "config_id": "config11",
-        "config_name": "Full Augmentation Suite",
-        "final_val_acc": 0.35555555555555557,
-        "final_val_f1": 0.31376104368919017,
-        "best_val_acc": 0.37037037037037035,
-        "best_val_f1": 0.32313002553967496,
-        "training_time_min": 2.5488068501154584,
-        "training_type": "single_fold",
-        "use_adam": true,
-        "estop_thresh": 45,
-        "batch_size": 20,
-        "use_class_weights": true,
-        "l2_regularization": 0.0002,
-        "has_lr_schedule": true,
-        "lr_schedule_type": "plateau",
-        "initial_lr": 0.0015,
+        "initial_lr": 0.001,
         "standardize": true,
         "spec_augment": true,
         "noise_augment": true,
-        "num_epochs": 280,
-        "mixed_precision_used": false,
-        "gradient_clipping_used": false,
+        "num_epochs": 300,
+        "mixed_precision_used": true,
+        "gradient_clipping_used": true,
         "parallel_folds_used": false,
         "optimized_dataloaders": true,
-        "batch_size_optimized": false,
-        "gradient_clipping_value": 0,
-        "optimization_score": 1
+        "batch_size_optimized": true,
+        "gradient_clipping_value": 1.2,
+        "optimization_score": 5
       }
     ],
     "parameter_correlations": {
       "estop_thresh": {
         "estop_thresh": 1.0,
-        "batch_size": -0.4793970089423396,
-        "l2_regularization": 0.8289913983614615,
-        "initial_lr": -0.11777334318504755,
-        "num_epochs": 0.9368858561889394,
-        "final_val_f1": -0.30792144986929804,
-        "final_val_acc": -0.337819197296176,
-        "training_time_min": 0.6574898014099914
+        "batch_size": 0.3100778355042632,
+        "l2_regularization": 0.9988867015638222,
+        "initial_lr": -0.3021763482300979,
+        "num_epochs": 0.8687181550701751,
+        "best_val_f1": -0.44800764337726473,
+        "best_val_acc": -0.3519080727255865,
+        "training_time_min": 0.39749175148064175
       },
       "batch_size": {
-        "estop_thresh": -0.4793970089423396,
+        "estop_thresh": 0.3100778355042632,
         "batch_size": 1.0,
-        "l2_regularization": -0.4550728683846984,
-        "initial_lr": -0.104523162652266,
-        "num_epochs": -0.3347021995329402,
-        "final_val_f1": 0.35811813254037633,
-        "final_val_acc": 0.41688177184391073,
-        "training_time_min": -0.7443725895009612
+        "l2_regularization": 0.3086280119085306,
+        "initial_lr": -0.26941730254851187,
+        "num_epochs": 0.5007020199304272,
+        "best_val_f1": 0.19877378904471166,
+        "best_val_acc": 0.23898114314718544,
+        "training_time_min": 0.4229297676335521
       },
       "l2_regularization": {
-        "estop_thresh": 0.8289913983614615,
-        "batch_size": -0.4550728683846984,
+        "estop_thresh": 0.9988867015638222,
+        "batch_size": 0.3086280119085306,
         "l2_regularization": 1.0,
-        "initial_lr": 0.12731784372404062,
-        "num_epochs": 0.7320150890943723,
-        "final_val_f1": -0.3005173356240113,
-        "final_val_acc": -0.27611879887149776,
-        "training_time_min": 0.7645990681768828
+        "initial_lr": -0.31344107130230325,
+        "num_epochs": 0.8725789108514701,
+        "best_val_f1": -0.4686801865570347,
+        "best_val_acc": -0.37248523854627436,
+        "training_time_min": 0.37747062517796237
       },
       "initial_lr": {
-        "estop_thresh": -0.11777334318504755,
-        "batch_size": -0.104523162652266,
-        "l2_regularization": 0.12731784372404062,
+        "estop_thresh": -0.3021763482300979,
+        "batch_size": -0.26941730254851187,
+        "l2_regularization": -0.31344107130230325,
         "initial_lr": 1.0,
-        "num_epochs": -0.1422188828714627,
-        "final_val_f1": -0.7040704271052229,
-        "final_val_acc": -0.6696561644466266,
-        "training_time_min": 0.33716964443774045
+        "num_epochs": -0.6656480982078102,
+        "best_val_f1": 0.225324978947395,
+        "best_val_acc": 0.17025665206598034,
+        "training_time_min": -0.2405979879733297
       },
       "num_epochs": {
-        "estop_thresh": 0.9368858561889394,
-        "batch_size": -0.3347021995329402,
-        "l2_regularization": 0.7320150890943723,
-        "initial_lr": -0.1422188828714627,
+        "estop_thresh": 0.8687181550701751,
+        "batch_size": 0.5007020199304272,
+        "l2_regularization": 0.8725789108514701,
+        "initial_lr": -0.6656480982078102,
         "num_epochs": 1.0,
-        "final_val_f1": -0.2865752903127647,
-        "final_val_acc": -0.3170785359089687,
-        "training_time_min": 0.5147078781083277
+        "best_val_f1": -0.31502287201717494,
+        "best_val_acc": -0.21344956801501544,
+        "training_time_min": 0.46079147198803466
       },
-      "final_val_f1": {
-        "estop_thresh": -0.30792144986929804,
-        "batch_size": 0.35811813254037633,
-        "l2_regularization": -0.3005173356240113,
-        "initial_lr": -0.7040704271052229,
-        "num_epochs": -0.2865752903127647,
-        "final_val_f1": 1.0,
-        "final_val_acc": 0.9865280513838758,
-        "training_time_min": -0.496767713709723
+      "best_val_f1": {
+        "estop_thresh": -0.44800764337726473,
+        "batch_size": 0.19877378904471166,
+        "l2_regularization": -0.4686801865570347,
+        "initial_lr": 0.225324978947395,
+        "num_epochs": -0.31502287201717494,
+        "best_val_f1": 1.0,
+        "best_val_acc": 0.9933494055398571,
+        "training_time_min": -0.016000822186434022
       },
-      "final_val_acc": {
-        "estop_thresh": -0.337819197296176,
-        "batch_size": 0.41688177184391073,
-        "l2_regularization": -0.27611879887149776,
-        "initial_lr": -0.6696561644466266,
-        "num_epochs": -0.3170785359089687,
-        "final_val_f1": 0.9865280513838758,
-        "final_val_acc": 1.0,
-        "training_time_min": -0.5102929304596451
+      "best_val_acc": {
+        "estop_thresh": -0.3519080727255865,
+        "batch_size": 0.23898114314718544,
+        "l2_regularization": -0.37248523854627436,
+        "initial_lr": 0.17025665206598034,
+        "num_epochs": -0.21344956801501544,
+        "best_val_f1": 0.9933494055398571,
+        "best_val_acc": 1.0,
+        "training_time_min": 0.027155635161459243
       },
       "training_time_min": {
-        "estop_thresh": 0.6574898014099914,
-        "batch_size": -0.7443725895009612,
-        "l2_regularization": 0.7645990681768828,
-        "initial_lr": 0.33716964443774045,
-        "num_epochs": 0.5147078781083277,
-        "final_val_f1": -0.496767713709723,
-        "final_val_acc": -0.5102929304596451,
+        "estop_thresh": 0.39749175148064175,
+        "batch_size": 0.4229297676335521,
+        "l2_regularization": 0.37747062517796237,
+        "initial_lr": -0.2405979879733297,
+        "num_epochs": 0.46079147198803466,
+        "best_val_f1": -0.016000822186434022,
+        "best_val_acc": 0.027155635161459243,
         "training_time_min": 1.0
       }
     }
