@@ -61,10 +61,6 @@ class TrainingEngine:
         print(f"\\nStarting {len(fold_indices)}-fold cross-validation...")
         
         fold_results = {}
-        final_val_accuracies = []
-        final_val_losses = []
-        final_val_f1s = []
-        
         best_accs = []
         best_f1s = []
         best_losses = []
@@ -86,19 +82,13 @@ class TrainingEngine:
             
             # Extract metrics
             history = fold_result['history']
-            final_val_acc = fold_result['final_val_acc']
-            final_val_loss = fold_result['final_val_loss']
-            final_val_f1 = fold_result['final_val_f1']
             
             # Store results
             fold_results[f'fold_{fold+1}'] = fold_result
-            final_val_accuracies.append(final_val_acc)
-            final_val_losses.append(final_val_loss)
-            final_val_f1s.append(final_val_f1)
             
             # Best results
-            best_accs.append(max(history['val_accuracies']))
-            best_f1s.append(max(history['val_f1s']))
+            best_accs.append(fold_result['best_val_acc'])
+            best_f1s.append(fold_result['best_val_f1'])
             best_losses.append(min(history['val_losses']))
             
             # Aggregate predictions if enabled
@@ -106,9 +96,9 @@ class TrainingEngine:
                 all_final_predictions.append(fold_result['val_predictions'])
                 all_final_targets.append(fold_result['val_targets'])
         
-        # Calculate summary statistics
+        # Calculate summary statistics using best metrics
         summary = self._calculate_cv_summary(
-            final_val_accuracies, final_val_losses, final_val_f1s,
+            best_accs, best_losses, best_f1s,
             all_final_predictions, all_final_targets
         )
         
@@ -210,26 +200,24 @@ class TrainingEngine:
             model, train_loader, val_loader, criterion, optimizer, scheduler, fold_num
         )
         
-        # Get final validation metrics
-        final_val_loss, final_val_acc, final_val_f1, val_predictions, val_targets = self._validate_model(
+        # Get validation metrics from best model state (already restored after early stopping)
+        best_val_loss, best_val_acc, best_val_f1, val_predictions, val_targets = self._validate_model(
             model, val_loader, criterion, return_predictions=True
         )
         
-        # Generate confusion matrix
+        # Generate confusion matrix from best model state
         val_confusion_matrix, _, _ = get_confusion_matrix(
             model, val_loader, self.device, self.num_classes
         )
         
         training_time = time.time() - start_time
         
-        # Compile results
+        # Compile results - all metrics are from the best model state
         results = {
             'history': history,
-            'final_val_acc': final_val_acc,
-            'final_val_loss': final_val_loss,
-            'final_val_f1': final_val_f1,
-            'best_val_acc': max(history['val_accuracies']),
-            'best_val_f1': max(history['val_f1s']),
+            'best_val_acc': best_val_acc,
+            'best_val_loss': best_val_loss,
+            'best_val_f1': best_val_f1,
             'model': model,
             'model_state': model.state_dict().copy(),
             'confusion_matrix': val_confusion_matrix,
@@ -626,17 +614,17 @@ class TrainingEngine:
             return val_loss / val_total, val_correct / val_total, f1
     
     def _calculate_cv_summary(self, accuracies, losses, f1s, predictions=None, targets=None):
-        """Calculate cross-validation summary statistics."""
+        """Calculate cross-validation summary statistics using best metrics from early stopping."""
         summary = {
-            'mean_val_accuracy': np.mean(accuracies),
-            'std_val_accuracy': np.std(accuracies),
-            'mean_val_loss': np.mean(losses),
-            'std_val_loss': np.std(losses),
-            'mean_val_f1': np.mean(f1s),
-            'std_val_f1': np.std(f1s),
-            'individual_accuracies': accuracies,
-            'individual_losses': losses,
-            'individual_f1s': f1s
+            'mean_best_val_acc': np.mean(accuracies),
+            'std_best_val_acc': np.std(accuracies),
+            'mean_best_val_loss': np.mean(losses),
+            'std_best_val_loss': np.std(losses),
+            'mean_best_val_f1': np.mean(f1s),
+            'std_best_val_f1': np.std(f1s),
+            'individual_best_accuracies': accuracies,
+            'individual_best_losses': losses,
+            'individual_best_f1s': f1s
         }
         
         # Add aggregated metrics if predictions available
@@ -796,9 +784,6 @@ class TrainingEngine:
         
         # Process and aggregate all results
         fold_results = {}
-        final_val_accuracies = []
-        final_val_losses = []
-        final_val_f1s = []
         best_accs = []
         best_f1s = []
         best_losses = []
@@ -810,22 +795,16 @@ class TrainingEngine:
         
         for fold_idx, fold_result in sorted_fold_results:
             if 'error' not in fold_result:
-                # Extract metrics
+                # Extract metrics - use best metrics instead of final
                 history = fold_result['history']
-                final_val_acc = fold_result['final_val_acc']
-                final_val_loss = fold_result['final_val_loss']
-                final_val_f1 = fold_result['final_val_f1']
                 
                 # Store results
                 fold_results[f'fold_{fold_idx+1}'] = fold_result
-                final_val_accuracies.append(final_val_acc)
-                final_val_losses.append(final_val_loss)
-                final_val_f1s.append(final_val_f1)
                 
                 # Best results
-                best_accs.append(max(history['val_accuracies']))
-                best_f1s.append(max(history['val_f1s']))
-                best_losses.append(min(history['val_losses']))
+                best_accs.append(fold_result['best_val_acc'])
+                best_f1s.append(fold_result['best_val_f1'])
+                best_losses.append(fold_result['best_val_loss'])
                 
                 # Aggregate predictions if enabled
                 if self.config.get('aggregate_predictions', True):
@@ -833,10 +812,10 @@ class TrainingEngine:
                         all_final_predictions.append(fold_result['val_predictions'])
                         all_final_targets.append(fold_result['val_targets'])
         
-        # Calculate summary statistics
-        if final_val_accuracies:
+        # Calculate summary statistics using best metrics
+        if best_accs:
             summary = self._calculate_cv_summary(
-                final_val_accuracies, final_val_losses, final_val_f1s,
+                best_accs, best_losses, best_f1s,
                 all_final_predictions, all_final_targets
             )
         else:
@@ -866,7 +845,7 @@ class TrainingEngine:
         }
         
         print(f"\n🎉 TRUE GPU PARALLEL cross-validation completed!")
-        print(f"✅ Successfully completed {len(final_val_accuracies)} out of {len(fold_indices)} folds")
+        print(f"✅ Successfully completed {len(best_accs)} out of {len(fold_indices)} folds")
         print(f"🚀 Used {len(streams)} CUDA streams for parallel execution")
         
         return results, best_results
