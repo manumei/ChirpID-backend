@@ -129,8 +129,8 @@ class BirdCNN(nn.Module):
             
         Returns:
             torch.Tensor: Class probabilities of shape (N, num_classes)
-                         Each row sums to 1.0
-                         
+                        Each row sums to 1.0
+                        
         Example:
             >>> model = BirdCNN(num_classes=5)
             >>> model.eval()  # Set to evaluation mode
@@ -155,9 +155,9 @@ class BirdCNN(nn.Module):
             
         Returns:
             torch.Tensor: Predicted class indices of shape (N,)
-                         Each element is an integer in range [0, num_classes-1]
-                         
-        Example:
+                        Each element is an integer in range [0, num_classes-1]
+                        
+        Example
             >>> model = BirdCNN(num_classes=5)
             >>> model.eval()  # Set to evaluation mode
             >>> x = torch.randn(3, 1, 224, 313)
@@ -180,15 +180,15 @@ class ResidualBlock(nn.Module):
     
     Architecture:
     Input -> Conv3x3 -> BN -> ReLU -> Conv3x3 -> BN -> (+) -> ReLU -> Output
-      |                                                  ^
-      |-> [Optional: Conv1x1 -> BN] ----------------------
+    |                                                  ^
+    |-> [Optional: Conv1x1 -> BN] ----------------------
     
     Args:
         in_channels (int): Number of input channels
         out_channels (int): Number of output channels
         stride (int, optional): Stride for the first convolution. Defaults to 1
-                               When stride > 1, spatial dimensions are reduced
-                               
+                                When stride > 1, spatial dimensions are reduced
+                                
     Input Shape:
         (batch_size, in_channels, height, width)
         

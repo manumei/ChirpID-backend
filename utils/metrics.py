@@ -114,3 +114,32 @@ def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsiz
     plt.tight_layout()
     plt.show()
     plt.close()  # Free figure memory
+
+def plot_full_metrics(history: dict):
+    """ Plots all the relevant metrics from the training history.
+    Plots a 2x2 grid of subplots: Losses, Accuracies, F1 Scores and Confusion Matrix
+
+    Args:
+        history (dict): Dictionary containing training history with the keys:
+            - 'train_losses': List of training losses
+            - 'val_losses': List of validation losses
+            - 'train_accuracies': List of training accuracies
+            - 'val_accuracies': List of validation accuracies
+            - 'train_f1s': List of training F1 scores
+            - 'val_f1s': List of validation F1 scores
+    """
+    
+    # Plot training and validation losses
+    # Plot training and validation accuracies
+    # Plot training and validation F1 scores
+    # plot confusion matrix
+    
+    # Create a subfunction for plotting 'metric' vs epochs, and reuse it for losses, accuracies, and F1 scores
+
+def plot_metrics(results):
+    history = results.get('history', {})
+    
+    if not history:
+        raise ValueError("No training history found in results.")
+    
+    plot_full_metrics(history)
