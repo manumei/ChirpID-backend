@@ -349,7 +349,7 @@ def get_set_seed_indices(features, labels, authors, test_size, seed):
 def get_set_seed_kfold_indices(features, labels, authors, n_splits, seed):
     ''' Returns the train_indices and val_indices for a set seed in k-fold '''
     metadata_df = create_metadata_dataframe(labels, authors)
-    folds, best_score, best_seed = try_kfold_split_with_seed(
+    folds, best_score = try_kfold_split_with_seed(
         df=metadata_df,
         n_splits=n_splits,
         seed=seed,
@@ -366,7 +366,7 @@ def get_set_seed_kfold_indices(features, labels, authors, n_splits, seed):
         val_indices = val_df['sample_idx'].values
         fold_indices.append((train_indices, val_indices))
     
-    return fold_indices, best_score, best_seed
+    return fold_indices, best_score, seed
 
 def display_split_statistics(split_data, split_type="single"):
     """
