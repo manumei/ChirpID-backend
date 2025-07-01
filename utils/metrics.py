@@ -115,7 +115,31 @@ def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsiz
     plt.show()
     plt.close()  # Free figure memory
 
-def plot_full_metrics(history: dict):
+def plot_metric_vs_epochs(train_values, val_values, metric_name, ax=None):
+    """
+    Helper function to plot training and validation metrics over epochs.
+    
+    Args:
+        train_values: List of training metric values
+        val_values: List of validation metric values
+        metric_name: Name of the metric for labeling
+        ax: Matplotlib axis to plot on (if None, creates new figure)
+    """
+    epochs = range(1, len(train_values) + 1)
+    
+    if ax is None:
+        plt.figure(figsize=(8, 6))
+        ax = plt.gca()
+    
+    ax.plot(epochs, train_values, 'b-', label=f'Training {metric_name}', linewidth=2)
+    ax.plot(epochs, val_values, 'r-', label=f'Validation {metric_name}', linewidth=2)
+    ax.set_xlabel('Epochs')
+    ax.set_ylabel(metric_name)
+    ax.set_title(f'{metric_name} vs Epochs')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+def plot_full_metrics(history: dict, cm: np.ndarray):
     """ Plots all the relevant metrics from the training history.
     Plots a 2x2 grid of subplots: Losses, Accuracies, F1 Scores and Confusion Matrix
 
@@ -127,19 +151,51 @@ def plot_full_metrics(history: dict):
             - 'val_accuracies': List of validation accuracies
             - 'train_f1s': List of training F1 scores
             - 'val_f1s': List of validation F1 scores
+        cm (np.ndarray): Confusion matrix to be plotted
     """
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     
-    # Plot training and validation losses
-    # Plot training and validation accuracies
-    # Plot training and validation F1 scores
-    # plot confusion matrix
+    # [0, 0] Plot training and validation losses over epochs
+    plot_metric_vs_epochs(history['train_losses'], history['val_losses'], 'Loss', axes[0, 0])
     
-    # Create a subfunction for plotting 'metric' vs epochs, and reuse it for losses, accuracies, and F1 scores
+    # [0, 1] Plot training and validation accuracies over epochs
+    plot_metric_vs_epochs(history['train_accuracies'], history['val_accuracies'], 'Accuracy', axes[0, 1])
+    
+    # [1, 0] Plot training and validation F1 scores over epochs
+    plot_metric_vs_epochs(history['train_f1s'], history['val_f1s'], 'F1 Score', axes[1, 0])
+    
+    # [1, 1] Plot confusion matrix
+    # Convert to numpy if needed
+    if hasattr(cm, 'numpy'):
+        cm = cm.numpy()
+    elif hasattr(cm, 'cpu'):
+        cm = cm.cpu().numpy()
+    
+    # Normalize confusion matrix to percentages
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
+    
+    # Create heatmap on the subplot
+    sns.heatmap(cm_normalized, 
+                annot=True, 
+                fmt='.1f',
+                cmap='Blues',
+                square=True,
+                cbar_kws={'label': 'Percentage (%)'},
+                ax=axes[1, 1])
+    
+    axes[1, 1].set_title('Confusion Matrix', fontsize=12)
+    axes[1, 1].set_ylabel('True Label')
+    axes[1, 1].set_xlabel('Predicted Label')
+    
+    plt.tight_layout()
+    plt.show()
+    plt.close()  # Free figure memory
 
 def plot_metrics(results):
     history = results.get('history', {})
+    conf_matrix = results.get('confusion_matrix', None)
     
-    if not history:
-        raise ValueError("No training history found in results.")
+    if not history or not conf_matrix:
+        raise ValueError(f"Results must contain 'history' and 'confusion_matrix' keys. Currently got: {results}")
     
-    plot_full_metrics(history)
+    plot_full_metrics(history, conf_matrix)
