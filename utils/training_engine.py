@@ -128,7 +128,6 @@ class TrainingEngine:
         Returns:
             dict: Training results
         """
-        print(f"Starting single fold training...")
         print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
         
         # Use the existing single fold training logic
@@ -159,7 +158,6 @@ class TrainingEngine:
             random_state=self.config.get('random_state', 42)
         )
         
-        print(f"\\nStarting single fold training (stratified split)...")
         print(f"Train size: {len(train_indices)}, Val size: {len(val_indices)}")
         
         # Use the existing single fold training logic
@@ -201,7 +199,8 @@ class TrainingEngine:
         )
         
         # Get validation metrics from best model state (already restored after early stopping)
-        best_val_loss, best_val_acc, best_val_f1, val_predictions, val_targets = self._validate_model(
+        # Note: We validate again to get predictions and confusion matrix from the best model
+        current_val_loss, current_val_acc, current_val_f1, val_predictions, val_targets = self._validate_model(
             model, val_loader, criterion, return_predictions=True
         )
         
@@ -210,9 +209,15 @@ class TrainingEngine:
             model, val_loader, self.device, self.num_classes
         )
         
+        # Get the ACTUAL best metrics from the training history at the best epoch
+        best_epoch = history['best_epoch']
+        best_val_acc = history['val_accuracies'][best_epoch]
+        best_val_f1 = history['val_f1s'][best_epoch]
+        best_val_loss = history['val_losses'][best_epoch]
+        
         training_time = time.time() - start_time
         
-        # Compile results - all metrics are from the best model state
+        # Compile results - metrics are from the actual best epoch in history
         results = {
             'history': history,
             'best_val_acc': best_val_acc,
@@ -220,9 +225,9 @@ class TrainingEngine:
             'best_val_f1': best_val_f1,
             'model': model,
             'model_state': model.state_dict().copy(),
-            'confusion_matrix': val_confusion_matrix,
-            'val_predictions': val_predictions,
-            'val_targets': val_targets,
+            'confusion_matrix': val_confusion_matrix,  # From best model state
+            'val_predictions': val_predictions,  # From best model state
+            'val_targets': val_targets,  # From best model state
             'training_time': training_time,
             'config': self.config.copy()
         }
