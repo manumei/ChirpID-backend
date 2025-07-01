@@ -66,7 +66,7 @@ This document summarizes the optimization implementations performed on the Chirp
 ### 5. Figure Memory Management
 **Status**: ✅ IMPLEMENTED
 **Files Modified**:
-- `utils/evaluation_utils.py` - Added `plt.close()` after all `plt.show()`
+- `utils/metrics.py` - Added `plt.close()` after all `plt.show()`
 - `utils/util_backup.py` - Added `plt.close()` after plotting functions
 
 **Implementation Details**:

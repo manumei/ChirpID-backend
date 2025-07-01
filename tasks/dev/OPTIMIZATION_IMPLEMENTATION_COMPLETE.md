@@ -35,7 +35,7 @@
 - **Performance**: 10-20% improvement in data loading throughput
 
 ### ✅ 5. Figure Memory Management
-- **Location**: `utils/evaluation_utils.py`, `utils/util_backup.py`
+- **Location**: `utils/metrics.py`, `utils/util_backup.py`
 - **Implementation**: `plt.close()` after all `plt.show()` calls
 - **Benefit**: Prevents matplotlib memory leaks during long training sessions
 - **Method**: Automated script to add all missing `plt.close()` calls
@@ -82,7 +82,7 @@ default_config = {
 1. **`utils/training_engine.py`** - Core training loop optimizations
 2. **`utils/training_core.py`** - Configuration and parallel training integration
 3. **`utils/dataloader_factory.py`** - Hardware-optimized DataLoader settings
-4. **`utils/evaluation_utils.py`** - Memory management for plotting
+4. **`utils/metrics.py`** - Memory management for plotting
 5. **`utils/util_backup.py`** - Memory management for plotting
 6. **`OPTIMIZATION_SUMMARY.md`** - Detailed documentation
 

@@ -18,7 +18,7 @@ from utils.dataset_utils import (
     compute_standardization_stats, create_standardized_subset,
     create_augmented_dataset_wrapper
 )
-from utils.evaluation_utils import get_confusion_matrix
+from utils.metrics import get_confusion_matrix
 from utils.dataloader_factory import OptimalDataLoaderFactory
 
 # Core Training Functions

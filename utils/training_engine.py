@@ -19,7 +19,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 
-from utils.evaluation_utils import get_confusion_matrix
+from utils.metrics import get_confusion_matrix
 from utils.specaugment import get_augmentation_params
 from utils.dataloader_factory import OptimalDataLoaderFactory, DataLoaderConfigLogger
 from utils.dataset_utils import (

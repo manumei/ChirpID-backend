@@ -57,7 +57,7 @@ This document summarizes the optimization implementations completed for the Chir
 
 ### 5. Figure Memory Management
 **Status: ✅ IMPLEMENTED**
-- **Files Modified**: `utils/evaluation_utils.py`, `utils/util_backup.py`
+- **Files Modified**: `utils/metrics.py`, `utils/util_backup.py`
 - **Description**: Added `plt.close()` after all matplotlib plotting functions
 - **Benefits**: 
   - Prevents memory leaks during long training sessions

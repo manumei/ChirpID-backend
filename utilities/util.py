@@ -2,7 +2,7 @@
 # This file should be minimized - most functions have been moved to:
 # - data_processing.py: Audio and spectrogram processing
 # - training_utils.py: Model training functions
-# - evaluation_utils.py: Model evaluation and visualization  
+# - metrics.py: Model evaluation and visualization  
 # - cross_validation.py: K-fold cross-validation
 # - dataset_utils.py: Dataset classes and utilities
 
@@ -41,7 +41,7 @@ from utilities.training_utils import (
     single_fold_training_with_predefined_split
 )
 
-from utils.evaluation_utils import (
+from utils.metrics import (
     get_confusion_matrix, plot_confusion_matrix, plot_best_results,
     plot_mean_curve, plot_kfold_results, plot_single_fold_curve,
     print_single_fold_results, print_confusion_matrix_stats,
@@ -76,11 +76,11 @@ def __getattr__(name):
         'train_single_fold': 'utils.training_utils',
         
         # Evaluation functions
-        'get_confusion_matrix': 'utils.evaluation_utils',
-        'plot_confusion_matrix': 'utils.evaluation_utils',
-        'plot_kfold_results': 'utils.evaluation_utils',
-        'save_model': 'utils.evaluation_utils',
-        'load_model': 'utils.evaluation_utils',
+        'get_confusion_matrix': 'utils.metrics',
+        'plot_confusion_matrix': 'utils.metrics',
+        'plot_kfold_results': 'utils.metrics',
+        'save_model': 'utils.metrics',
+        'load_model': 'utils.metrics',
         
         # Cross-validation functions
         'k_fold_cross_validation': 'utils.cross_validation',
