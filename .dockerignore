@@ -69,7 +69,6 @@ pytest.ini
 .venv/
 venv/
 database/
-models/
 data/
 app/uploads/
 uploads/
