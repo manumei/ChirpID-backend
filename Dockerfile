@@ -20,6 +20,8 @@ RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
 # Copy only essential application files
 COPY app/ ./app/
 COPY server/ ./server/
+COPY models/ ./models/
+COPY mapping/ ./mapping/
 COPY gunicorn.conf.py .
 
 # Create uploads directory with proper permissions

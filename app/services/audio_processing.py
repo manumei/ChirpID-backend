@@ -325,6 +325,6 @@ def process_audio(path):
     model_class = OldBirdCNN
     repo_root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     model_path = os.path.join(repo_root_path, 'models', 'bird_cnn.pth')
-    mapping_csv = os.path.join(repo_root_path, 'database', 'meta', 'class_mapping.csv')
+    mapping_csv = os.path.join(repo_root_path, 'mapping', 'class_mapping.csv')
     
     return predict_bird(path, model_class, model_path, mapping_csv, reduce_noise=True)
