@@ -853,71 +853,134 @@ class BirdCNN_v7(nn.Module):
 
 class BirdCNN_v8(nn.Module):
     """
-    Multi-scale CNN with parallel pathways.
-    Captures features at different scales simultaneously.
+    PANN-inspired architecture with pre-activation residual blocks and dual attention.
+    Uses channel attention and spatial attention for audio-specific feature learning.
+    Different from v4 which uses separable convolutions - this uses attention mechanisms.
     """
     def __init__(self, num_classes, dropout_p=0.5):
         super(BirdCNN_v8, self).__init__()
         
-        # Multi-scale parallel pathways - simplified to ensure correct channels
-        self.scale1 = self._make_scale_pathway(1, 128, kernel_sizes=[3, 5, 7])     # Fine details
-        self.scale2 = self._make_scale_pathway(1, 128, kernel_sizes=[5, 7, 9])     # Medium patterns  
-        self.scale3 = self._make_scale_pathway(1, 128, kernel_sizes=[7, 9, 11])    # Large patterns
+        # Initial processing - spectrogram-aware kernel
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3))
+        self.bn1 = nn.BatchNorm2d(64)
         
-        # Feature fusion - expects 384 channels (128*3=384)
-        self.fusion = nn.Sequential(
-            nn.Conv2d(384, 512, kernel_size=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True)
+        # Pre-activation residual blocks with progressive feature extraction
+        self.block1 = self._make_pre_activation_block(64, 128, stride=2)    # 56x78
+        self.block2 = self._make_pre_activation_block(128, 256, stride=2)   # 28x39
+        self.block3 = self._make_pre_activation_block(256, 512, stride=2)   # 14x19
+        self.block4 = self._make_pre_activation_block(512, 1024, stride=2)  # 7x9
+        
+        # Dual attention mechanisms (channel + spatial)
+        self.channel_attention = self._make_channel_attention(1024)
+        self.spatial_attention = self._make_spatial_attention()
+        
+        # Frequency-aware pooling
+        self.freq_pool = nn.AdaptiveAvgPool2d((1, None))  # Pool frequency dimension
+        self.temporal_conv = nn.Conv1d(1024, 1024, kernel_size=3, padding=1)
+        self.temporal_bn = nn.BatchNorm1d(1024)
+        
+        # Classification head with attention pooling
+        self.attention_pool = nn.Sequential(
+            nn.Conv1d(1024, 1, kernel_size=1),
+            nn.Softmax(dim=-1)
         )
         
-        # Progressive downsampling
-        self.downsample = nn.Sequential(
-            self._conv_block(512, 512, stride=2),   # 112x156
-            self._conv_block(512, 1024, stride=2),  # 56x78
-            self._conv_block(1024, 1024, stride=2), # 28x39
-            self._conv_block(1024, 2048, stride=2), # 14x19
-        )
-        
-        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(dropout_p),
-            nn.Linear(2048, 512),
-            nn.ReLU(inplace=True),
+            nn.Linear(1024, 512),
+            nn.ReLU(inplace=False),
             nn.Dropout(dropout_p),
             nn.Linear(512, num_classes)
         )
     
-    def _make_scale_pathway(self, in_channels, out_channels, kernel_sizes):
-        """Create a single pathway that outputs exactly out_channels."""
+    def _make_pre_activation_block(self, in_channels, out_channels, stride=1):
+        """Create pre-activation residual block (BN->ReLU->Conv)."""
         return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels//2, kernel_sizes[0], padding=kernel_sizes[0]//2),
+            # Main path
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(in_channels, out_channels//2, kernel_size=1, bias=False),
             nn.BatchNorm2d(out_channels//2),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels//2, out_channels, kernel_sizes[1], padding=kernel_sizes[1]//2),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=False),
+            nn.Conv2d(out_channels//2, out_channels//2, kernel_size=3, stride=stride, padding=1, bias=False),
+            nn.BatchNorm2d(out_channels//2),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(out_channels//2, out_channels, kernel_size=1, bias=False),
+            # Skip connection handled in forward pass
         )
     
-    def _conv_block(self, in_channels, out_channels, stride=1):
+    def _make_channel_attention(self, channels, reduction=16):
+        """Create channel attention module."""
         return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 3, stride=stride, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(channels, channels // reduction),
+            nn.ReLU(inplace=False),
+            nn.Linear(channels // reduction, channels),
+            nn.Sigmoid()
+        )
+    
+    def _make_spatial_attention(self):
+        """Create spatial attention module."""
+        return nn.Sequential(
+            nn.Conv2d(2, 1, kernel_size=7, padding=3),
+            nn.Sigmoid()
         )
     
     def forward(self, x):
-        # Multi-scale processing
-        scale1_out = self.scale1(x)  # Should be [batch, 128, 224, 313]
-        scale2_out = self.scale2(x)  # Should be [batch, 128, 224, 313]
-        scale3_out = self.scale3(x)  # Should be [batch, 128, 224, 313]
+        # Initial feature extraction
+        x = F.relu(self.bn1(self.conv1(x)))
         
-        # Concatenate multi-scale features -> [batch, 384, 224, 313]
-        x = torch.cat([scale1_out, scale2_out, scale3_out], dim=1)
-        x = self.fusion(x)  # [batch, 512, 224, 313]
-        x = self.downsample(x)
-        x = self.global_pool(x)
-        x = torch.flatten(x, 1)
+        # Pre-activation residual blocks with skip connections
+        identity = x
+        x = self.block1(x)
+        if identity.shape != x.shape:
+            identity = F.interpolate(identity, size=x.shape[2:], mode='bilinear', align_corners=False)
+            identity = F.pad(identity, (0, 0, 0, 0, 0, x.shape[1] - identity.shape[1]))
+        x = x + identity
+        
+        identity = x
+        x = self.block2(x)
+        if identity.shape != x.shape:
+            identity = F.interpolate(identity, size=x.shape[2:], mode='bilinear', align_corners=False)
+            identity = F.pad(identity, (0, 0, 0, 0, 0, x.shape[1] - identity.shape[1]))
+        x = x + identity
+        
+        identity = x
+        x = self.block3(x)
+        if identity.shape != x.shape:
+            identity = F.interpolate(identity, size=x.shape[2:], mode='bilinear', align_corners=False)
+            identity = F.pad(identity, (0, 0, 0, 0, 0, x.shape[1] - identity.shape[1]))
+        x = x + identity
+        
+        identity = x
+        x = self.block4(x)
+        if identity.shape != x.shape:
+            identity = F.interpolate(identity, size=x.shape[2:], mode='bilinear', align_corners=False)
+            identity = F.pad(identity, (0, 0, 0, 0, 0, x.shape[1] - identity.shape[1]))
+        x = x + identity
+        
+        # Apply dual attention
+        # Channel attention
+        ca_weights = self.channel_attention(x).unsqueeze(-1).unsqueeze(-1)
+        x = x * ca_weights
+        
+        # Spatial attention
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        spatial_input = torch.cat([avg_out, max_out], dim=1)
+        sa_weights = self.spatial_attention(spatial_input)
+        x = x * sa_weights
+        
+        # Frequency-aware processing
+        x = self.freq_pool(x)  # Pool frequency dimension: (B, C, 1, T)
+        x = x.squeeze(2)       # Remove frequency dimension: (B, C, T)
+        x = F.relu(self.temporal_bn(self.temporal_conv(x)))
+        
+        # Attention-based temporal pooling
+        attention_weights = self.attention_pool(x)  # (B, 1, T)
+        x = torch.sum(x * attention_weights, dim=-1)  # (B, C)
+        
         x = self.classifier(x)
         return x
 
