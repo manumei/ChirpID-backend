@@ -22,6 +22,7 @@ COPY app/ ./app/
 COPY server/ ./server/
 COPY models/ ./models/
 COPY mapping/ ./mapping/
+COPY utils/ ./utils/
 COPY gunicorn.conf.py .
 
 # Create uploads directory with proper permissions
