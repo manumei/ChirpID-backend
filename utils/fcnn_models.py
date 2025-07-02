@@ -139,8 +139,6 @@ class BirdFCNN(nn.Module):
                     train_acc_history.append(train_acc)
                     train_f1_history.append(train_f1)
 
-                    print(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f} - Acc: {train_acc:.4f} - F1: {train_f1:.4f}", end="")
-
                     if valX is not None and valY is not None:
                         val_outputs = self(valX)
                         val_loss = criterion(val_outputs, valY).item()
@@ -151,7 +149,9 @@ class BirdFCNN(nn.Module):
                         val_loss_history.append(val_loss)
                         val_acc_history.append(val_acc)
                         val_f1_history.append(val_f1)
-
+                        
+                    if epoch % 10 == 0:
+                        print(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f} - Acc: {train_acc:.4f} - F1: {train_f1:.4f}", end="")
                         print(f" - Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f} - Val F1: {val_f1:.4f}")
                     else:
                         print()
