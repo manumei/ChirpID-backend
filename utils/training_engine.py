@@ -21,7 +21,7 @@ from sklearn.model_selection import train_test_split
 
 from utils.metrics import get_confusion_matrix
 from utils.specaugment import get_augmentation_params
-from utils.dataloader_factory import OptimalDataLoaderFactory, DataLoaderConfigLogger
+from utils.dataloader_factory import OptimalDataLoaderFactory
 from utils.dataset_utils import (
     compute_standardization_stats, 
     create_standardized_subset,
@@ -312,11 +312,6 @@ class TrainingEngine:
             batch_size=self.config['batch_size'],
             has_standardization=has_standardization
         )
-        
-        # Log configurations if debugging enabled
-        if self.config.get('debug_dataloaders', False):
-            DataLoaderConfigLogger.log_config("Training", train_loader.__dict__, len(train_subset))
-            DataLoaderConfigLogger.log_config("Validation", val_loader.__dict__, len(val_subset))
         
         return train_loader, val_loader
     
