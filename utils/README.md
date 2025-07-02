@@ -27,13 +27,18 @@ Comprehensive audio processing utilities for the entire data pipeline. Includes:
 
 ### `models.py`
 
-Contains PyTorch neural network architectures for bird species classification:
+Contains PyTorch Convolutional Neural Network architectures for bird species classification:
 
 - **ResidualBlock**: Basic building block with skip connections for deeper networks
 - **Multiple CNN architectures**: Various convolutional neural network designs
 - **Attention mechanisms**: Self-attention and channel attention modules
 - **Custom layers**: Specialized layers for spectrogram processing
 - **Model utilities**: Helper functions for model initialization and configuration
+
+### `fcnn_models.py`
+
+Contains by-hand and PyTorch implementations of Fully-Connected Neural Networks for bird species classification.
+Similar to models.py but for flattened vectors in non-convolutional networks.
 
 ### `training_core.py`
 
@@ -130,16 +135,6 @@ SpecAugment data augmentation for spectrograms:
 - Contains old CNN implementations (OldBirdCNN, BirdCNN)
 - **Do not use** - kept only for backwards compatibility
 - Use `models.py` for current model architectures
-
-### `NnClass.py`
-
-Custom neural network implementation from scratch (numpy-based):
-
-- **Pure numpy**: Neural network without PyTorch/TensorFlow
-- **Educational purposes**: Demonstrates backpropagation from first principles
-- **Basic operations**: ReLU, softmax, cross-entropy implemented manually
-- **Training utilities**: Train/validation splits, confusion matrix plotting
-- **Academic use**: Useful for understanding neural network fundamentals
 
 ## Usage Examples
 
