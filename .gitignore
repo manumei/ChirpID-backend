@@ -12,6 +12,5 @@ final/
 util.cpython-313.pyc
 *.pyc
 pycache
-
-# Permission fix script (optional)
-# fix-permissions.sh
+*.pth
+models/
