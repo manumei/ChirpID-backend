@@ -83,7 +83,7 @@ class BirdFCNN(nn.Module):
 
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.001, batch_size=32, optimizer_type='adam', 
-                    l2_lambda=0.0, early_stopping=False, patience=10, 
+                    l2_lambda=0.0, early_stopping=True, patience=10, 
                     eval_interval=10, lr_schedule=None, class_weights=None, device='cpu'):
         
         self.to(device)
@@ -150,7 +150,7 @@ class BirdFCNN(nn.Module):
                         val_acc_history.append(val_acc)
                         val_f1_history.append(val_f1)
                         
-                    if epoch % 10 == 0:
+                    if epoch % 30 == 0:
                         print(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f} - Acc: {train_acc:.4f} - F1: {train_f1:.4f}", end="")
                         print(f" - Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f} - Val F1: {val_f1:.4f}")
                     else:
@@ -222,7 +222,7 @@ class BirdFCNN_v2(BirdFCNN):
     
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.0005, batch_size=16, optimizer_type='adam', 
-                    l2_lambda=1e-5, early_stopping=False, patience=10, 
+                    l2_lambda=1e-5, early_stopping=True, patience=10, 
                     eval_interval=10, lr_schedule={'type': 'exponential', 'decay': 0.95}, 
                     class_weights=None, device='cpu'):
         """Deep network with lower LR and exponential decay"""
@@ -247,7 +247,7 @@ class BirdFCNN_v3(BirdFCNN):
     
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.002, batch_size=64, optimizer_type='adam', 
-                    l2_lambda=1e-3, early_stopping=False, patience=10, 
+                    l2_lambda=1e-3, early_stopping=True, patience=10, 
                     eval_interval=10, lr_schedule=None,
                     class_weights=None, device='cpu'):
         """Wide network with higher LR and no schedule"""
@@ -272,7 +272,7 @@ class BirdFCNN_v4(BirdFCNN):
     
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.001, batch_size=128, optimizer_type='sgd', 
-                    l2_lambda=1e-4, early_stopping=False, patience=10, 
+                    l2_lambda=1e-4, early_stopping=True, patience=10, 
                     eval_interval=10, lr_schedule={'type': 'linear'},
                     class_weights=None, device='cpu'):
         """Low dropout with SGD and linear LR decay"""
@@ -297,7 +297,7 @@ class BirdFCNN_v5(BirdFCNN):
     
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.003, batch_size=32, optimizer_type='adam', 
-                    l2_lambda=5e-4, early_stopping=False, patience=10, 
+                    l2_lambda=5e-4, early_stopping=True, patience=10, 
                     eval_interval=10, lr_schedule={'type': 'exponential', 'decay': 0.98},
                     class_weights=None, device='cpu'):
         """Progressive network with aggressive LR and moderate decay"""
@@ -322,7 +322,7 @@ class BirdFCNN_v6(BirdFCNN):
     
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.0001, batch_size=8, optimizer_type='adam', 
-                    l2_lambda=1e-6, early_stopping=False, patience=10, 
+                    l2_lambda=1e-6, early_stopping=True, patience=10, 
                     eval_interval=10, lr_schedule={'type': 'exponential', 'decay': 0.99},
                     class_weights=None, device='cpu'):
         """Very deep network with very low LR and small batches"""
@@ -347,7 +347,7 @@ class BirdFCNN_v7(BirdFCNN):
     
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.01, batch_size=256, optimizer_type='sgd', 
-                    l2_lambda=1e-2, early_stopping=False, patience=10, 
+                    l2_lambda=1e-2, early_stopping=True, patience=10, 
                     eval_interval=10, lr_schedule=None,
                     class_weights=None, device='cpu'):
         """Minimal network with high LR, large batches, and SGD"""
@@ -372,7 +372,7 @@ class BirdFCNN_v0(BirdFCNN):
     
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.01, batch_size=64, optimizer_type='sgd', 
-                    l2_lambda=1e-3, early_stopping=False, patience=10, 
+                    l2_lambda=1e-3, early_stopping=True, patience=10, 
                     eval_interval=10, lr_schedule=None, class_weights=None, device='cpu'):
         """Original baseline with SGD and standard parameters"""
         return super().train_model(
