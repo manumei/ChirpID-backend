@@ -14,11 +14,11 @@ Reads the CSV to see which samples from the .ogg audio files to take, and it cop
 
 ### 3. [AudioExtracting.ipynb](../notebooks/AudioExtracting.ipynb) | Status: Finished ☑️
 
-Loads the dev/ audio files with librosa, extracts high-energy segments using RMS thresholding with balanced sampling per class, and saves these audio segments as .wav files to database/audio_segments/. Creates a metadata CSV (audio_segments.csv) with information about each extracted segment including class_id, original filename, and segment index. This notebook must be run before AudioProcessing.
+Loads the dev/ audio files with librosa, extracts high-energy segments using RMS thresholding with balanced sampling per class, and saves these audio segments as .wav files to database/audio_segments/. Creates a metadata CSV (audio_segments.csv) with information about each extracted segment including class_id, original filename, and segment index. This notebook must be run before AudioSpecting.
 
-### 4. [AudioProcessing.ipynb](../notebooks/AudioProcessing.ipynb) | Status: Finished ☑️
+### 4. [AudioSpecting.ipynb](../notebooks/AudioSpecting.ipynb) | Status: Finished ☑️
 
-Reads the extracted audio segments from database/audio_segments/ using the metadata CSV created by AudioExtracting notebook. Applies optional noise reduction to each segment, generates mel spectrograms, and saves them as .png images in database/spect/. Also saves a few test audio samples for verification. Creates final_spects.csv with spectrogram metadata for downstream processing.
+Reads the extracted audio segments from database/audio_segments/ using the metadata CSV created by AudioExtracting notebook. Applies optional noise reduction to each segment, generates mel spectrograms, and saves them as .npy images in database/specs/. Also saves a few test audio samples for verification. Creates final_specs.csv with spectrogram metadata for downstream processing.
 
 ### 5. [DataLoading.ipynb](../notebooks/DataLoading.ipynb) | Status: Finished ☑️
 
