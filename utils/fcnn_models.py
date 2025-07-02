@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+from sklearn.metrics import f1_score, confusion_matrix
 
 def relu(x):
     return np.maximum(0, x)
@@ -46,7 +47,7 @@ def plot_confusion_matrix(y_true, y_pred, num_classes):
     plt.show()
 
 
-class Nn:
+class BirdFCNN_v0:
     ''' Fully Connected Neural Network implemented by hand '''
     def __init__(self, trainX, trainY, m, seed):
         """
@@ -275,7 +276,7 @@ class Nn:
         plt.show()
     
     def save_model(self, filepath):
-        """Save the Nn model to a file using numpy"""
+        """Save the BirdFCNN_v0 model to a file using numpy"""
         model_data = {
             'W': self.W,
             'b': self.b,
@@ -286,13 +287,13 @@ class Nn:
             'L': self.L
         }
         np.save(filepath, model_data)
-        print(f"Nn model saved to {filepath}")
+        print(f"BirdFCNN_v0 model saved to {filepath}")
 
     @staticmethod
     def load_model(filepath):
-        """Load an Nn model from a file"""
+        """Load an BirdFCNN_v0 model from a file"""
         model_data = np.load(filepath, allow_pickle=True).item()
-        print(f"Nn model loaded from {filepath}")
+        print(f"BirdFCNN_v0 model loaded from {filepath}")
         return model_data
 
 class BirdFCNN(nn.Module):
@@ -349,6 +350,7 @@ class BirdFCNN(nn.Module):
 
         train_loss_history, val_loss_history = [], []
         train_acc_history, val_acc_history = [], []
+        train_f1_history, val_f1_history = [], []
 
         for epoch in range(epochs):
             self.train()
@@ -374,26 +376,31 @@ class BirdFCNN(nn.Module):
             if epoch % eval_interval == 0:
                 self.eval()
                 with torch.no_grad():
+                    # Training metrics
                     outputs = self(trainX)
                     train_loss = criterion(outputs, trainY).item()
                     preds = torch.argmax(outputs, dim=1)
                     train_acc = (preds == trainY).float().mean().item()
+                    train_f1 = f1_score(trainY.cpu().numpy(), preds.cpu().numpy(), average='weighted')
 
                     train_loss_history.append(train_loss)
                     train_acc_history.append(train_acc)
+                    train_f1_history.append(train_f1)
 
-                    print(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f} - Acc: {train_acc:.4f}", end="")
+                    print(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f} - Acc: {train_acc:.4f} - F1: {train_f1:.4f}", end="")
 
                     if valX is not None and valY is not None:
                         val_outputs = self(valX)
                         val_loss = criterion(val_outputs, valY).item()
                         val_preds = torch.argmax(val_outputs, dim=1)
                         val_acc = (val_preds == valY).float().mean().item()
+                        val_f1 = f1_score(valY.cpu().numpy(), val_preds.cpu().numpy(), average='weighted')
 
                         val_loss_history.append(val_loss)
                         val_acc_history.append(val_acc)
+                        val_f1_history.append(val_f1)
 
-                        print(f" - Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f}")
+                        print(f" - Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f} - Val F1: {val_f1:.4f}")
                     else:
                         print()
 
@@ -409,22 +416,35 @@ class BirdFCNN(nn.Module):
                             self.load_state_dict(best_model_state)
                             break
 
-        plt.figure(figsize=(15, 5))
-        plt.subplot(1, 2, 1)
-        plt.plot(train_loss_history, label="Train Loss")
-        if val_loss_history:
-            plt.plot(val_loss_history, label="Validation Loss")
-        plt.legend()
-        plt.title("Loss over Epochs")
+        # Generate final confusion matrix on validation set
+        self.eval()
+        with torch.no_grad():
+            if valX is not None and valY is not None:
+                val_outputs = self(valX)
+                val_preds = torch.argmax(val_outputs, dim=1)
+                cm = confusion_matrix(valY.cpu().numpy(), val_preds.cpu().numpy())
+            else:
+                # Use training set if no validation set
+                outputs = self(trainX)
+                preds = torch.argmax(outputs, dim=1)
+                cm = confusion_matrix(trainY.cpu().numpy(), preds.cpu().numpy())
 
-        plt.subplot(1, 2, 2)
-        plt.plot(train_acc_history, label="Train Accuracy")
-        if val_acc_history:
-            plt.plot(val_acc_history, label="Validation Accuracy")
-        plt.legend()
-        plt.title("Accuracy over Epochs")
+        # Prepare history dictionary for plot_full_metrics
+        history = {
+            'train_losses': train_loss_history,
+            'val_losses': val_loss_history,
+            'train_accuracies': train_acc_history,
+            'val_accuracies': val_acc_history,
+            'train_f1s': train_f1_history,
+            'val_f1s': val_f1_history
+        }
 
-        plt.show()
+        return {
+            'history': history,
+            'confusion_matrix': cm,
+            'best_val_f1': max(val_f1_history) if val_f1_history else max(train_f1_history),
+            'best_val_acc': max(val_acc_history) if val_acc_history else max(train_acc_history)
+        }
 
     def save_model(self, filepath):
         """Save the entire model to a file"""
@@ -437,3 +457,63 @@ class BirdFCNN(nn.Module):
         model = torch.load(filepath, weights_only=False)
         print(f"Model loaded from {filepath}")
         return model
+
+class BirdFCNN_v2(BirdFCNN):
+    """Deep narrow network - more layers, smaller hidden units"""
+    def __init__(self, num_classes, input_dim=70112, dropout_p=0.3):
+        super(BirdFCNN_v2, self).__init__(
+            num_classes=num_classes,
+            input_dim=input_dim,
+            hidden_layers=[256, 128, 64, 32, 16],
+            dropout_p=dropout_p
+        )
+
+class BirdFCNN_v3(BirdFCNN):
+    """Wide shallow network - fewer layers, larger hidden units"""
+    def __init__(self, num_classes, input_dim=70112, dropout_p=0.5):
+        super(BirdFCNN_v3, self).__init__(
+            num_classes=num_classes,
+            input_dim=input_dim,
+            hidden_layers=[1024, 512],
+            dropout_p=dropout_p
+        )
+
+class BirdFCNN_v4(BirdFCNN):
+    """Low dropout network - same as original but with minimal dropout"""
+    def __init__(self, num_classes, input_dim=70112, dropout_p=0.1):
+        super(BirdFCNN_v4, self).__init__(
+            num_classes=num_classes,
+            input_dim=input_dim,
+            hidden_layers=[512, 128, 32],
+            dropout_p=dropout_p
+        )
+
+class BirdFCNN_v5(BirdFCNN):
+    """Progressive shrinking network"""
+    def __init__(self, num_classes, input_dim=70112, dropout_p=0.4):
+        super(BirdFCNN_v5, self).__init__(
+            num_classes=num_classes,
+            input_dim=input_dim,
+            hidden_layers=[1024, 256, 64, 16],
+            dropout_p=dropout_p
+        )
+
+class BirdFCNN_v6(BirdFCNN):
+    """Very deep network"""
+    def __init__(self, num_classes, input_dim=70112, dropout_p=0.2):
+        super(BirdFCNN_v6, self).__init__(
+            num_classes=num_classes,
+            input_dim=input_dim,
+            hidden_layers=[512, 256, 128, 64, 32, 16, 8],
+            dropout_p=dropout_p
+        )
+
+class BirdFCNN_v7(BirdFCNN):
+    """Minimal network - very simple architecture"""
+    def __init__(self, num_classes, input_dim=70112, dropout_p=0.6):
+        super(BirdFCNN_v7, self).__init__(
+            num_classes=num_classes,
+            input_dim=input_dim,
+            hidden_layers=[128],
+            dropout_p=dropout_p
+        )
