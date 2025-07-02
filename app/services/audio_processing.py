@@ -32,7 +32,7 @@ def load_model_weights(model_class, model_path, num_classes=28, device=None):
     model = model_class(num_classes=num_classes)
     
     # Load the weights
-    checkpoint = torch.load(model_path, map_location=device)
+    checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint)
     
     # Set to evaluation mode and move to device
