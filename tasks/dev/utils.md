@@ -98,7 +98,7 @@ This document describes the purpose and contents of each file in the `utils/` di
 - `visualize_specaugment()` - Visualization of augmentation effects
 - Dynamic parameter recommendation based on dataset size and characteristics
 
-#### `NnClass.py`
+#### `fcnn_models.py`
 **Purpose**: Legacy neural network utilities (consider deprecating)
 **Note**: Contains older neural network implementations that may be redundant with models.py
 

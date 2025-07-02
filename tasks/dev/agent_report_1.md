@@ -163,7 +163,7 @@ from utils.models import BirdCNN
 
 ### Potential Further Refactoring:
 1. Consider splitting large modules if they grow beyond current scope
-2. Evaluate NnClass.py for potential deprecation/consolidation with models.py
+2. Evaluate fcnn_models.py for potential deprecation/consolidation with models.py
 3. Add configuration management for hyperparameters
 4. Implement logging framework for better debugging
 
