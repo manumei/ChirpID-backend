@@ -24,6 +24,9 @@ Reads the extracted audio segments from database/audio_segments/ using the metad
 
 Takes the spectrograms from the specs/ folder, and gets the images into vector form with the grayscale of all the pixels, so they can be given to a Fully-Connected Neural Network for training. It loads the pixel info into a CSV so they can then be read & extracted into flat vectors for the FCNN without having to re-run this notebook again. The target CSV (at database/meta/train_data.csv) has a row for each sample, with the columns 'label' (class_id), and then all the pixel elements of the spectrogram.
 
+.
+tell copilot:
+
 ... add:
 - ModelConfiguring.ipynb (for testing parameter configurations)
 - ModelBuilding.ipynb (for testing architectures)
