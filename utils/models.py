@@ -36,6 +36,14 @@ class ResidualBlock(nn.Module):
         >>> out = block(x)  # Shape: (4, 128, 28, 40)
     """
     def __init__(self, in_channels, out_channels, stride=1):
+        """
+        Initialize the ResidualBlock.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels  
+            stride (int, optional): Stride for the first convolution. Defaults to 1
+        """
         super(ResidualBlock, self).__init__()
         
         # First convolution - may downsample and change channels
@@ -85,7 +93,29 @@ class ResidualBlock(nn.Module):
 
 # Helper blocks for CNN architectures
 class BottleneckBlock(nn.Module):
+    """
+    Bottleneck residual block with 1x1, 3x3, 1x1 convolution pattern.
+    
+    This block is used in deeper ResNet architectures to reduce computational cost
+    while maintaining representational capacity. It uses 1x1 convolutions to reduce
+    and then expand the channel dimensions around a 3x3 convolution.
+    
+    Args:
+        inplanes (int): Number of input channels
+        planes (int): Number of intermediate channels (bottleneck width)
+        expansion_planes (int): Number of output channels after expansion
+        stride (int, optional): Stride for the 3x3 convolution. Defaults to 1
+    """
     def __init__(self, inplanes, planes, expansion_planes, stride=1):
+        """
+        Initialize the BottleneckBlock.
+        
+        Args:
+            inplanes (int): Number of input channels
+            planes (int): Number of intermediate channels
+            expansion_planes (int): Number of output channels  
+            stride (int, optional): Stride for middle convolution. Defaults to 1
+        """
         super(BottleneckBlock, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -102,6 +132,15 @@ class BottleneckBlock(nn.Module):
             )
     
     def forward(self, x):
+        """
+        Forward pass through the bottleneck block.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Output tensor with skip connection applied
+        """
         out = F.relu(self.bn1(self.conv1(x)))
         out = F.relu(self.bn2(self.conv2(out)))
         out = self.bn3(self.conv3(out))
@@ -111,7 +150,27 @@ class BottleneckBlock(nn.Module):
 
 
 class SeparableConvBlock(nn.Module):
+    """
+    Depthwise separable convolution block.
+    
+    Separates spatial and channel-wise convolutions for computational efficiency.
+    First applies depthwise convolution (spatial filtering per channel) followed
+    by pointwise convolution (channel mixing).
+    
+    Args:
+        in_channels (int): Number of input channels
+        out_channels (int): Number of output channels
+        stride (int, optional): Stride for depthwise convolution. Defaults to 1
+    """
     def __init__(self, in_channels, out_channels, stride=1):
+        """
+        Initialize the SeparableConvBlock.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            stride (int, optional): Stride for depthwise conv. Defaults to 1
+        """
         super(SeparableConvBlock, self).__init__()
         self.depthwise = nn.Conv2d(in_channels, in_channels, 3, stride=stride, padding=1, groups=in_channels)
         self.pointwise = nn.Conv2d(in_channels, out_channels, 1)
@@ -126,6 +185,15 @@ class SeparableConvBlock(nn.Module):
             )
     
     def forward(self, x):
+        """
+        Forward pass through separable convolution block.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Output tensor with residual connection if applicable
+        """
         out = F.relu(self.bn1(self.depthwise(x)))
         out = F.relu(self.bn2(self.pointwise(out)), inplace=False)  # Remove inplace operation
         shortcut_out = self.shortcut(x)
@@ -134,7 +202,25 @@ class SeparableConvBlock(nn.Module):
 
 
 class AttentionBlock(nn.Module):
+    """
+    Channel attention mechanism using global average pooling.
+    
+    Computes channel-wise attention weights using global average pooling
+    followed by a small fully connected network. Helps the model focus
+    on important feature channels.
+    
+    Args:
+        channels (int): Number of input channels
+        reduction (int, optional): Reduction factor for bottleneck. Defaults to 16
+    """
     def __init__(self, channels, reduction=16):
+        """
+        Initialize the AttentionBlock.
+        
+        Args:
+            channels (int): Number of input channels
+            reduction (int, optional): Channel reduction factor. Defaults to 16
+        """
         super(AttentionBlock, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
@@ -145,6 +231,15 @@ class AttentionBlock(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Apply channel attention to input tensor.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (B, C, H, W)
+            
+        Returns:
+            torch.Tensor: Attention-weighted tensor of same shape as input
+        """
         b, c, _, _ = x.size()
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y).view(b, c, 1, 1)
@@ -152,7 +247,24 @@ class AttentionBlock(nn.Module):
 
 
 class SEBlock(nn.Module):
+    """
+    Squeeze-and-Excitation block for channel attention.
+    
+    Implements the SE mechanism that adaptively recalibrates channel-wise
+    feature responses by explicitly modelling interdependencies between channels.
+    
+    Args:
+        channels (int): Number of input channels
+        reduction (int, optional): Reduction ratio for squeeze operation. Defaults to 4
+    """
     def __init__(self, channels, reduction=4):
+        """
+        Initialize the SEBlock.
+        
+        Args:
+            channels (int): Number of input channels
+            reduction (int, optional): Reduction ratio. Defaults to 4
+        """
         super(SEBlock, self).__init__()
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
@@ -163,11 +275,42 @@ class SEBlock(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Apply squeeze-and-excitation attention.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: SE-weighted tensor
+        """
         return x * self.se(x)
 
 
 class MBConvBlock(nn.Module):
+    """
+    Mobile Inverted Bottleneck Convolution block (MBConv).
+    
+    Used in EfficientNet and MobileNet architectures. Expands channels,
+    applies depthwise convolution, applies SE attention, then compresses
+    channels back down.
+    
+    Args:
+        in_channels (int): Number of input channels
+        out_channels (int): Number of output channels
+        expand_ratio (int): Channel expansion ratio
+        stride (int, optional): Stride for depthwise conv. Defaults to 1
+    """
     def __init__(self, in_channels, out_channels, expand_ratio, stride=1):
+        """
+        Initialize the MBConvBlock.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            expand_ratio (int): Channel expansion ratio
+            stride (int, optional): Stride for conv. Defaults to 1
+        """
         super(MBConvBlock, self).__init__()
         hidden_dim = in_channels * expand_ratio
         self.use_residual = stride == 1 and in_channels == out_channels
@@ -196,6 +339,15 @@ class MBConvBlock(nn.Module):
         self.conv = nn.Sequential(*layers)
     
     def forward(self, x):
+        """
+        Forward pass through MBConv block.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Output tensor with residual connection if applicable
+        """
         out = self.conv(x)
         if self.use_residual:
             out = out + x
@@ -203,13 +355,41 @@ class MBConvBlock(nn.Module):
 
 
 class DenseBlock(nn.Module):
+    """
+    Dense block from DenseNet architecture.
+    
+    Each layer receives feature maps from all preceding layers as input,
+    promoting feature reuse and improving gradient flow.
+    
+    Args:
+        in_channels (int): Number of input channels
+        growth_rate (int): Number of channels added by each layer
+        num_layers (int): Number of dense layers in the block
+    """
     def __init__(self, in_channels, growth_rate, num_layers):
+        """
+        Initialize the DenseBlock.
+        
+        Args:
+            in_channels (int): Number of input channels
+            growth_rate (int): Growth rate (channels added per layer)
+            num_layers (int): Number of dense layers
+        """
         super(DenseBlock, self).__init__()
         self.layers = nn.ModuleList()
         for i in range(num_layers):
             self.layers.append(DenseLayer(in_channels + i * growth_rate, growth_rate))
     
     def forward(self, x):
+        """
+        Forward pass through dense block.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Concatenated features from all layers
+        """
         features = [x]
         for layer in self.layers:
             new_feature = layer(torch.cat(features, 1))
@@ -218,7 +398,23 @@ class DenseBlock(nn.Module):
 
 
 class DenseLayer(nn.Module):
+    """
+    Individual dense layer within a DenseBlock.
+    
+    Implements the bottleneck design with BN-ReLU-Conv(1x1)-BN-ReLU-Conv(3x3).
+    
+    Args:
+        in_channels (int): Number of input channels
+        growth_rate (int): Number of output channels (growth rate)
+    """
     def __init__(self, in_channels, growth_rate):
+        """
+        Initialize the DenseLayer.
+        
+        Args:
+            in_channels (int): Number of input channels
+            growth_rate (int): Number of output channels
+        """
         super(DenseLayer, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_channels)
         self.conv1 = nn.Conv2d(in_channels, 4 * growth_rate, 1, bias=False)
@@ -226,26 +422,88 @@ class DenseLayer(nn.Module):
         self.conv2 = nn.Conv2d(4 * growth_rate, growth_rate, 3, padding=1, bias=False)
     
     def forward(self, x):
+        """
+        Forward pass through dense layer.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Output feature map
+        """
         out = self.conv1(F.relu(self.bn1(x)))
         out = self.conv2(F.relu(self.bn2(out)))
         return out
 
 
 class TransitionLayer(nn.Module):
+    """
+    Transition layer between dense blocks.
+    
+    Reduces spatial dimensions and optionally reduces channels to control
+    model complexity between dense blocks.
+    
+    Args:
+        in_channels (int): Number of input channels
+        out_channels (int): Number of output channels
+    """
     def __init__(self, in_channels, out_channels):
+        """
+        Initialize the TransitionLayer.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+        """
         super(TransitionLayer, self).__init__()
         self.bn = nn.BatchNorm2d(in_channels)
         self.conv = nn.Conv2d(in_channels, out_channels, 1, bias=False)
         self.pool = nn.AvgPool2d(2, stride=2)
     
     def forward(self, x):
+        """
+        Forward pass through transition layer.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Downsampled output tensor
+        """
         out = self.conv(F.relu(self.bn(x)))
         out = self.pool(out)
         return out
 
 
 class InceptionBlock(nn.Module):
+    """
+    Inception block with parallel convolutions of different kernel sizes.
+    
+    Processes input through multiple parallel paths with different receptive
+    fields and concatenates the results.
+    
+    Args:
+        in_channels (int): Number of input channels
+        ch1x1 (int): Channels for 1x1 conv path
+        ch3x3red (int): Channels for 3x3 reduction path
+        ch3x3 (int): Channels for 3x3 conv path
+        ch5x5red (int): Channels for 5x5 reduction path  
+        ch5x5 (int): Channels for 5x5 conv path
+        pool_proj (int): Channels for pooling projection path
+    """
     def __init__(self, in_channels, ch1x1, ch3x3red, ch3x3, ch5x5red, ch5x5, pool_proj):
+        """
+        Initialize the InceptionBlock.
+        
+        Args:
+            in_channels (int): Number of input channels
+            ch1x1 (int): 1x1 conv output channels
+            ch3x3red (int): 3x3 path reduction channels
+            ch3x3 (int): 3x3 conv output channels
+            ch5x5red (int): 5x5 path reduction channels
+            ch5x5 (int): 5x5 conv output channels
+            pool_proj (int): Pooling path projection channels
+        """
         super(InceptionBlock, self).__init__()
         self.branch1 = nn.Conv2d(in_channels, ch1x1, kernel_size=1)
         self.branch2 = nn.Sequential(
@@ -262,6 +520,15 @@ class InceptionBlock(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass through inception block.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Concatenated output from all branches
+        """
         branch1 = self.branch1(x)
         branch2 = self.branch2(x)
         branch3 = self.branch3(x)
@@ -270,7 +537,28 @@ class InceptionBlock(nn.Module):
 
 
 class WideResidualBlock(nn.Module):
+    """
+    Wide residual block with increased width and dropout.
+    
+    Wider layers with fewer blocks, includes dropout for regularization.
+    Used in Wide ResNet architectures.
+    
+    Args:
+        in_channels (int): Number of input channels
+        out_channels (int): Number of output channels
+        stride (int, optional): Stride for first convolution. Defaults to 1
+        dropout_p (float, optional): Dropout probability. Defaults to 0.0
+    """
     def __init__(self, in_channels, out_channels, stride=1, dropout_p=0.0):
+        """
+        Initialize the WideResidualBlock.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            stride (int, optional): Stride for conv. Defaults to 1
+            dropout_p (float, optional): Dropout probability. Defaults to 0.0
+        """
         super(WideResidualBlock, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_channels)
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1)
@@ -283,6 +571,15 @@ class WideResidualBlock(nn.Module):
             self.shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
     
     def forward(self, x):
+        """
+        Forward pass through wide residual block.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Output tensor with residual connection
+        """
         out = self.dropout(self.conv1(F.relu(self.bn1(x))))
         out = self.conv2(F.relu(self.bn2(out)))
         out += self.shortcut(x)
@@ -290,7 +587,28 @@ class WideResidualBlock(nn.Module):
 
 
 class ShuffleNetUnit(nn.Module):
+    """
+    ShuffleNet unit with channel shuffle operation (simplified).
+    
+    Efficient building block that uses grouped convolutions and channel
+    shuffling for computational efficiency.
+    
+    Args:
+        in_channels (int): Number of input channels
+        out_channels (int): Number of output channels
+        stride (int): Stride for convolution
+        groups (int): Number of groups for grouped convolution
+    """
     def __init__(self, in_channels, out_channels, stride, groups):
+        """
+        Initialize the ShuffleNetUnit.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            stride (int): Convolution stride
+            groups (int): Number of groups
+        """
         super(ShuffleNetUnit, self).__init__()
         self.stride = stride
         self.groups = max(1, min(groups, in_channels, out_channels))  # Ensure valid groups
@@ -319,6 +637,15 @@ class ShuffleNetUnit(nn.Module):
             )
     
     def forward(self, x):
+        """
+        Forward pass through shuffle unit.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Output tensor with skip connection
+        """
         residual = self.shortcut(x)
         
         out = F.relu(self.bn1(self.conv1(x)))
@@ -334,14 +661,35 @@ class ShuffleNetUnit(nn.Module):
 
 
 class RegNetBlock(nn.Module):
+    """
+    RegNet block with regular design principles.
+    
+    Simple and regular design with consistent width and depth patterns
+    for predictable network scaling.
+    
+    Args:
+        in_channels (int): Number of input channels
+        out_channels (int): Number of output channels
+        stride (int, optional): Stride for convolution. Defaults to 1
+        groups (int, optional): Number of groups. Defaults to 1
+    """
     def __init__(self, in_channels, out_channels, stride=1, groups=1):
+        """
+        Initialize the RegNetBlock.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            stride (int, optional): Convolution stride. Defaults to 1
+            groups (int, optional): Number of groups. Defaults to 1
+        """
         super(RegNetBlock, self).__init__()
         
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
         
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, 
-                              padding=1, groups=groups, bias=False)
+                                padding=1, groups=groups, bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
         
         self.conv3 = nn.Conv2d(out_channels, out_channels, kernel_size=1, bias=False)
@@ -355,6 +703,15 @@ class RegNetBlock(nn.Module):
             )
     
     def forward(self, x):
+        """
+        Forward pass through RegNet block.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Output tensor with residual connection
+        """
         out = F.relu(self.bn1(self.conv1(x)))
         out = F.relu(self.bn2(self.conv2(out)))
         out = self.bn3(self.conv3(out))
@@ -396,6 +753,13 @@ class BirdCNN_v1(nn.Module):
         >>> probabilities = model.predict_proba(x)  # Shape: (32, 50)
     """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v1 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v1, self).__init__()
         
         # Input: (N, 1, 224, 313) - (batch, channels, freq_height, time_width)
@@ -538,9 +902,22 @@ BirdCNN = BirdCNN_v1
 class BirdCNN_v2(nn.Module):
     """
     VGG-inspired CNN with deeper layers and smaller filters.
+    
     Uses 3x3 convolutions throughout and more layers for detailed feature extraction.
+    Progressive channel expansion with max pooling for spatial downsampling.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v2 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v2, self).__init__()
         
         # VGG-style architecture with 3x3 convs
@@ -599,6 +976,15 @@ class BirdCNN_v2(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass through VGG-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = self.features(x)
         x = self.classifier(x)
         return x
@@ -607,9 +993,22 @@ class BirdCNN_v2(nn.Module):
 class BirdCNN_v3(nn.Module):
     """
     ResNet-inspired deeper network with bottleneck blocks.
-    Better gradient flow with more sophisticated residual connections.
+    
+    Better gradient flow with more sophisticated residual connections using
+    bottleneck design for computational efficiency in deeper networks.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v3 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v3, self).__init__()
         
         # Initial conv layer
@@ -628,6 +1027,19 @@ class BirdCNN_v3(nn.Module):
         self.dropout = nn.Dropout(dropout_p)
         
     def _make_layer(self, inplanes, planes, expansion_planes, blocks, stride):
+        """
+        Create a layer of bottleneck blocks.
+        
+        Args:
+            inplanes (int): Input channels
+            planes (int): Intermediate channels
+            expansion_planes (int): Output channels
+            blocks (int): Number of blocks
+            stride (int): Stride for first block
+            
+        Returns:
+            nn.Sequential: Layer of bottleneck blocks
+        """
         layers = []
         layers.append(BottleneckBlock(inplanes, planes, expansion_planes, stride))
         for _ in range(1, blocks):
@@ -635,6 +1047,15 @@ class BirdCNN_v3(nn.Module):
         return nn.Sequential(*layers)
     
     def forward(self, x):
+        """
+        Forward pass through ResNet-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = F.relu(self.bn1(self.conv1(x)))
         x = self.pool1(x)
         
@@ -653,9 +1074,22 @@ class BirdCNN_v3(nn.Module):
 class BirdCNN_v4(nn.Module):
     """
     PANN-inspired architecture with attention mechanisms.
+    
     Uses separable convolutions and attention for audio-specific feature learning.
+    Incorporates depthwise separable convolutions for efficiency and channel attention.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v4 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v4, self).__init__()
         
         # Initial processing
@@ -682,6 +1116,15 @@ class BirdCNN_v4(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass through PANN-style network with attention.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = F.relu(self.bn1(self.conv1(x)))
         
         x = self.block1(x)
@@ -699,9 +1142,22 @@ class BirdCNN_v4(nn.Module):
 class BirdCNN_v5(nn.Module):
     """
     EfficientNet-inspired mobile architecture.
-    Uses inverted residual blocks with squeeze-and-excitation.
+    
+    Uses inverted residual blocks with squeeze-and-excitation for efficient
+    feature learning with reduced computational cost.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v5 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v5, self).__init__()
         
         # Stem
@@ -738,6 +1194,15 @@ class BirdCNN_v5(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass through EfficientNet-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = self.stem(x)
         x = self.blocks(x)
         x = self.head(x)
@@ -747,9 +1212,22 @@ class BirdCNN_v5(nn.Module):
 class BirdCNN_v6(nn.Module):
     """
     Lightweight CNN with asymmetric kernels for time-frequency analysis.
-    Optimized for spectrogram shape (224x313) with time-frequency aware kernels.
+    
+    Optimized for spectrogram shape (224x313) with time-frequency aware kernels
+    that separately process frequency and temporal patterns before fusion.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v6 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v6, self).__init__()
         
         # Asymmetric kernels for time-frequency separation
@@ -776,6 +1254,17 @@ class BirdCNN_v6(nn.Module):
         )
     
     def _conv_block(self, in_channels, out_channels, stride=1):
+        """
+        Create a convolutional block with two conv layers.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            stride (int, optional): Stride for first conv. Defaults to 1
+            
+        Returns:
+            nn.Sequential: Convolutional block
+        """
         return nn.Sequential(
             nn.Conv2d(in_channels, out_channels, 3, stride=stride, padding=1),
             nn.BatchNorm2d(out_channels),
@@ -786,6 +1275,15 @@ class BirdCNN_v6(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass with parallel frequency and time processing.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         # Parallel frequency and time processing
         freq_features = self.freq_conv(x)
         time_features = self.time_conv(x)
@@ -802,9 +1300,22 @@ class BirdCNN_v6(nn.Module):
 class BirdCNN_v7(nn.Module):
     """
     Dense network with dense blocks for feature reuse.
-    Inspired by DenseNet for efficient parameter usage.
+    
+    Inspired by DenseNet for efficient parameter usage through feature
+    concatenation and reuse across layers.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v7 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v7, self).__init__()
         
         # Initial convolution
@@ -832,6 +1343,15 @@ class BirdCNN_v7(nn.Module):
         self.dropout = nn.Dropout(dropout_p)
     
     def forward(self, x):
+        """
+        Forward pass through DenseNet-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = F.relu(self.bn1(self.conv1(x)))
         x = self.pool1(x)
         
@@ -854,10 +1374,23 @@ class BirdCNN_v7(nn.Module):
 class BirdCNN_v8(nn.Module):
     """
     PANN-inspired architecture with pre-activation residual blocks and dual attention.
+    
     Uses channel attention and spatial attention for audio-specific feature learning.
-    Different from v4 which uses separable convolutions - this uses attention mechanisms.
+    Different from v4 which uses separable convolutions - this uses attention mechanisms
+    with pre-activation residual blocks and frequency-aware processing.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v8 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v8, self).__init__()
         
         # Initial processing - spectrogram-aware kernel
@@ -894,7 +1427,17 @@ class BirdCNN_v8(nn.Module):
         )
     
     def _make_pre_activation_block(self, in_channels, out_channels, stride=1):
-        """Create pre-activation residual block (BN->ReLU->Conv)."""
+        """
+        Create pre-activation residual block (BN->ReLU->Conv).
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            stride (int, optional): Stride for conv. Defaults to 1
+            
+        Returns:
+            nn.Sequential: Pre-activation block
+        """
         return nn.Sequential(
             # Main path
             nn.BatchNorm2d(in_channels),
@@ -910,7 +1453,16 @@ class BirdCNN_v8(nn.Module):
         )
     
     def _make_channel_attention(self, channels, reduction=16):
-        """Create channel attention module."""
+        """
+        Create channel attention module.
+        
+        Args:
+            channels (int): Number of channels
+            reduction (int, optional): Reduction factor. Defaults to 16
+            
+        Returns:
+            nn.Sequential: Channel attention module
+        """
         return nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
@@ -921,14 +1473,27 @@ class BirdCNN_v8(nn.Module):
         )
     
     def _make_spatial_attention(self):
-        """Create spatial attention module."""
+        """
+        Create spatial attention module.
+        
+        Returns:
+            nn.Sequential: Spatial attention module
+        """
         return nn.Sequential(
             nn.Conv2d(2, 1, kernel_size=7, padding=3),
             nn.Sigmoid()
         )
     
     def forward(self, x):
-        # Initial feature extraction
+        """
+        Forward pass with dual attention and frequency-aware processing.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = F.relu(self.bn1(self.conv1(x)))
         
         # Pre-activation residual blocks with skip connections
@@ -986,8 +1551,24 @@ class BirdCNN_v8(nn.Module):
 
 
 class BirdCNN_v9(nn.Module):
-    """Inception-inspired network with parallel convolutions."""
+    """
+    Inception-inspired network with parallel convolutions.
+    
+    Uses parallel convolution paths with different kernel sizes to capture
+    multi-scale features in spectrograms.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+    """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v9 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v9, self).__init__()
         
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
@@ -1006,6 +1587,15 @@ class BirdCNN_v9(nn.Module):
         self.fc = nn.Linear(512, num_classes)
     
     def forward(self, x):
+        """
+        Forward pass through Inception-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = F.relu(self.bn1(self.conv1(x)))
         x = self.maxpool1(x)
         x = self.inception1(x)
@@ -1021,8 +1611,24 @@ class BirdCNN_v9(nn.Module):
 
 
 class BirdCNN_v10(nn.Module):
-    """Compact CNN optimized for limited data."""
+    """
+    Compact CNN optimized for limited data.
+    
+    Lightweight architecture with fewer parameters, designed for scenarios
+    with limited training data or computational resources.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+    """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v10 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v10, self).__init__()
         
         self.features = nn.Sequential(
@@ -1061,14 +1667,39 @@ class BirdCNN_v10(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass through compact network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = self.features(x)
         x = self.classifier(x)
         return x
 
 
 class BirdCNN_v11(nn.Module):
-    """Wide ResNet variant with wider layers but fewer residual blocks."""
+    """
+    Wide ResNet variant with wider layers but fewer residual blocks.
+    
+    Uses wider layers with increased capacity per layer while reducing
+    the total depth of the network.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+    """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v11 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v11, self).__init__()
         
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
@@ -1085,6 +1716,18 @@ class BirdCNN_v11(nn.Module):
         self.fc = nn.Linear(1024, num_classes)
     
     def _make_wide_layer(self, in_channels, out_channels, blocks, stride):
+        """
+        Create a layer of wide residual blocks.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            blocks (int): Number of blocks in layer
+            stride (int): Stride for first block
+            
+        Returns:
+            nn.Sequential: Layer of wide residual blocks
+        """
         layers = []
         layers.append(WideResidualBlock(in_channels, out_channels, stride))
         for _ in range(1, blocks):
@@ -1092,6 +1735,15 @@ class BirdCNN_v11(nn.Module):
         return nn.Sequential(*layers)
     
     def forward(self, x):
+        """
+        Forward pass through Wide ResNet.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = F.relu(self.bn1(self.conv1(x)))
         x = self.maxpool(x)
         x = self.layer1(x)
@@ -1106,8 +1758,24 @@ class BirdCNN_v11(nn.Module):
 
 
 class BirdCNN_v12(nn.Module):
-    """Temporal-aware CNN with 1D convolutions along time axis."""
+    """
+    Temporal-aware CNN with 1D convolutions along time axis.
+    
+    Separates frequency and temporal processing, using 2D convolutions
+    for frequency analysis followed by 1D convolutions for temporal modeling.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+    """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v12 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v12, self).__init__()
         
         self.freq_conv = nn.Sequential(
@@ -1145,9 +1813,18 @@ class BirdCNN_v12(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass with separate frequency and temporal processing.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = self.freq_conv(x)
         N, C, H, W = x.shape
-        x = x.view(N, C*H, W)
+        x = x.view(N, C*H, W) # tensor reshaping
         x = self.temporal_conv(x)
         x = self.global_pool(x)
         x = self.classifier(x)
@@ -1155,8 +1832,24 @@ class BirdCNN_v12(nn.Module):
 
 
 class BirdCNN_v13(nn.Module):
-    """ShuffleNet-inspired efficient architecture (simplified)."""
+    """
+    ShuffleNet-inspired efficient architecture (simplified).
+    
+    Efficient network design using simplified blocks instead of complex
+    group convolutions for better compatibility and training stability.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+    """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v13 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v13, self).__init__()
         
         self.conv1 = nn.Conv2d(1, 24, kernel_size=3, stride=2, padding=1)
@@ -1176,7 +1869,18 @@ class BirdCNN_v13(nn.Module):
         self.fc = nn.Linear(1024, num_classes)
     
     def _make_simple_stage(self, in_channels, out_channels, num_blocks, stride):
-        """Create stage with simple residual blocks instead of ShuffleNet units."""
+        """
+        Create stage with simple residual blocks instead of ShuffleNet units.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            num_blocks (int): Number of blocks in stage
+            stride (int): Stride for first block
+            
+        Returns:
+            nn.Sequential: Stage of simple blocks
+        """
         layers = []
         # First block with stride
         layers.append(self._simple_block(in_channels, out_channels, stride))
@@ -1186,7 +1890,17 @@ class BirdCNN_v13(nn.Module):
         return nn.Sequential(*layers)
     
     def _simple_block(self, in_channels, out_channels, stride):
-        """Simple residual block."""
+        """
+        Simple residual block.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            stride (int): Convolution stride
+            
+        Returns:
+            nn.Sequential: Simple residual block
+        """
         return nn.Sequential(
             nn.Conv2d(in_channels, out_channels//2, kernel_size=1, bias=False),
             nn.BatchNorm2d(out_channels//2),
@@ -1200,6 +1914,15 @@ class BirdCNN_v13(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass through simplified ShuffleNet-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = F.relu(self.bn1(self.conv1(x)))
         x = self.maxpool(x)
         x = self.stage2(x)
@@ -1214,8 +1937,24 @@ class BirdCNN_v13(nn.Module):
 
 
 class BirdCNN_v14(nn.Module):
-    """RegNet-inspired architecture with regular design."""
+    """
+    RegNet-inspired architecture with regular design.
+    
+    Uses regular design principles with consistent width and depth
+    scaling for predictable network behavior and performance.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+    """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v14 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v14, self).__init__()
         
         self.stem = nn.Sequential(
@@ -1237,6 +1976,18 @@ class BirdCNN_v14(nn.Module):
         )
     
     def _make_stage(self, in_channels, out_channels, depth, stride):
+        """
+        Create a stage of RegNet blocks.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            depth (int): Number of blocks in stage
+            stride (int): Stride for first block
+            
+        Returns:
+            nn.Sequential: Stage of RegNet blocks
+        """
         layers = []
         layers.append(RegNetBlock(in_channels, out_channels, stride=stride))
         for _ in range(1, depth):
@@ -1244,6 +1995,15 @@ class BirdCNN_v14(nn.Module):
         return nn.Sequential(*layers)
     
     def forward(self, x):
+        """
+        Forward pass through RegNet-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = self.stem(x)
         x = self.stage1(x)
         x = self.stage2(x)
@@ -1254,8 +2014,24 @@ class BirdCNN_v14(nn.Module):
 
 
 class BirdCNN_v15(nn.Module):
-    """Frequency-aware CNN with explicit frequency band processing."""
+    """
+    Frequency-aware CNN with explicit frequency band processing.
+    
+    Explicitly processes different frequency bands (low, mid, high) with
+    separate pathways before fusion for frequency-aware feature learning.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+    """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v15 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v15, self).__init__()
         
         self.low_freq_path = self._make_freq_path(1, 128)
@@ -1285,6 +2061,16 @@ class BirdCNN_v15(nn.Module):
         )
     
     def _make_freq_path(self, in_channels, out_channels):
+        """
+        Create frequency processing pathway.
+        
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            
+        Returns:
+            nn.Sequential: Frequency processing pathway
+        """
         return nn.Sequential(
             nn.Conv2d(in_channels, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
@@ -1295,6 +2081,15 @@ class BirdCNN_v15(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass with explicit frequency band processing.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         low_band = x[:, :, :75, :]
         mid_band = x[:, :, 75:150, :]
         high_band = x[:, :, 150:, :]
@@ -1316,8 +2111,24 @@ class BirdCNN_v15(nn.Module):
 
 
 class BirdCNN_v16(nn.Module):
-    """Hybrid CNN-RNN architecture."""
+    """
+    Hybrid CNN-RNN architecture.
+    
+    Combines convolutional feature extraction with LSTM temporal modeling
+    for capturing both local spectral patterns and long-term temporal dependencies.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+    """
     def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v16 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
         super(BirdCNN_v16, self).__init__()
         
         self.conv_features = nn.Sequential(
@@ -1359,6 +2170,15 @@ class BirdCNN_v16(nn.Module):
         )
     
     def forward(self, x):
+        """
+        Forward pass through hybrid CNN-RNN network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
         x = self.conv_features(x)
         x = self.freq_pool(x)
         x = x.squeeze(2)
