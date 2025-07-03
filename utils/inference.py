@@ -69,8 +69,8 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
         # Try multiple loading methods for maximum compatibility
         loading_methods = [
             ("default", lambda: torch.load(model_path, map_location=device, weights_only=False)),
-            ("weights_only_true", lambda: torch.load(model_path, map_location=device, weights_only=True)),
-            ("with_pickle_module", lambda: torch.load(model_path, map_location=device, pickle_module=__import__('pickle'))),
+            ("explicit_weights_false", lambda: torch.load(model_path, map_location=device, weights_only=False)),
+            ("with_pickle_module", lambda: torch.load(model_path, map_location=device, weights_only=False, pickle_module=__import__('pickle'))),
             ("legacy_mode", lambda: torch.load(model_path, map_location=device))
         ]
         
