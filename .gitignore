@@ -13,6 +13,3 @@ util.cpython-313.pyc
 *.pyc
 pycache
 models/other
-
-# Permission fix script (optional)
-# fix-permissions.sh

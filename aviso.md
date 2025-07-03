@@ -1,0 +1,1 @@
+Para correr esto, se requiere tener la carpeta base de data/ con los audios de BirdClef, no estan adjuntos debido a su enorme peso (40+ Gb), pero aqui se encuentra el link para descargarlos: https://www.kaggle.com/c/birdclef-2021/data

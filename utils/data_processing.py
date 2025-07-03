@@ -168,7 +168,7 @@ def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
     segments_df = pd.read_csv(segments_csv_path)
     segments = []
     
-    print(f"Loading {len(segments_df)} audio segments from {segments_dir}")
+    # print(f"Loading {len(segments_df)} audio segments from {segments_dir}")
     
     for _, row in segments_df.iterrows():
         segment_path = os.path.join(segments_dir, row['filename'])
@@ -196,7 +196,7 @@ def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
             print(f"Error loading segment {row['filename']}: {e}")
             continue
     
-    print(f"Loaded {len(segments)} audio segments from disk")
+    # print(f"Loaded {len(segments)} audio segments from disk")
     return segments
 
 # Audio File Loading and Segmentation
@@ -437,7 +437,7 @@ def get_spect_matrix(image_path):
 def get_spec_matrix_direct(segment, sr, mels, hoplen, nfft):
     """Get spectrogram matrix directly from segment and params."""
     norm_spec = get_spec_norm(segment, sr, mels, hoplen, nfft)
-    matrix = (norm_spec * 255).astype(np.uint8)
+    matrix = np.clip(norm_spec, 0.0, 1.0).astype(np.float32)
     return matrix
 
 def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
@@ -452,7 +452,7 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
     Step 4: Generate a Spectrogram grayscale matrix for each segment. (using get_spec_matrix_direct)
     """
     matrices = []
-    print(f"Processing audio file: {audio_path}")
+    # print(f"Processing audio file: {audio_path}")
     samples_per_segment = int(sr * segment_sec)
 
     # Step 1
@@ -469,14 +469,30 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
             # print(f"Segment at {start} has {seg_rms} RMS, below threshold {threshold}. Skipping...")
             continue
 
-        # Step 3
-        if reduce_noise:
-            segment = reduce_noise_seg(segment, srate, os.path.basename(audio_path), class_id=None)
-
         # Step 4
         filename = os.path.basename(audio_path)
         matrix = get_spec_matrix_direct(segment, srate, mels, hop_len, nfft)
         matrices.append(matrix)
     
-    print(f"Processed {len(matrices)} segments from {audio_path}")
+    # print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
+
+if __name__ == "__main__":
+    # Example usage
+    audio_path = "database/audio/dev/XC112710.ogg"
+    matrices = audio_process(audio_path, reduce_noise=True)
+    
+    # Preview first matrix
+    if matrices:
+        print(f"First matrix shape: {matrices[0].shape}")
+        plt.imshow(matrices[0], cmap='gray')
+        plt.title("Spectrogram Matrix")
+        plt.axis('off')
+        plt.show()
+    
+    # preview pixels
+    if matrices:
+        print(f"First matrix pixel values:\n{matrices[0]}")
+        print(f"Matrix dtype: {matrices[0].dtype}, shape: {matrices[0].shape}")
+    else:
+        print("No valid segments found.")

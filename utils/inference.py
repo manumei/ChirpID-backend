@@ -24,12 +24,20 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # Initialize the model
-    model = model_class(num_classes=num_classes)
+    # Load the checkpoint
+    checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     
-    # Load the weights
-    checkpoint = torch.load(model_path, map_location=device)
-    model.load_state_dict(checkpoint)
+    # Check if checkpoint is a full model or state dict
+    if isinstance(checkpoint, torch.nn.Module):
+        # If it's a full model, use it directly
+        model = checkpoint
+        # Ensure it matches the expected class
+        if not isinstance(model, model_class):
+            raise ValueError(f"Warning: Loaded model type {type(model)} doesn't match expected {model_class}")
+    else:
+        # If it's a state dict, load it into a new model instance
+        model = model_class(num_classes=num_classes)
+        model.load_state_dict(checkpoint)
     
     # Set to evaluation mode and move to device
     model.eval()
@@ -60,7 +68,29 @@ def matrices_to_tensor(segment_matrix, device):
     
     return tensor
 
-def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=True):
+def vectors_to_tensor(segment_vector, device):
+    """
+    Convert a single segment vector to a tensor ready for FCNN inference.
+    
+    Args:
+        segment_vector (numpy.ndarray): Single 1D numpy array (flattened spectrogram segment)
+        device (torch.device): Device to move tensor to
+    
+    Returns:
+        torch.Tensor: Tensor of shape (1, vector_length)
+    """
+    if segment_vector is None or segment_vector.size == 0:
+        raise ValueError("Input segment vector is empty or None. Cannot convert to tensor.")
+    
+    # Add batch dimension
+    vector = np.expand_dims(segment_vector, axis=0)  # (1, vector_length)
+    
+    # Convert to tensor and move to device
+    tensor = torch.from_numpy(vector).float().to(device)
+    
+    return tensor
+
+def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=False):
     """
     Perform inference on an audio file using a trained CNN model.
     
@@ -90,7 +120,7 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Tr
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model weights file not found: {model_path}")
     
-    print(f"Starting inference for: {audio_path}")
+    # print(f"Starting inference for: {audio_path}")
     
     # Step 1: Extract segment_matrices from audio using audio_process
     segment_matrices = audio_process(audio_path, reduce_noise=reduce_noise)
@@ -98,11 +128,11 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Tr
     if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
     
-    print(f"Extracted {len(segment_matrices)} segments for inference")
+    # print(f"Extracted {len(segment_matrices)} segments for inference")
     
     # Step 2: Load the model
     model, device = load_model_weights(model_class, model_path, num_classes=NUM_CLASSES)
-    print(f"Model loaded on device: {device}")
+    # print(f"Model loaded on device: {device}")
     
     # Step 3 & 4: Process each segment individually and perform inference
     all_probabilities = []
@@ -124,70 +154,140 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Tr
     all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, NUM_CLASSES)
     average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (NUM_CLASSES,)
     
-    print(f"Inference completed. Processed {len(all_probabilities)} segments")
-    print(f"Average probabilities calculated for NUM_CLASSES classes")
+    # print(f"Inference completed. Processed {len(all_probabilities)} segments")
+    # print(f"Average probabilities calculated for NUM_CLASSES classes")
     
     # Return as list for classes 0-26
     return average_probabilities.tolist()
 
-# # This function is only for fancy front-end reasons, to be ignored in Model Testing, don't call it in ModelTesting.ipynb, the CSV mappings are slow and inefficient.
-# def predict_bird(audio_path, model_class, model_weights_path, mapping_csv, reduce_noise=True):
-#     """
-#     Predict bird species from audio file and display results with confidence.
+def perform_audio_inference_fcnn(audio_path, model_class, model_path, reduce_noise=False):
+    """
+    Perform inference on an audio file using a trained FCNN model.
     
-#     Args:
-#         audio_path (str): Path to the audio file to analyze
-#         model_class (type): Class of the CNN model to use (e.g., OldBirdCNN)
-#         model_weights_path (str): Path to the .pth model weights file
-#         mapping_csv (str): Path to CSV file with columns: class_id, scientific_name, common_name
-#         reduce_noise (bool): Whether to apply noise reduction to audio segments
+    This function processes an audio file by:
+    1. Extracting grayscale log-mel-spectrogram segment_matrices for each usable segment
+    2. Flattening each matrix into a vector for FCNN input
+    3. Loading the pretrained FCNN model
+    4. Running inference on each flattened segment individually
+    5. Returning the average softmax probabilities across all segments
     
-#     Returns:
-#         dict: Dictionary containing predicted class_id, common_name, scientific_name, and confidence
+    Args:
+        audio_path (str): Path to the audio file to analyze
+        model_class (type): Class of the FCNN model to use
+        model_path (str): Path to the .pth model weights file
+        reduce_noise (bool): Whether to apply noise reduction to audio segments
+    
+    Returns:
+        list: Average softmax probabilities for each of the NUM_CLASSES classes (indices 0-26)
         
-#     Raises:
-#         FileNotFoundError: If mapping_csv doesn't exist
-#         ValueError: If mapping CSV doesn't have required columns
-#     """
+    Raises:
+        FileNotFoundError: If audio_path or model_path don't exist
+        ValueError: If no usable segments are extracted from the audio
+    """
     
-#     # Validate mapping CSV file
-#     if not os.path.exists(mapping_csv):
-#         raise FileNotFoundError(f"Mapping CSV file not found: {mapping_csv}")
+    # Validate input files
+    if not os.path.exists(audio_path):
+        raise FileNotFoundError(f"Audio file not found: {audio_path}")
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model weights file not found: {model_path}")
     
-#     # Load mapping CSV
-#     try:
-#         mapping_df = pd.read_csv(mapping_csv)
-#         required_columns = ['class_id', 'scientific_name', 'common_name']
-#         if not all(col in mapping_df.columns for col in required_columns):
-#             raise ValueError(f"Mapping CSV must contain columns: {required_columns}")
-#     except Exception as e:
-#         raise ValueError(f"Error reading mapping CSV: {e}")
+    # print(f"Starting FCNN inference for: {audio_path}")
     
-#     # Get average probabilities from inference
-#     average_probabilities = perform_audio_inference(audio_path, model_class, model_weights_path, reduce_noise)
+    # Step 1: Extract segment_matrices from audio using audio_process
+    segment_matrices = audio_process(audio_path, reduce_noise=reduce_noise)
     
-#     # Find the class with highest probability
-#     predicted_class_id = np.argmax(average_probabilities)
-#     confidence = average_probabilities[predicted_class_id]
-#     confidence_pct = confidence * 100
+    if not segment_matrices:
+        raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
     
-#     # Get bird information from mapping
-#     bird_info = mapping_df[mapping_df['class_id'] == predicted_class_id]
+    # print(f"Extracted {len(segment_matrices)} segments for FCNN inference")
     
-#     if bird_info.empty:
-#         raise ValueError(f"Class ID {predicted_class_id} not found in mapping CSV")
+    # Step 2: Load the model
+    model, device = load_model_weights(model_class, model_path, num_classes=NUM_CLASSES)
+    # print(f"FCNN model loaded on device: {device}")
     
-#     common_name = bird_info.iloc[0]['common_name']
-#     scientific_name = bird_info.iloc[0]['scientific_name']
+    # Step 3 & 4: Process each segment individually and perform inference
+    all_probabilities = []
     
-#     # # Print results
-#     # print(f"Predicted Bird is {common_name} ({scientific_name}), confidence of {confidence_pct:.2f}%")
+    with torch.no_grad():
+        for i, segment_matrix in enumerate(segment_matrices):
+            # Flatten the matrix into a vector for FCNN
+            segment_vector = segment_matrix.flatten()
+            
+            # Convert single segment vector to tensor
+            input_tensor = vectors_to_tensor(segment_vector, device)
+            
+            # Run inference on the single flattened segment
+            logits = model(input_tensor)
+            probabilities = torch.softmax(logits, dim=1)  # Shape: (1, NUM_CLASSES)
+            
+            # Convert to numpy and store
+            probabilities_np = probabilities.cpu().numpy()[0]  # Shape: (NUM_CLASSES,)
+            all_probabilities.append(probabilities_np)
     
-#     # Return structured results
-#     return {
-#         'class_id': int(predicted_class_id),
-#         'common_name': common_name,
-#         'scientific_name': scientific_name,
-#         'confidence': float(confidence),
-#         'confidence_prct': float(confidence_pct)
-#     }
+    # Step 5: Calculate average probabilities across all segments
+    all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, NUM_CLASSES)
+    average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (NUM_CLASSES,)
+    
+    # print(f"FCNN inference completed. Processed {len(all_probabilities)} segments")
+    # print(f"Average probabilities calculated for NUM_CLASSES classes")
+    
+    # Return as list for classes 0-26
+    return average_probabilities.tolist()
+
+def infer_model_direct(audio_path, model):
+    """
+    Perform inference on an audio file using a trained CNN model.
+    
+    This function processes an audio file by:
+    1. Extracting grayscale log-mel-spectrogram segment_matrices for each usable segment
+    2. Loading the pretrained CNN model
+    3. Running inference on each segment individually
+    4. Returning the average softmax probabilities across all segments
+    
+    Args:
+        audio_path (str): Path to the audio file to analyze
+        model_class (type): Class of the CNN model to use (e.g., OldBirdCNN)
+        model_path (str): Path to the .pth model weights file
+        reduce_noise (bool): Whether to apply noise reduction to audio segments
+    
+    Returns:
+        list: Average softmax probabilities for each of the NUM_CLASSES classes (indices 0-26)
+        
+    Raises:
+        FileNotFoundError: If audio_path or model_path don't exist
+        ValueError: If no usable segments are extracted from the audio
+    """
+    
+    # print(f"Starting inference for: {audio_path}")
+    
+    # Step 1: Extract segment_matrices from audio using audio_process
+    segment_matrices = audio_process(audio_path, reduce_noise=False)
+    
+    if not segment_matrices:
+        raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
+    
+    # Step 3 & 4: Process each segment individually and perform inference
+    all_probabilities = []
+    
+    with torch.no_grad():
+        for i, segment_matrix in enumerate(segment_matrices):
+            # Convert single segment to tensor
+            input_tensor = matrices_to_tensor(segment_matrix, device='cuda')
+            
+            # Run inference on the single segment
+            logits = model(input_tensor)
+            probabilities = torch.softmax(logits, dim=1)  # Shape: (1, NUM_CLASSES)
+            
+            # Convert to numpy and store
+            probabilities_np = probabilities.cpu().numpy()[0]  # Shape: (NUM_CLASSES,)
+            all_probabilities.append(probabilities_np)
+    
+    # Step 5: Calculate average probabilities across all segments
+    all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, NUM_CLASSES)
+    average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (NUM_CLASSES,)
+    
+    # print(f"Inference completed. Processed {len(all_probabilities)} segments")
+    # print(f"Average probabilities calculated for NUM_CLASSES classes")
+    
+    # Return as list for classes 0-26
+    return average_probabilities.tolist()
