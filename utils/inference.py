@@ -1,10 +1,7 @@
 import os
 import sys
 import torch
-import torch.nn as nn
 import numpy as np
-import pandas as pd
-from utils.oldmodels import OldBirdCNN
 from utils.data_processing import audio_process
 
 NUM_CLASSES = 33  # Default number of classes, can be overridden

@@ -2,6 +2,7 @@ import os
 import sys
 import numpy as np
 import pandas as pd
+import pathlib
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from utils.inference import perform_audio_inference
@@ -72,8 +73,10 @@ def process_audio(path):
         dict: Inference results
     """
     model_class = BirdCNN_v5c
-    repo_root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    model_path = os.path.join(repo_root_path, 'models', 'bird_cnn.pth')
-    mapping_csv = os.path.join(repo_root_path, 'mapping', 'class_mapping.csv')
+    repo_root_path = pathlib.Path(__file__).resolve().parent.parent.parent
+    model_path = repo_root_path / 'models' / 'bird_cnn.pth'
+    mapping_csv = repo_root_path / 'mapping' / 'class_mapping.csv'
+    model_path = str(model_path)
+    mapping_csv = str(mapping_csv)
     
     return predict_bird(path, model_class, model_path, mapping_csv)
