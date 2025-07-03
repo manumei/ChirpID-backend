@@ -234,7 +234,7 @@ def perform_audio_inference_fcnn(audio_path, model_class, model_path, reduce_noi
     # Return as list for classes 0-26
     return average_probabilities.tolist()
 
-def infer_model_direct(audio_path, model, reduce_noise=False):
+def infer_model_direct(audio_path, model):
     """
     Perform inference on an audio file using a trained CNN model.
     
@@ -261,7 +261,7 @@ def infer_model_direct(audio_path, model, reduce_noise=False):
     # print(f"Starting inference for: {audio_path}")
     
     # Step 1: Extract segment_matrices from audio using audio_process
-    segment_matrices = audio_process(audio_path, reduce_noise=reduce_noise)
+    segment_matrices = audio_process(audio_path, reduce_noise=False)
     
     if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
@@ -272,7 +272,7 @@ def infer_model_direct(audio_path, model, reduce_noise=False):
     with torch.no_grad():
         for i, segment_matrix in enumerate(segment_matrices):
             # Convert single segment to tensor
-            input_tensor = matrices_to_tensor(segment_matrix, device=model.device)
+            input_tensor = matrices_to_tensor(segment_matrix, device='cuda')
             
             # Run inference on the single segment
             logits = model(input_tensor)
