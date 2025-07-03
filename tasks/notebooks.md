@@ -27,9 +27,12 @@ Takes the spectrograms from the specs/ folder, and gets the images into vector f
 .
 tell copilot:
 
-... add:
+Complete and update this with information about each notebook in notebooks/ 
+Also add the new ones:
 - ModelConfiguring.ipynb (for testing parameter configurations)
 - ModelBuilding.ipynb (for testing architectures)
+- ModelTweaking.ipynb (for final tweaks on the top candidates)
+- SweepingFCNN (for sweeps on FCNNs to find best model)
 - TrainingCNN.ipynb (final training and model saving for the CNN candidates)
 - TrainingFCNN.ipynb (final training and model saving for the FCNN candidate)
 - ModelTesting.ipynb (final tests with each pre-trained model)
