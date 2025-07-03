@@ -12,6 +12,7 @@ services:
     volumes:
       - ./app/uploads:/app/app/uploads:rw
       - ./database:/app/database
+      - ./models/bird_cnn.pth:/app/models/bird_cnn.pth:ro
     networks:
       - app-network
     healthcheck:
