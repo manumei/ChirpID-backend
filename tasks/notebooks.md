@@ -24,15 +24,30 @@ Reads the extracted audio segments from database/audio_segments/ using the metad
 
 Takes the spectrograms from the specs/ folder, and gets the images into vector form with the grayscale of all the pixels, so they can be given to a Fully-Connected Neural Network for training. It loads the pixel info into a CSV so they can then be read & extracted into flat vectors for the FCNN without having to re-run this notebook again. The target CSV (at database/meta/train_data.csv) has a row for each sample, with the columns 'label' (class_id), and then all the pixel elements of the spectrogram.
 
-.
-tell copilot:
+### 6. [ModelConfiguring.ipynb](../notebooks/ModelConfiguring.ipynb) | Status: Finished ☑️
 
-Complete and update this with information about each notebook in notebooks/ 
-Also add the new ones:
-- ModelConfiguring.ipynb (for testing parameter configurations)
-- ModelBuilding.ipynb (for testing architectures)
-- ModelTweaking.ipynb (for final tweaks on the top candidates)
-- SweepingFCNN (for sweeps on FCNNs to find best model)
-- TrainingCNN.ipynb (final training and model saving for the CNN candidates)
-- TrainingFCNN.ipynb (final training and model saving for the FCNN candidate)
-- ModelTesting.ipynb (final tests with each pre-trained model)
+Tests different parameter configurations for neural network models. Experiments with various hyperparameters like learning rates, batch sizes, optimizers, and regularization techniques to find optimal configurations before full model training. This notebook helps identify the best parameter settings for each model architecture.
+
+### 7. [ModelBuilding.ipynb](../notebooks/ModelBuilding.ipynb) | Status: Finished ☑️
+
+Focuses on testing different neural network architectures for bird classification. Experiments with various model designs including different layer configurations, activation functions, and architectural patterns like residual connections, attention mechanisms, and ensemble approaches to determine the most effective model structures.
+
+### 8. [ModelTweaking.ipynb](../notebooks/ModelTweaking.ipynb) | Status: Finished ☑️
+
+Performs final optimization and fine-tuning on the top-performing model candidates identified from previous experiments. Applies advanced techniques like learning rate scheduling, data augmentation, and model ensembling to squeeze out the best possible performance from the most promising architectures.
+
+### 9. [SweepingFCNN.ipynb](../notebooks/SweepingFCNN.ipynb) | Status: Finished ☑️
+
+Conducts comprehensive hyperparameter sweeps and systematic evaluation of Fully-Connected Neural Network (FCNN) variants. Tests multiple FCNN architectures (v0 through v10) with different configurations to identify the best-performing FCNN model. Includes performance comparison, model saving, and detailed analysis of results across different network designs.
+
+### 10. [TrainingCNN.ipynb](../notebooks/TrainingCNN.ipynb) | Status: Finished ☑️
+
+Handles the final training and model saving for the best Convolutional Neural Network (CNN) candidates. Trains the selected CNN architectures on the full dataset with optimized parameters, implements proper validation procedures, and saves the trained models for deployment and testing.
+
+### 11. [TrainingFCNN.ipynb](../notebooks/TrainingFCNN.ipynb) | Status: Finished ☑️
+
+Manages the final training and model saving for the best-performing Fully-Connected Neural Network (FCNN) candidate identified from the sweeping process. Trains the selected FCNN architecture with optimal hyperparameters, validates performance, and saves the final trained model for production use.
+
+### 12. [ModelTesting.ipynb](../notebooks/ModelTesting.ipynb) | Status: Finished ☑️
+
+Conducts comprehensive evaluation and testing of all pre-trained models (both CNN and FCNN variants). Performs final validation on test datasets, generates performance metrics, confusion matrices, and comparison analyses. This notebook provides the final assessment of model performance and helps select the best model for deployment.
