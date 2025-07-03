@@ -168,7 +168,7 @@ def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
     segments_df = pd.read_csv(segments_csv_path)
     segments = []
     
-    print(f"Loading {len(segments_df)} audio segments from {segments_dir}")
+    # print(f"Loading {len(segments_df)} audio segments from {segments_dir}")
     
     for _, row in segments_df.iterrows():
         segment_path = os.path.join(segments_dir, row['filename'])
@@ -196,7 +196,7 @@ def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
             print(f"Error loading segment {row['filename']}: {e}")
             continue
     
-    print(f"Loaded {len(segments)} audio segments from disk")
+    # print(f"Loaded {len(segments)} audio segments from disk")
     return segments
 
 # Audio File Loading and Segmentation
@@ -452,7 +452,7 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
     Step 4: Generate a Spectrogram grayscale matrix for each segment. (using get_spec_matrix_direct)
     """
     matrices = []
-    print(f"Processing audio file: {audio_path}")
+    # print(f"Processing audio file: {audio_path}")
     samples_per_segment = int(sr * segment_sec)
 
     # Step 1
@@ -469,14 +469,10 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
             # print(f"Segment at {start} has {seg_rms} RMS, below threshold {threshold}. Skipping...")
             continue
 
-        # Step 3
-        if reduce_noise:
-            segment = reduce_noise_seg(segment, srate, os.path.basename(audio_path), class_id=None)
-
         # Step 4
         filename = os.path.basename(audio_path)
         matrix = get_spec_matrix_direct(segment, srate, mels, hop_len, nfft)
         matrices.append(matrix)
     
-    print(f"Processed {len(matrices)} segments from {audio_path}")
+    # print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
