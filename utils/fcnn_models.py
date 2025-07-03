@@ -81,10 +81,10 @@ class BirdFCNN(nn.Module):
             predictions = torch.argmax(logits, dim=1)
             return predictions
 
-    def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
+    def train_model(self, trainX, trainY, valX=None, valY=None, epochs=200, 
                     lr=0.001, batch_size=32, optimizer_type='adam', 
                     l2_lambda=0.0, early_stopping=True, patience=10, 
-                    eval_interval=10, lr_schedule=None, class_weights=None, device='cuda'):
+                    eval_interval=1, lr_schedule=None, class_weights=None, device='cuda'):
         
         self.to(device)
         trainX = torch.tensor(trainX, dtype=torch.float32, device=device)
@@ -221,7 +221,7 @@ class BirdFCNN_v0(BirdFCNN):
     def train_model(self, trainX, trainY, valX=None, valY=None, epochs=100, 
                     lr=0.01, batch_size=64, optimizer_type='sgd', 
                     l2_lambda=1e-3, early_stopping=True, patience=10, 
-                    eval_interval=10, lr_schedule=None, class_weights=None, device='cuda'):
+                    eval_interval=1, lr_schedule=None, class_weights=None, device='cuda'):
         """Original baseline with SGD and standard parameters"""
         return super().train_model(
             trainX=trainX, trainY=trainY, valX=valX, valY=valY,
