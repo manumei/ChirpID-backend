@@ -16,6 +16,7 @@ matplotlib==3.10.3
 librosa==0.11.0
 soundfile==0.13.1
 audioread==3.0.1
+noisereduce==3.0.3
 
 # PyTorch for model inference (CPU-only, smaller downloads)
 --extra-index-url https://download.pytorch.org/whl/cpu

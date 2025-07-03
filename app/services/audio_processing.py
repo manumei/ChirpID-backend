@@ -2,16 +2,141 @@ import os
 import sys
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import librosa
+import noisereduce as nr
 
-# Add the parent directory to sys.path to import utils
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+class OldBirdCNN(nn.Module):
+    def __init__(self, num_classes=28, dropout_p=0.3):
+        super(OldBirdCNN, self).__init__()
+        self.net = nn.Sequential(
+            # Block 1: no early downsampling
+            nn.Conv2d(1, 32, kernel_size=3, padding=1),   # [32, 313, 224]
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, padding=1),  # [32, 313, 224]
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2),                              # [32, 156, 112]
 
-from utils.oldmodels import OldBirdCNN
-from utils.data_processing import audio_process
+            # Block 2
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),  # [64, 156, 112]
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2),                              # [64, 78, 56]
+
+            # Block 3
+            nn.Conv2d(64, 128, kernel_size=3, padding=1), # [128, 78, 56]
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2),                              # [128, 39, 28]
+
+            nn.Flatten(),                                 # [128 * 39 * 28 = 139776]
+            nn.Linear(128 * 39 * 28, 256),
+            nn.ReLU(),
+            nn.Dropout(dropout_p),
+            nn.Linear(256, num_classes)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+def lbrs_loading(audio_path, sr, mono=True):
+    """Load audio file using librosa with sample rate validation."""
+    y, srate = librosa.load(audio_path, sr=sr, mono=mono)
+    if srate != sr:
+        raise ValueError(f"Sample rate mismatch: expected {sr}, got {srate}, at audio file {audio_path}")
+    return y, srate
+
+def get_rmsThreshold(y, frame_len, hop_len, thresh_factor=0.5):
+    """Calculate RMS energy threshold for audio segmentation."""
+    rms = librosa.feature.rms(y=y, frame_length=frame_len, hop_length=hop_len)[0]
+    threshold = thresh_factor * np.mean(rms)
+    return threshold
+
+def reduce_noise_seg(segment, srate, filename, class_id):
+    """Apply noise reduction to audio segment."""
+    try:
+        segment = nr.reduce_noise(y=segment, sr=srate, stationary=False)
+    except RuntimeWarning as e:
+        print(f"RuntimeWarning while reducing noise for segment in {filename} from {class_id}: {e}")
+    except Exception as e:
+        print(f"Error while reducing noise for segment in {filename} from {class_id}: {e}")
+    return segment
+
+def get_spec_norm(segment, sr, mels, hoplen, nfft):
+    """Generate normalized mel spectrogram."""
+    spec = librosa.feature.melspectrogram(y=segment, sr=sr, n_mels=mels, hop_length=hoplen, n_fft=nfft)
+    spec_db = librosa.power_to_db(spec, ref=np.max)
+    
+    # Check for invalid values or zero range
+    if np.any(np.isnan(spec_db)) or np.any(np.isinf(spec_db)):
+        raise ValueError("Spectrogram contains NaN or infinite values")
+    
+    spec_min = spec_db.min()
+    spec_max = spec_db.max()
+    spec_range = spec_max - spec_min
+    
+    # Check for zero range (all values are the same)
+    if spec_range == 0 or spec_range < 1e-8:
+        raise ValueError("Spectrogram has zero or near-zero dynamic range")
+    
+    norm_spec = (spec_db - spec_min) / spec_range
+    
+    # Final validation
+    if np.any(np.isnan(norm_spec)) or np.any(np.isinf(norm_spec)):
+        raise ValueError("Normalized spectrogram contains invalid values")
+    
+    return norm_spec
+
+def get_spec_matrix_direct(segment, sr, mels, hoplen, nfft):
+    """Get spectrogram matrix directly from segment and params."""
+    norm_spec = get_spec_norm(segment, sr, mels, hoplen, nfft)
+    matrix = (norm_spec * 255).astype(np.uint8)
+    return matrix
+
+def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
+                frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.75):
+    """
+    Takes the path to an audio file (any format) and processes it to finally return 
+    the list of grayscale spectrogram pixel matrices for each of its high-RMS segments.
+
+    Step 1: Load the audio file with librosa. (using lbrs_loading)
+    Step 2: Split into high-RMS segments of 5 seconds. (using get_rmsThreshold)
+    Step 3: Reduce noise for each segment if reduce_noise is True. (using reduce_noise_seg)
+    Step 4: Generate a Spectrogram grayscale matrix for each segment. (using get_spec_matrix_direct)
+    """
+    matrices = []
+    print(f"Processing audio file: {audio_path}")
+    samples_per_segment = int(sr * segment_sec)
+
+    # Step 1
+    y, srate = lbrs_loading(audio_path, sr)
+
+    # Step 2
+    threshold = get_rmsThreshold(y, frame_len, hop_len, thresh_factor=thresh)
+
+    for start in range(0, len(y) - samples_per_segment + 1, samples_per_segment):
+        segment = y[start:start + samples_per_segment]
+        seg_rms = np.mean(librosa.feature.rms(y=segment)[0])
+        
+        if seg_rms < threshold:
+            # print(f"Segment at {start} has {seg_rms} RMS, below threshold {threshold}. Skipping...")
+            continue
+
+        # Step 3
+        if reduce_noise:
+            segment = reduce_noise_seg(segment, srate, os.path.basename(audio_path), class_id=None)
+
+        # Step 4
+        filename = os.path.basename(audio_path)
+        matrix = get_spec_matrix_direct(segment, srate, mels, hop_len, nfft)
+        matrices.append(matrix)
+    
+    print(f"Processed {len(matrices)} segments from {audio_path}")
+    return matrices
 
 def load_model_weights(model_class, model_path, num_classes=28, device=None):
     """
@@ -64,58 +189,6 @@ def matrices_to_tensor(segment_matrix, device):
     
     return tensor
 
-def plot_segment_probabilities(all_probabilities, save_path=None):
-    """
-    Plot probabilities for each segment across all classes. Creates one plot per segment.
-    
-    Args:
-        all_probabilities (numpy.ndarray): Array of shape (num_segments, 28) containing probabilities
-        save_path (str, optional): Directory path to save the plots. If None, displays the plots.
-    """
-    num_segments = all_probabilities.shape[0]
-    num_classes = all_probabilities.shape[1]
-    
-    for segment_idx in range(num_segments):
-        plt.figure(figsize=(12, 6))
-        
-        # Get probabilities for this segment
-        segment_probs = all_probabilities[segment_idx]
-        class_indices = np.arange(num_classes)
-        
-        # Create bar plot
-        bars = plt.bar(class_indices, segment_probs, color='skyblue', alpha=0.7)
-        
-        # Highlight the highest probability
-        max_prob_idx = np.argmax(segment_probs)
-        bars[max_prob_idx].set_color('orange')
-        
-        plt.title(f'Segment {segment_idx + 1} - Class Probabilities')
-        plt.xlabel('Bird Class ID')
-        plt.ylabel('Probability')
-        plt.xticks(class_indices)
-        plt.ylim(0, 1)
-        plt.grid(True, alpha=0.3)
-        
-        # Add probability values on top of bars for highest probabilities
-        for i, prob in enumerate(segment_probs):
-            if prob > 0.1:  # Only show labels for probabilities > 10%
-                plt.text(i, prob + 0.01, f'{prob:.3f}', ha='center', va='bottom', fontsize=8)
-        
-        plt.tight_layout()
-        
-        if save_path:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            plot_filename = os.path.join(save_path, f'segment_{segment_idx + 1}_probabilities.png')
-            plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
-            print(f"Plot for segment {segment_idx + 1} saved to: {plot_filename}")
-        else:
-            plt.show()
-        
-        plt.close()
-    
-    print(f"Created {num_segments} probability plots")
-
 def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=True):
     """
     Perform inference on an audio file using a trained CNN model.
@@ -145,21 +218,15 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Tr
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model weights file not found: {model_path}")
-    
-    print(f"Starting inference for: {audio_path}")
-    
+        
     # Step 1: Extract segment_matrices from audio using audio_process
     segment_matrices = audio_process(audio_path, reduce_noise=reduce_noise)
     
     if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
     
-    print(f"Extracted {len(segment_matrices)} segments for inference")
-    
     # Step 2: Load the model
-    model, device = load_model_weights(model_class, model_path, num_classes=28)
-    print(f"Model loaded on device: {device}")
-    
+    model, device = load_model_weights(model_class, model_path, num_classes=28)    
     # Step 3 & 4: Process each segment individually and perform inference
     all_probabilities = []
     
@@ -179,12 +246,6 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Tr
     # Step 5: Calculate average probabilities across all segments
     all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, 28)
     average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (28,)
-    
-    print(f"Inference completed. Processed {len(all_probabilities)} segments")
-    print(f"Average probabilities calculated for 28 classes")
-    
-    # Plot segment probabilities
-    plot_segment_probabilities(all_probabilities)
     
     # Return as list for classes 0-26
     return average_probabilities.tolist()
@@ -237,9 +298,6 @@ def predict_bird(audio_path, model_class, model_path, mapping_csv, reduce_noise=
     common_name = bird_info.iloc[0]['common_name']
     scientific_name = bird_info.iloc[0]['scientific_name']
     
-    # # Print results
-    # print(f"Predicted Bird is {common_name} ({scientific_name}), confidence of {confidence_pct:.2f}%")
-    
     # Return structured results
     return {
         'species': common_name,
@@ -247,7 +305,7 @@ def predict_bird(audio_path, model_class, model_path, mapping_csv, reduce_noise=
         'confidence': float(confidence),
     }
 
-def inferencia_prueba(path):
+def process_audio(path):
     """
     Test function to demonstrate inference on a sample audio file.
     
@@ -260,12 +318,6 @@ def inferencia_prueba(path):
     model_class = OldBirdCNN
     repo_root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     model_path = os.path.join(repo_root_path, 'models', 'bird_cnn.pth')
-    mapping_csv = os.path.join(repo_root_path, 'database', 'meta', 'class_mapping.csv')
+    mapping_csv = os.path.join(repo_root_path, 'mapping', 'class_mapping.csv')
     
     return predict_bird(path, model_class, model_path, mapping_csv, reduce_noise=True)
-
-path = os.path.join('database', 'audio', 'dev', 'XC73767.ogg')
-if __name__ == "__main__":
-    # Example usage
-    result = inferencia_prueba(path)
-    print(result)
