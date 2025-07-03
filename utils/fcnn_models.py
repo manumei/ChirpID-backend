@@ -385,6 +385,8 @@ class BirdFCNN_v2(nn.Module):
         train_f1s, val_f1s = [], []
         
         for epoch in range(epochs):
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch+1}/{epochs}")
             self.train()
             indices = torch.randperm(trainX.size(0))
             for i in range(0, trainX.size(0), 32):
