@@ -153,8 +153,6 @@ class BirdFCNN(nn.Module):
                     if epoch % 30 == 0:
                         print(f"Epoch {epoch+1}/{epochs} - Train Loss: {train_loss:.4f} - Acc: {train_acc:.4f} - F1: {train_f1:.4f}", end="")
                         print(f" - Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f} - Val F1: {val_f1:.4f}")
-                    else:
-                        print()
 
                 if early_stopping and valX is not None:
                     if val_loss < best_val_loss:
