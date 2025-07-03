@@ -26,11 +26,11 @@ Takes the spectrograms from the specs/ folder, and gets the images into vector f
 
 ### 6. [ModelConfiguring.ipynb](../notebooks/ModelConfiguring.ipynb) | Status: Finished ☑️
 
-Tests different parameter configurations for neural network models. Experiments with various hyperparameters like learning rates, batch sizes, optimizers, and regularization techniques to find optimal configurations before full model training. This notebook helps identify the best parameter settings for each model architecture.
+Tests different parameter configurations for Convolutional Neural Network models. Experiments with various hyperparameters like learning rates, batch sizes, optimizers, and regularization techniques to find optimal configurations before full model training. This notebook helps identify the best parameter settings for each model architecture.
 
 ### 7. [ModelBuilding.ipynb](../notebooks/ModelBuilding.ipynb) | Status: Finished ☑️
 
-Focuses on testing different neural network architectures for bird classification. Experiments with various model designs including different layer configurations, activation functions, and architectural patterns like residual connections, attention mechanisms, and ensemble approaches to determine the most effective model structures.
+Focuses on testing different Convolutional Neural Network architectures. Experiments with various model designs including different layer configurations, activation functions, and architectural patterns like residual connections, attention mechanisms, and ensemble approaches to determine the most effective model structures.
 
 ### 8. [ModelTweaking.ipynb](../notebooks/ModelTweaking.ipynb) | Status: Finished ☑️
 
