@@ -440,7 +440,7 @@ def get_spec_matrix_direct(segment, sr, mels, hoplen, nfft):
     matrix = np.clip(norm_spec, 0.0, 1.0).astype(np.float32)
     return matrix
 
-def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
+def audio_process(audio_path, sr=32000, segment_sec=5.0,
                 frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.75):
     """
     Takes the path to an audio file (any format) and processes it to finally return 
@@ -480,7 +480,7 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
 if __name__ == "__main__":
     # Example usage
     audio_path = "database/audio/dev/XC112710.ogg"
-    matrices = audio_process(audio_path, reduce_noise=True)
+    matrices = audio_process(audio_path)
     
     # Preview first matrix
     if matrices:

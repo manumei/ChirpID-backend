@@ -90,7 +90,7 @@ def vectors_to_tensor(segment_vector, device):
     
     return tensor
 
-def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=False):
+def perform_audio_inference(audio_path, model_class, model_path):
     """
     Perform inference on an audio file using a trained CNN model.
     
@@ -104,7 +104,6 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Fa
         audio_path (str): Path to the audio file to analyze
         model_class (type): Class of the CNN model to use (e.g., OldBirdCNN)
         model_path (str): Path to the .pth model weights file
-        reduce_noise (bool): Whether to apply noise reduction to audio segments
     
     Returns:
         list: Average softmax probabilities for each of the NUM_CLASSES classes (indices 0-26)
@@ -123,7 +122,7 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Fa
     # print(f"Starting inference for: {audio_path}")
     
     # Step 1: Extract segment_matrices from audio using audio_process
-    segment_matrices = audio_process(audio_path, reduce_noise=reduce_noise)
+    segment_matrices = audio_process(audio_path)
     
     if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
@@ -160,7 +159,7 @@ def perform_audio_inference(audio_path, model_class, model_path, reduce_noise=Fa
     # Return as list for classes 0-26
     return average_probabilities.tolist()
 
-def perform_audio_inference_fcnn(audio_path, model_class, model_path, reduce_noise=False):
+def perform_audio_inference_fcnn(audio_path, model_class, model_path):
     """
     Perform inference on an audio file using a trained FCNN model.
     
@@ -175,7 +174,6 @@ def perform_audio_inference_fcnn(audio_path, model_class, model_path, reduce_noi
         audio_path (str): Path to the audio file to analyze
         model_class (type): Class of the FCNN model to use
         model_path (str): Path to the .pth model weights file
-        reduce_noise (bool): Whether to apply noise reduction to audio segments
     
     Returns:
         list: Average softmax probabilities for each of the NUM_CLASSES classes (indices 0-26)
@@ -194,7 +192,7 @@ def perform_audio_inference_fcnn(audio_path, model_class, model_path, reduce_noi
     # print(f"Starting FCNN inference for: {audio_path}")
     
     # Step 1: Extract segment_matrices from audio using audio_process
-    segment_matrices = audio_process(audio_path, reduce_noise=reduce_noise)
+    segment_matrices = audio_process(audio_path)
     
     if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
@@ -248,7 +246,6 @@ def infer_model_direct(audio_path, model):
         audio_path (str): Path to the audio file to analyze
         model_class (type): Class of the CNN model to use (e.g., OldBirdCNN)
         model_path (str): Path to the .pth model weights file
-        reduce_noise (bool): Whether to apply noise reduction to audio segments
     
     Returns:
         list: Average softmax probabilities for each of the NUM_CLASSES classes (indices 0-26)
@@ -261,7 +258,7 @@ def infer_model_direct(audio_path, model):
     # print(f"Starting inference for: {audio_path}")
     
     # Step 1: Extract segment_matrices from audio using audio_process
-    segment_matrices = audio_process(audio_path, reduce_noise=False)
+    segment_matrices = audio_process(audio_path)
     
     if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
