@@ -2,17 +2,11 @@ import os
 import sys
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 import librosa
 import noisereduce as nr
-
-# Add the parent directory to sys.path to import utils
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 class OldBirdCNN(nn.Module):
     def __init__(self, num_classes=28, dropout_p=0.3):
@@ -143,7 +137,6 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
     
     print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
-
 
 def load_model_weights(model_class, model_path, num_classes=28, device=None):
     """
