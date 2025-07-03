@@ -49,7 +49,7 @@ def get_confusion_matrix(model, data_loader, device, num_classes):
     
     return cm, predictions_tensor, targets_tensor
 
-def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(12, 10), show_counts=False):
+def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsize=(15, 10), show_counts=False):
     """
     Plot confusion matrix showing percentages and optionally counts.
     
@@ -114,3 +114,88 @@ def plot_confusion_matrix(cm, class_names=None, title="Confusion Matrix", figsiz
     plt.tight_layout()
     plt.show()
     plt.close()  # Free figure memory
+
+def plot_metric_vs_epochs(train_values, val_values, metric_name, ax=None):
+    """
+    Helper function to plot training and validation metrics over epochs.
+    
+    Args:
+        train_values: List of training metric values
+        val_values: List of validation metric values
+        metric_name: Name of the metric for labeling
+        ax: Matplotlib axis to plot on (if None, creates new figure)
+    """
+    epochs = range(1, len(train_values) + 1)
+    
+    if ax is None:
+        plt.figure(figsize=(8, 6))
+        ax = plt.gca()
+    
+    ax.plot(epochs, train_values, 'b-', label=f'Training {metric_name}', linewidth=2)
+    ax.plot(epochs, val_values, 'r-', label=f'Validation {metric_name}', linewidth=2)
+    ax.set_xlabel('Epochs')
+    ax.set_ylabel(metric_name)
+    ax.set_title(f'{metric_name} vs Epochs')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+def plot_full_metrics(config_id, history: dict, cm: np.ndarray):
+    """ Plots all the relevant metrics from the training history.
+    Plots a 2x2 grid of subplots: Losses, Accuracies, F1 Scores and Confusion Matrix
+
+    Args:
+        config_id: Configuration identifier for the plot title
+        history (dict): Dictionary containing training history with the keys:
+            - 'train_losses': List of training losses
+            - 'val_losses': List of validation losses
+            - 'train_accuracies': List of training accuracies
+            - 'val_accuracies': List of validation accuracies
+            - 'train_f1s': List of training F1 scores
+            - 'val_f1s': List of validation F1 scores
+        cm (np.ndarray): Confusion matrix to be plotted
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(15, 8))
+    fig.suptitle(f'Metrics of {config_id}', fontsize=16, fontweight='bold')
+    
+    # [0, 0] Plot training and validation losses over epochs
+    plot_metric_vs_epochs(history['train_losses'], history['val_losses'], 'Loss', axes[0, 0])
+    
+    # [0, 1] Plot training and validation accuracies over epochs
+    plot_metric_vs_epochs(history['train_accuracies'], history['val_accuracies'], 'Accuracy', axes[0, 1])
+    
+    # [1, 0] Plot training and validation F1 scores over epochs
+    plot_metric_vs_epochs(history['train_f1s'], history['val_f1s'], 'F1 Score', axes[1, 0])
+    
+    # [1, 1] Plot confusion matrix
+    # Convert to numpy if needed
+    if hasattr(cm, 'numpy'):
+        cm = cm.numpy()
+    elif hasattr(cm, 'cpu'):
+        cm = cm.cpu().numpy()
+    
+    # Create heatmap on the subplot with counts
+    sns.heatmap(cm, 
+                annot=True, 
+                fmt='d',
+                cmap='Blues',
+                square=False,  # Allow rectangle shape to use full width
+                cbar_kws={'label': 'Count'},
+                ax=axes[1, 1],
+                annot_kws={'size': 8})  # set number font size here
+    
+    axes[1, 1].set_title('Confusion Matrix', fontsize=12)
+    axes[1, 1].set_ylabel('True Label')
+    axes[1, 1].set_xlabel('Predicted Label')
+    
+    plt.tight_layout()
+    plt.show()
+    plt.close()  # Free figure memory
+
+def plot_metrics(config_id, results):
+    history = results.get('history', {})
+    conf_matrix = results.get('confusion_matrix', None)
+    
+    if not history or conf_matrix is None:
+        raise ValueError(f"Results must contain 'history' and 'confusion_matrix' keys. Currently got: {results}")
+    
+    plot_full_metrics(config_id, history, conf_matrix)

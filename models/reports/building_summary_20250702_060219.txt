@@ -1,0 +1,21 @@
+MODEL BUILDING EXPERIMENT SUMMARY
+==================================================
+
+Timestamp: 20250702_060219
+Total Models Tested: 16
+Total Configurations: 4
+Total Combinations: 64
+Successful Runs: 64
+Success Rate: 100.0%
+
+BEST RESULTS:
+Best Model-Config: BirdCNN_v7_configC
+Best F1 Score: 0.6115
+Best Accuracy: 0.6302
+
+PERFORMANCE STATISTICS:
+Mean F1: 0.3334
+Median F1: 0.3683
+Std F1: 0.1646
+Min F1: 0.0314
+Max F1: 0.6115

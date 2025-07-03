@@ -145,18 +145,3 @@ class OptimalDataLoaderFactory:
             DataLoader: Optimized test DataLoader
         """
         return OptimalDataLoaderFactory.create_validation_loader(dataset, batch_size, **kwargs)
-
-
-class DataLoaderConfigLogger:
-    """Helper class to log DataLoader configurations for debugging."""
-    
-    @staticmethod
-    def log_config(loader_type, config, dataset_size):
-        """Log DataLoader configuration."""
-        print(f"\\n{loader_type} DataLoader Configuration:")
-        print(f"  Dataset size: {dataset_size}")
-        print(f"  Workers: {config.get('num_workers', 0)}")
-        print(f"  Pin memory: {config.get('pin_memory', False)}")
-        print(f"  Persistent workers: {config.get('persistent_workers', False)}")
-        print(f"  Prefetch factor: {config.get('prefetch_factor', 'N/A')}")
-        print(f"  Batch size: {config.get('batch_size', 'N/A')}")

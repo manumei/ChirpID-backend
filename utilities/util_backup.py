@@ -388,7 +388,7 @@ def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
         matrix = get_spec_matrix_direct(segment, srate, mels, hop_len, nfft)
         matrices.append(matrix)
     
-    print(f"Processed {len(matrices)} segments from {audio_path}")
+    # print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
 
 

@@ -40,7 +40,7 @@ def prepare_training_data(data_path=None, features=None, labels=None, authors=No
         # print(f"  Authors shape: {authors.shape}")
         
     elif features is not None and labels is not None and authors is not None:
-        print("Using provided arrays")
+        # print("Using provided arrays")
         if not isinstance(features, np.ndarray) or not isinstance(labels, np.ndarray) or not isinstance(authors, np.ndarray):
             raise TypeError("Features, labels, and authors must be numpy arrays")
         
