@@ -67,11 +67,12 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
         load_method_used = None
         
         # Try multiple loading methods for maximum compatibility
+        # PyTorch 2.6+ changed default weights_only from False to True
+        # We need to explicitly set weights_only=False for older model files
         loading_methods = [
-            ("default", lambda: torch.load(model_path, map_location=device, weights_only=False)),
             ("explicit_weights_false", lambda: torch.load(model_path, map_location=device, weights_only=False)),
             ("with_pickle_module", lambda: torch.load(model_path, map_location=device, weights_only=False, pickle_module=__import__('pickle'))),
-            ("legacy_mode", lambda: torch.load(model_path, map_location=device))
+            ("legacy_explicit", lambda: torch.load(model_path, map_location=device, weights_only=False))
         ]
         
         last_error = None
@@ -132,6 +133,13 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
             logger.error("3. Model file was created with an incompatible Python/PyTorch version")
             logger.error("4. File system corruption or permissions issue")
             logger.error(f"Current PyTorch version: {torch.__version__}")
+        elif "Weights only load failed" in str(e) or "WeightsUnpickler error" in str(e):
+            logger.error("PyTorch 2.6+ weights_only compatibility issue detected")
+            logger.error("This happens when loading models saved with older PyTorch versions")
+            logger.error("The model file contains objects that require weights_only=False")
+            logger.error("This is safe if you trust the model file source (which you should for your own models)")
+            logger.error(f"Current PyTorch version: {torch.__version__}")
+            logger.error("Solution: Ensure all torch.load() calls use weights_only=False explicitly")
         raise
 
 def matrices_to_tensor(segment_matrix, device):

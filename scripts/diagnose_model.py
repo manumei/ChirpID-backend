@@ -94,7 +94,7 @@ def test_pytorch_loading(file_path: str) -> dict:
     
     # Method 1: Default loading
     try:
-        checkpoint = torch.load(file_path, map_location=device)
+        checkpoint = torch.load(file_path, map_location=device, weights_only=False)
         result["load_default"] = True
         print("✓ Default torch.load() succeeded")
     except Exception as e:
@@ -122,7 +122,7 @@ def test_pytorch_loading(file_path: str) -> dict:
     # Method 4: with pickle module
     try:
         import pickle
-        checkpoint = torch.load(file_path, map_location=device, pickle_module=pickle)
+        checkpoint = torch.load(file_path, map_location=device, weights_only=False, pickle_module=pickle)
         result["load_with_pickle"] = True
         print("✓ torch.load() with pickle_module succeeded")
     except Exception as e:
