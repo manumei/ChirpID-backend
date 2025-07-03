@@ -40,10 +40,61 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
     logger.info(f"Model file size: {model_size} bytes ({model_size / (1024*1024):.2f} MB)")
     
     try:
-        # Load the checkpoint
+        # Add extensive diagnostics for model file
+        logger.info("=== MODEL FILE DIAGNOSTICS ===")
+        logger.info(f"PyTorch version: {torch.__version__}")
+        logger.info(f"Model path exists: {os.path.exists(model_path)}")
+        logger.info(f"Model path is file: {os.path.isfile(model_path)}")
+        logger.info(f"Model file readable: {os.access(model_path, os.R_OK)}")
+        
+        # Read first few bytes to check file integrity
+        try:
+            with open(model_path, 'rb') as f:
+                first_bytes = f.read(16)
+                logger.info(f"First 16 bytes of model file: {first_bytes.hex()}")
+                
+                # Check if it looks like a valid PyTorch file (starts with PK for zip format)
+                if first_bytes.startswith(b'PK'):
+                    logger.info("File appears to be a valid ZIP/PyTorch format")
+                else:
+                    logger.warning("File does not appear to be in standard PyTorch format")
+        except Exception as read_error:
+            logger.error(f"Cannot read model file: {read_error}")
+        
+        # Load the checkpoint with additional error handling
         logger.info("Loading PyTorch checkpoint...")
-        checkpoint = torch.load(model_path, map_location=device, weights_only=False)
-        logger.info(f"Checkpoint loaded successfully. Type: {type(checkpoint)}")
+        checkpoint = None
+        load_method_used = None
+        
+        # Try multiple loading methods for maximum compatibility
+        loading_methods = [
+            ("default", lambda: torch.load(model_path, map_location=device, weights_only=False)),
+            ("weights_only_true", lambda: torch.load(model_path, map_location=device, weights_only=True)),
+            ("with_pickle_module", lambda: torch.load(model_path, map_location=device, pickle_module=__import__('pickle'))),
+            ("legacy_mode", lambda: torch.load(model_path, map_location=device))
+        ]
+        
+        last_error = None
+        for method_name, load_func in loading_methods:
+            try:
+                logger.info(f"Trying loading method: {method_name}")
+                checkpoint = load_func()
+                load_method_used = method_name
+                logger.info(f"Successfully loaded with method: {method_name}")
+                break
+            except Exception as method_error:
+                logger.warning(f"Loading method '{method_name}' failed: {method_error}")
+                last_error = method_error
+                continue
+        
+        if checkpoint is None:
+            logger.error("All loading methods failed!")
+            if last_error:
+                raise last_error
+            else:
+                raise RuntimeError("Unable to load model with any method")
+        
+        logger.info(f"Checkpoint loaded successfully with method '{load_method_used}'. Type: {type(checkpoint)}")
         
         # Check if checkpoint is a full model or state dict
         if isinstance(checkpoint, torch.nn.Module):
@@ -75,6 +126,12 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
         if "load key 'v'" in str(e):
             logger.error("This error typically indicates a corrupted or incompatible model file")
             logger.error("The model file may have been saved with a different PyTorch version or is corrupted")
+            logger.error("Common causes:")
+            logger.error("1. Model file was corrupted during transfer to server")
+            logger.error("2. PyTorch version mismatch between training and inference environments")
+            logger.error("3. Model file was created with an incompatible Python/PyTorch version")
+            logger.error("4. File system corruption or permissions issue")
+            logger.error(f"Current PyTorch version: {torch.__version__}")
         raise
 
 def matrices_to_tensor(segment_matrix, device):
