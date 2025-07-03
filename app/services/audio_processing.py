@@ -1,7 +1,9 @@
 import os
+import sys
 import numpy as np
 import pandas as pd
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from utils.inference import perform_audio_inference
 from utils.final_models import BirdCNN_v5c
 
