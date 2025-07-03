@@ -72,6 +72,7 @@ database/
 data/
 app/uploads/
 uploads/
+.pth
 
 # Development scripts
 scripts/
