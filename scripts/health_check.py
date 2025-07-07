@@ -9,7 +9,7 @@ import os
 
 def check_health(base_url="http://localhost:5001", max_attempts=30, delay=2):
     """Check if the health endpoint is responding"""
-    health_url = f"{base_url}/health"
+    health_url = f"{base_url}/api/audio/health"
     
     print(f"Checking health endpoint: {health_url}")
     print(f"Max attempts: {max_attempts}, Delay: {delay}s")
