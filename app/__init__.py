@@ -6,11 +6,9 @@ import os
 def create_app():
     app = Flask(__name__)
     
-    # Enable CORS for local development
-    if os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_DEBUG') == '1':
-        CORS(app, origins=['http://localhost:4321', 'http://127.0.0.1:4321'])
-    else:
-        CORS(app, origins=['http://localhost:4321'])
+    # Enable CORS - nginx handles primary CORS, this is backup
+    # Allow all origins since nginx filters appropriate requests
+    CORS(app, origins='*')
     
     # Add ping route for connection testing
     @app.route("/ping", methods=["GET"])
