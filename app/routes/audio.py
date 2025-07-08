@@ -5,8 +5,6 @@ import logging
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import sys
-import numpy as np
-import pandas as pd
 import pathlib
 
 
@@ -203,96 +201,8 @@ def cleanup_old_files():
 
 # FUNCTIONS FOR AUDIO PROCESSING AND INFERENCE
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from utils.inference import perform_audio_inference
+from utils.front import predict_bird
 from utils.final_models import BirdCNN_v5c
-
-def predict_bird(audio_path, model_class, model_path, mapping_csv):
-    """
-    Predict bird species from audio file and display results with confidence.
-    
-    Args:
-        audio_path (str): Path to the audio file to analyze
-        model_class (type): Class of the CNN model to use (e.g., OldBirdCNN)
-        model_path (str): Path to the .pth model weights file
-        mapping_csv (str): Path to CSV file with columns: class_id, scientific_name, common_name
-    
-    Returns:
-        dict: Dictionary containing predicted class_id, common_name, scientific_name, and confidence
-        
-    Raises:
-        FileNotFoundError: If mapping_csv doesn't exist
-        ValueError: If mapping CSV doesn't have required columns
-    """
-    logger.info(f"Starting predict_bird with audio_path: {audio_path}")
-    logger.info(f"Model class: {model_class.__name__}")
-    logger.info(f"Model path: {model_path}")
-    logger.info(f"Mapping CSV: {mapping_csv}")
-    
-    # Validate mapping CSV file
-    if not os.path.exists(mapping_csv):
-        logger.error(f"Mapping CSV file not found: {mapping_csv}")
-        raise FileNotFoundError(f"Mapping CSV file not found: {mapping_csv}")
-    
-    # Load mapping CSV
-    try:
-        logger.info("Loading mapping CSV...")
-        mapping_df = pd.read_csv(mapping_csv)
-        logger.info(f"Mapping CSV loaded successfully. Shape: {mapping_df.shape}")
-        logger.info(f"Mapping CSV columns: {list(mapping_df.columns)}")
-        
-        required_columns = ['class_id', 'scientific_name', 'common_name']
-        if not all(col in mapping_df.columns for col in required_columns):
-            logger.error(f"Mapping CSV missing required columns. Has: {list(mapping_df.columns)}, Needs: {required_columns}")
-            raise ValueError(f"Mapping CSV must contain columns: {required_columns}")
-        
-        logger.info(f"Number of classes in mapping: {len(mapping_df)}")
-        
-    except Exception as e:
-        logger.error(f"Error reading mapping CSV: {e}", exc_info=True)
-        raise ValueError(f"Error reading mapping CSV: {e}")
-    
-    # Get average probabilities from inference
-    try:
-        logger.info("Starting audio inference...")
-        logger.info(f"Calling perform_audio_inference with:")
-        logger.info(f"  - audio_path: {audio_path}")
-        logger.info(f"  - model_class: {model_class}")
-        logger.info(f"  - model_path: {model_path}")
-        
-        average_probabilities = perform_audio_inference(audio_path, model_class, model_path)
-        logger.info(f"Audio inference completed. Probabilities shape: {average_probabilities.shape if hasattr(average_probabilities, 'shape') else len(average_probabilities)}")
-        logger.info(f"Max probability: {np.max(average_probabilities):.4f}")
-        
-    except Exception as e:
-        logger.error(f"Error during audio inference: {str(e)}", exc_info=True)
-        raise
-    
-    # Find the class with highest probability
-    predicted_class_id = np.argmax(average_probabilities)
-    confidence = average_probabilities[predicted_class_id]
-    
-    logger.info(f"Predicted class ID: {predicted_class_id}")
-    logger.info(f"Confidence: {confidence:.4f}")
-    
-    # Get bird information from mapping
-    bird_info = mapping_df[mapping_df['class_id'] == predicted_class_id]
-    
-    if bird_info.empty:
-        logger.error(f"Class ID {predicted_class_id} not found in mapping CSV")
-        logger.info(f"Available class IDs in mapping: {sorted(mapping_df['class_id'].unique())}")
-        raise ValueError(f"Class ID {predicted_class_id} not found in mapping CSV")
-    
-    common_name = bird_info.iloc[0]['common_name']
-    scientific_name = bird_info.iloc[0]['scientific_name']
-    
-    logger.info(f"Prediction result: {common_name} ({scientific_name}) with confidence {confidence:.4f}")
-    
-    # Return structured results
-    return {
-        'species': common_name,
-        'scientific_name': scientific_name,
-        'confidence': float(confidence),
-    }
 
 def load_files():
     logger.info("Loading model and mapping files...")
