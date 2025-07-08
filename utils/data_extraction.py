@@ -392,6 +392,8 @@ def extract_balanced_segments(audio_files, cap_per_class, segment_sec, sr, class
                 is_valid = segment_has_bandpass_activity(segment, threshold, sr)
             elif cutoff_type == "uncut":
                 is_valid = True  # Accept all segments for uncut
+            else:
+                raise ValueError(f"Invalid cutoff_type: {cutoff_type}. Must be one of: 'rms', 'peak', 'entropy', 'filter', 'uncut'")
             
             if is_valid:
                 all_segments.append({
