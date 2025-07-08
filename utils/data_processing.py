@@ -11,6 +11,7 @@ import pandas as pd
 import soundfile as sf
 from tqdm import tqdm
 
+from utils.data_extraction import lbrs_loading
 
 # Directory Utilities
 def clean_dir(dest_dir):
@@ -186,6 +187,7 @@ def calculate_class_totals(audio_files):
     
     return class_totals
 
+# Spectrogram Management
 def create_single_spectrogram(segment_info, spectrogram_dir, mels, hoplen, nfft):
     """Create a single spectrogram from segment info."""
     audio_name = f"{segment_info['original_filename']}_segment_{segment_info['segment_index']}"
@@ -338,6 +340,8 @@ def audio_process(audio_path, sr=32000, segment_sec=5.0,
     samples_per = int(sr * segment_sec)
     
     y, srate = get_audio_info(audio_path, sr, segment_sec)
+    
+    # TODO: AUN QUEDA DEFINIR QUE TYPE DE THRESHOLD USAR (VER data_extraction.py)
     threshold = get_rmsThreshold(y, frame_len, hop_len, thresh_factor=thresh)
     
     for start in range(0, len(y) - samples_per + 1, samples_per):
