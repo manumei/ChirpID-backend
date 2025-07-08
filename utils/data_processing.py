@@ -435,8 +435,19 @@ def get_spec_matrix_direct(segment, sr, mels, hoplen, nfft):
     matrix = np.clip(norm_spec, 0.0, 1.0).astype(np.float32)
     return matrix
 
+def get_audio_info(audio_path, sr, length):
+    y, srate = lbrs_loading(audio_path, sr)
+    audio_duration = len(y) / srate
+    
+    # Check Duration is enough
+    buffer = length * 1.005
+    if audio_duration < buffer:
+        raise ValueError(f"Audio is too short: {audio_duration:.2f}s. Minimum required: {length + 0.05:.2f}s")
+    else:
+        return y, srate
+
 def audio_process(audio_path, sr=32000, segment_sec=5.0,
-                frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.6):
+                frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.75):
     """
     Takes the path to an audio file (any format) and processes it to finally return 
     the list of grayscale spectrogram pixel matrices for each of its high-RMS segments.
@@ -447,29 +458,21 @@ def audio_process(audio_path, sr=32000, segment_sec=5.0,
     Step 4: Generate a Spectrogram grayscale matrix for each segment. (using get_spec_matrix_direct)
     """
     matrices = []
-    # print(f"Processing audio file: {audio_path}")
-    samples_per_segment = int(sr * segment_sec)
-
-    # Step 1
-    y, srate = lbrs_loading(audio_path, sr)
-
-    # Step 2
+    samples_per = int(sr * segment_sec)
+    
+    y, srate = get_audio_info(audio_path, sr, segment_sec)
     threshold = get_rmsThreshold(y, frame_len, hop_len, thresh_factor=thresh)
-
-    for start in range(0, len(y) - samples_per_segment + 1, samples_per_segment):
-        segment = y[start:start + samples_per_segment]
+    
+    for start in range(0, len(y) - samples_per + 1, samples_per):
+        segment = y[start:start + samples_per]
         seg_rms = np.mean(librosa.feature.rms(y=segment)[0])
         
         if seg_rms < threshold:
-            # print(f"Segment at {start} has {seg_rms} RMS, below threshold {threshold}. Skipping...")
             continue
-
-        # Step 4
-        filename = os.path.basename(audio_path)
+        
         matrix = get_spec_matrix_direct(segment, srate, mels, hop_len, nfft)
         matrices.append(matrix)
     
-    # print(f"Processed {len(matrices)} segments from {audio_path}")
     return matrices
 
 if __name__ == "__main__":
