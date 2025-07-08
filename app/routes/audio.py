@@ -243,38 +243,6 @@ def load_files():
     
     return model_path, mapping_path
 
-def process_audio(path):
-    """
-    Test function to demonstrate inference on a sample audio file.
-    
-    Args:
-        path (str): Path to the audio file to analyze
-    
-    Returns:
-        dict: Inference results
-    """
-    logger.info(f"Starting process_audio for file: {path}")
-    logger.info(f"Input file exists: {os.path.exists(path)}")
-    
-    if os.path.exists(path):
-        logger.info(f"Input file size: {os.path.getsize(path)} bytes")
-    
-    try:
-        model_class = BirdCNN_v5c
-        logger.info(f"Using model class: {model_class.__name__}")
-        
-        model_path, mapping_path = load_files()
-        
-        logger.info("Calling predict_bird function...")
-        result = predict_bird(path, model_class, model_path, mapping_path)
-        logger.info(f"predict_bird completed successfully: {result}")
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error in process_audio: {str(e)}", exc_info=True)
-        raise
-
 def predict_bird(audio_path, model_class, model_path, mapping_csv):
     """
     Predict bird species from audio file and display results with confidence.
@@ -334,6 +302,38 @@ def predict_bird(audio_path, model_class, model_path, mapping_csv):
         'scientific_name': scientific_name,
         'confidence': float(confidence),
     }
+
+def process_audio(path):
+    """
+    Test function to demonstrate inference on a sample audio file.
+    
+    Args:
+        path (str): Path to the audio file to analyze
+    
+    Returns:
+        dict: Inference results
+    """
+    logger.info(f"Starting process_audio for file: {path}")
+    logger.info(f"Input file exists: {os.path.exists(path)}")
+    
+    if os.path.exists(path):
+        logger.info(f"Input file size: {os.path.getsize(path)} bytes")
+    
+    try:
+        model_class = BirdCNN_v5c
+        logger.info(f"Using model class: {model_class.__name__}")
+        
+        model_path, mapping_path = load_files()
+        
+        logger.info("Calling predict_bird function...")
+        result = predict_bird(path, model_class, model_path, mapping_path)
+        logger.info(f"predict_bird completed successfully: {result}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in process_audio: {str(e)}", exc_info=True)
+        raise
 
 @audio_bp.route("/health", methods=["GET"])
 def health_check():

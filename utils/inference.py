@@ -267,7 +267,7 @@ def perform_audio_inference(audio_path, model_class, model_path):
     Raises:
         Error: If audio_path or model_path don't exist, or if no usable segments are extracted
     """
-
+    
     # First Validate input files
     validate_paths(audio_path, model_path)
     
@@ -290,10 +290,6 @@ def perform_audio_inference(audio_path, model_class, model_path):
     except Exception as e:
         logger.error(f"Error during audio inference: {str(e)}", exc_info=True)
         raise e
-
-def perform_segment_inference():
-    ''' This function is called when the inputs are always a 5-second segment, ready to infer
-    Receives the audio_path, model_class and model_path and performs inference without needing to calculate average '''
 
 def perform_audio_inference_fcnn(audio_path, model_class, model_path):
     """
@@ -325,19 +321,14 @@ def perform_audio_inference_fcnn(audio_path, model_class, model_path):
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model weights file not found: {model_path}")
     
-    # print(f"Starting FCNN inference for: {audio_path}")
-    
     # Step 1: Extract segment_matrices from audio using audio_process
     segment_matrices = audio_process(audio_path)
     
     if not segment_matrices:
         raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
     
-    # print(f"Extracted {len(segment_matrices)} segments for FCNN inference")
-    
     # Step 2: Load the model
     model, device = load_model_weights(model_class, model_path, num_classes=NUM_CLASSES)
-    # print(f"FCNN model loaded on device: {device}")
     
     # Step 3 & 4: Process each segment individually and perform inference
     all_probabilities = []
@@ -361,9 +352,6 @@ def perform_audio_inference_fcnn(audio_path, model_class, model_path):
     # Step 5: Calculate average probabilities across all segments
     all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, NUM_CLASSES)
     average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (NUM_CLASSES,)
-    
-    # print(f"FCNN inference completed. Processed {len(all_probabilities)} segments")
-    # print(f"Average probabilities calculated for NUM_CLASSES classes")
     
     # Return as list for classes 0-26
     return average_probabilities.tolist()
