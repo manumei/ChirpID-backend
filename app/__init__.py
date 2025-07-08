@@ -1,14 +1,11 @@
 from flask import Flask, jsonify
-from flask_cors import CORS
 from app.routes.audio import audio_bp
 import os
 
 def create_app():
     app = Flask(__name__)
     
-    # Enable CORS - nginx handles primary CORS, this is backup
-    # Allow all origins since nginx filters appropriate requests
-    CORS(app, origins='*')
+    # CORS is handled by nginx - no need for Flask-CORS to prevent duplicate headers
     
     # Add ping route for connection testing
     @app.route("/ping", methods=["GET"])
