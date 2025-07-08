@@ -5,7 +5,7 @@ import noisereduce as nr
 
 from tqdm import tqdm
 from scipy.stats import entropy
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, butter, filtfilt
 
 # Audio Loading and Processing
 def lbrs_loading(audio_path, sr, mono=True):
@@ -33,79 +33,6 @@ def get_rmsThreshold(y, frame_len, hop_len, thresh_factor=0.5):
     threshold = thresh_factor * np.mean(rms)
     return threshold
 
-def load_audio_files_rms(segments_df, segments_dir, sr, segment_sec, thresh_factor):
-    """Load and prepare audio files with metadata."""
-    audio_files = []
-    samples_per_segment = int(sr * segment_sec)
-    
-    for _, row in segments_df.iterrows():
-        filename = row['filename']
-        class_id = row['class_id']
-        author = row['author']
-        audio_path = os.path.join(segments_dir, filename)
-        
-        try:
-            y, srate = lbrs_loading(audio_path, sr=sr, mono=True)
-            threshold = get_rmsThreshold(y, frame_len=2048, hop_len=512, thresh_factor=thresh_factor)
-            max_segments = len(y) // samples_per_segment
-            
-            if max_segments > 0:
-                audio_files.append({
-                    'audio_data': y,
-                    'class_id': class_id,
-                    'author': author,
-                    'filename': filename,
-                    'max_segments': max_segments,
-                    'threshold': threshold,
-                    'sr': srate,
-                    'samples_per_segment': samples_per_segment
-                })
-                
-        except Exception as e:
-            print(f"Error loading {filename}: {e}")
-            continue
-    
-    return audio_files
-
-def extract_balanced_segments_rms(audio_files, cap_per_class, segment_sec, sr, class_total_segments):
-    """Extract balanced segments from audio files."""
-    class_segments_extracted = {class_id: 0 for class_id in class_total_segments.keys()}
-    all_segments = []
-    
-    for audio_info in tqdm(audio_files, desc="Extracting segments"):
-        class_id = audio_info['class_id']
-        
-        if class_segments_extracted[class_id] >= cap_per_class:
-            continue
-        
-        y = audio_info['audio_data']
-        threshold = audio_info['threshold']
-        filename = audio_info['filename']
-        author = audio_info['author']
-        
-        segment_samples = int(segment_sec * sr)
-        
-        for start_idx in range(0, len(y) - segment_samples + 1, segment_samples):
-            if class_segments_extracted[class_id] >= cap_per_class:
-                break
-            
-            segment = y[start_idx:start_idx + segment_samples]
-            
-            # Check if segment has enough energy
-            rms = np.sqrt(np.mean(segment**2))
-            if rms > threshold:
-                all_segments.append({
-                    'filename': filename,
-                    'class_id': class_id,
-                    'author': author,
-                    'segment': segment,
-                    'segment_index': len(all_segments),
-                    'sr': sr
-                })
-                class_segments_extracted[class_id] += 1
-    
-    return all_segments
-
 
 # Energy Peaks Cut-Off
 def get_peakThreshold(y, frame_len, hop_len, thresh_factor=0.5, percentile=85):
@@ -115,43 +42,8 @@ def get_peakThreshold(y, frame_len, hop_len, thresh_factor=0.5, percentile=85):
     threshold = thresh_factor * np.percentile(rms, percentile)
     return threshold
 
-def load_audio_files_peaks(segments_df, segments_dir, sr, segment_sec, thresh_factor):
-    """Load and prepare audio files with peak-based metadata."""
-    audio_files = []
-    samples_per_segment = int(sr * segment_sec)
-    
-    for _, row in segments_df.iterrows():
-        filename = row['filename']
-        class_id = row['class_id']
-        author = row['author']
-        audio_path = os.path.join(segments_dir, filename)
-        
-        try:
-            y, srate = lbrs_loading(audio_path, sr=sr, mono=True)
-            threshold = get_peakThreshold(y, frame_len=2048, hop_len=512, 
-                                        thresh_factor=thresh_factor, percentile=85)
-            max_segments = len(y) // samples_per_segment
-            
-            if max_segments > 0:
-                audio_files.append({
-                    'audio_data': y,
-                    'class_id': class_id,
-                    'author': author,
-                    'filename': filename,
-                    'max_segments': max_segments,
-                    'threshold': threshold,
-                    'sr': srate,
-                    'samples_per_segment': samples_per_segment
-                })
-                
-        except Exception as e:
-            print(f"Error loading {filename}: {e}")
-            continue
-    
-    return audio_files
-
 def segment_has_energy_peaks(segment, threshold, sr, min_peak_height_ratio=0.8, 
-                           min_peak_distance=0.1, prominence_factor=0.3):
+                            min_peak_distance=0.1, prominence_factor=0.3):
     """
     Check if segment has significant energy peaks indicating bird activity.
     
@@ -193,44 +85,6 @@ def segment_has_energy_peaks(segment, threshold, sr, min_peak_height_ratio=0.8,
     multiple_peaks_condition = len(peaks) >= 2 and np.mean(peak_heights) >= threshold * 0.9
     
     return strong_peak_condition or multiple_peaks_condition
-
-def extract_balanced_segments_peaks(audio_files, cap_per_class, segment_sec, sr, class_total_segments):
-    """Extract balanced segments using energy peak detection."""
-    class_segments_extracted = {class_id: 0 for class_id in class_total_segments.keys()}
-    all_segments = []
-    
-    for audio_info in tqdm(audio_files, desc="Extracting segments (Energy Peaks)"):
-        class_id = audio_info['class_id']
-        
-        if class_segments_extracted[class_id] >= cap_per_class:
-            continue
-        
-        y = audio_info['audio_data']
-        threshold = audio_info['threshold']
-        filename = audio_info['filename']
-        author = audio_info['author']
-        
-        segment_samples = int(segment_sec * sr)
-        
-        for start_idx in range(0, len(y) - segment_samples + 1, segment_samples):
-            if class_segments_extracted[class_id] >= cap_per_class:
-                break
-            
-            segment = y[start_idx:start_idx + segment_samples]
-            
-            # Check if segment has significant energy peaks
-            if segment_has_energy_peaks(segment, threshold, sr):
-                all_segments.append({
-                    'filename': filename,
-                    'class_id': class_id,
-                    'author': author,
-                    'segment': segment,
-                    'segment_index': len(all_segments),
-                    'sr': sr
-                })
-                class_segments_extracted[class_id] += 1
-    
-    return all_segments
 
 
 # Spectral Entropy Cut-Off
@@ -322,85 +176,8 @@ def segment_has_spectral_complexity(segment, threshold, sr, entropy_weight=0.6,
     
     return frame_activity_condition or (mean_activity_condition and peak_activity_condition)
 
-def load_audio_files_spectral(segments_df, segments_dir, sr, segment_sec, thresh_factor):
-    """Load and prepare audio files with spectral-based metadata."""
-    audio_files = []
-    samples_per_segment = int(sr * segment_sec)
-    
-    for _, row in segments_df.iterrows():
-        filename = row['filename']
-        class_id = row['class_id']
-        author = row['author']
-        audio_path = os.path.join(segments_dir, filename)
-        
-        try:
-            y, srate = lbrs_loading(audio_path, sr=sr, mono=True)
-            threshold = get_spectralThreshold(y, srate, frame_len=2048, hop_len=512, 
-                                           thresh_factor=thresh_factor)
-            max_segments = len(y) // samples_per_segment
-            
-            if max_segments > 0:
-                audio_files.append({
-                    'audio_data': y,
-                    'class_id': class_id,
-                    'author': author,
-                    'filename': filename,
-                    'max_segments': max_segments,
-                    'threshold': threshold,
-                    'sr': srate,
-                    'samples_per_segment': samples_per_segment
-                })
-                
-        except Exception as e:
-            print(f"Error loading {filename}: {e}")
-            continue
-    
-    return audio_files
-
-def extract_balanced_segments_spectral(audio_files, cap_per_class, segment_sec, sr, class_total_segments):
-    """Extract balanced segments using spectral entropy and flatness."""
-    class_segments_extracted = {class_id: 0 for class_id in class_total_segments.keys()}
-    all_segments = []
-    
-    for audio_info in tqdm(audio_files, desc="Extracting segments (Spectral Analysis)"):
-        class_id = audio_info['class_id']
-        
-        if class_segments_extracted[class_id] >= cap_per_class:
-            continue
-        
-        y = audio_info['audio_data']
-        threshold = audio_info['threshold']
-        filename = audio_info['filename']
-        author = audio_info['author']
-        
-        segment_samples = int(segment_sec * sr)
-        
-        for start_idx in range(0, len(y) - segment_samples + 1, segment_samples):
-            if class_segments_extracted[class_id] >= cap_per_class:
-                break
-            
-            segment = y[start_idx:start_idx + segment_samples]
-            
-            # Check if segment has sufficient spectral complexity
-            if segment_has_spectral_complexity(segment, threshold, sr):
-                all_segments.append({
-                    'filename': filename,
-                    'class_id': class_id,
-                    'author': author,
-                    'segment': segment,
-                    'segment_index': len(all_segments),
-                    'sr': sr
-                })
-                class_segments_extracted[class_id] += 1
-    
-    return all_segments
-
 
 # Band-Pass Filter Cut-Off
-import numpy as np
-import librosa
-from scipy.signal import butter, filtfilt
-
 def create_bird_bandpass_filter(sr, low_freq=1000, high_freq=8000, order=5):
     """Create a bandpass filter optimized for bird vocalizations."""
     nyquist = sr / 2
@@ -423,7 +200,7 @@ def apply_bandpass_filter(y, sr, low_freq=1000, high_freq=8000, order=5):
     return filtered_y
 
 def get_bandpassThreshold(y, sr, frame_len, hop_len, thresh_factor=0.5, 
-                         low_freq=1000, high_freq=8000):
+                        low_freq=1000, high_freq=8000):
     """Calculate RMS threshold using bandpass-filtered audio for detection."""
     # Apply bandpass filter for threshold calculation
     filtered_y = apply_bandpass_filter(y, sr, low_freq, high_freq)
@@ -433,42 +210,6 @@ def get_bandpassThreshold(y, sr, frame_len, hop_len, thresh_factor=0.5,
     threshold = thresh_factor * np.mean(rms)
     
     return threshold
-
-def load_audio_files_bandpass(segments_df, segments_dir, sr, segment_sec, thresh_factor):
-    """Load and prepare audio files with bandpass-based metadata."""
-    audio_files = []
-    samples_per_segment = int(sr * segment_sec)
-    
-    for _, row in segments_df.iterrows():
-        filename = row['filename']
-        class_id = row['class_id']
-        author = row['author']
-        audio_path = os.path.join(segments_dir, filename)
-        
-        try:
-            y, srate = lbrs_loading(audio_path, sr=sr, mono=True)
-            # Calculate threshold using bandpass-filtered version
-            threshold = get_bandpassThreshold(y, srate, frame_len=2048, hop_len=512, 
-                                           thresh_factor=thresh_factor)
-            max_segments = len(y) // samples_per_segment
-            
-            if max_segments > 0:
-                audio_files.append({
-                    'audio_data': y,  # Store original unfiltered audio
-                    'class_id': class_id,
-                    'author': author,
-                    'filename': filename,
-                    'max_segments': max_segments,
-                    'threshold': threshold,
-                    'sr': srate,
-                    'samples_per_segment': samples_per_segment
-                })
-                
-        except Exception as e:
-            print(f"Error loading {filename}: {e}")
-            continue
-    
-    return audio_files
 
 def segment_has_bandpass_activity(segment, threshold, sr, low_freq=1000, high_freq=8000,
                                 energy_ratio_threshold=0.7, min_duration_ratio=0.2):
@@ -524,18 +265,107 @@ def segment_has_bandpass_activity(segment, threshold, sr, low_freq=1000, high_fr
     # Combine checks: basic threshold AND (energy ratio OR temporal activity OR peak activity)
     return basic_threshold_check and (energy_ratio_check or temporal_activity_check or peak_activity_check)
 
-def extract_balanced_segments_bandpass(audio_files, cap_per_class, segment_sec, sr, class_total_segments):
-    """Extract balanced segments using bandpass filtering for detection, keeping original segments."""
+
+# Final Extraction Functions
+def load_audio_files(segments_df, segments_dir, sr, segment_sec, thresh_factor, cutoff_type="peak"):
+    """
+    Load and prepare audio files with metadata for segment extraction.
+    
+    Args:
+        segments_df: DataFrame containing audio file metadata
+        segments_dir: Directory path containing audio files
+        sr: Sample rate for audio loading
+        segment_sec: Duration of each segment in seconds
+        thresh_factor: Threshold factor for cutoff calculations
+        cutoff_type: Method for threshold calculation - "rms", "peak", "entropy", "filter", or "uncut"
+    
+    Returns:
+        List of dictionaries containing audio data and metadata for segment extraction
+    """
+    
+    audio_files = []
+    samples_per_segment = int(sr * segment_sec)
+    
+    for _, row in segments_df.iterrows():
+        filename = row['filename']
+        class_id = row['class_id']
+        author = row['author']
+        audio_path = os.path.join(segments_dir, filename)
+        
+        try:
+            y, srate = lbrs_loading(audio_path, sr=sr, mono=True)
+            
+            # Calculate threshold based on cutoff type
+            if cutoff_type == "rms":
+                threshold = get_rmsThreshold(y, frame_len=2048, hop_len=512, thresh_factor=thresh_factor)
+            elif cutoff_type == "peak":
+                threshold = get_peakThreshold(y, frame_len=2048, hop_len=512, 
+                                            thresh_factor=thresh_factor, percentile=85)
+            elif cutoff_type == "entropy":
+                threshold = get_spectralThreshold(y, srate, frame_len=2048, hop_length=512, 
+                                                thresh_factor=thresh_factor)
+            elif cutoff_type == "filter":
+                threshold = get_bandpassThreshold(y, srate, frame_len=2048, hop_length=512, 
+                                                thresh_factor=thresh_factor)
+            elif cutoff_type == "uncut":
+                threshold = 0.0  # No threshold for uncut segments
+            else:
+                raise ValueError(f"Invalid cutoff_type: {cutoff_type}. Must be one of: 'rms', 'peak', 'entropy', 'filter', 'uncut'")
+            
+            max_segments = len(y) // samples_per_segment
+            
+            if max_segments > 0:
+                audio_files.append({
+                    'audio_data': y,
+                    'class_id': class_id,
+                    'author': author,
+                    'filename': filename,
+                    'max_segments': max_segments,
+                    'threshold': threshold,
+                    'sr': srate,
+                    'samples_per_segment': samples_per_segment
+                })
+                
+        except Exception as e:
+            print(f"Error loading {filename}: {e}")
+            continue
+    
+    return audio_files
+
+def extract_balanced_segments(audio_files, cap_per_class, segment_sec, sr, class_total_segments, cutoff_type="peak"):
+    """
+    Extract balanced segments from audio files using specified cutoff method.
+    
+    Args:
+        audio_files: List of dictionaries containing audio data and metadata
+        cap_per_class: Maximum number of segments to extract per class
+        segment_sec: Duration of each segment in seconds
+        sr: Sample rate
+        class_total_segments: Dictionary mapping class IDs to total available segments
+        cutoff_type: Method for segment validation - "rms", "peak", "entropy", "filter", or "uncut"
+    
+    Returns:
+        List of dictionaries containing extracted segments with metadata
+    """
+    
     class_segments_extracted = {class_id: 0 for class_id in class_total_segments.keys()}
     all_segments = []
     
-    for audio_info in tqdm(audio_files, desc="Extracting segments (Bandpass Filter)"):
+    desc_map = {
+        "rms": "Extracting segments (RMS Energy)",
+        "peak": "Extracting segments (Energy Peaks)",
+        "entropy": "Extracting segments (Spectral Analysis)",
+        "filter": "Extracting segments (Bandpass Filter)",
+        "uncut": "Extracting segments (No Cutoffs)"
+    }
+    
+    for audio_info in tqdm(audio_files, desc=desc_map.get(cutoff_type, "Extracting segments")):
         class_id = audio_info['class_id']
         
         if class_segments_extracted[class_id] >= cap_per_class:
             continue
         
-        y = audio_info['audio_data']  # Original unfiltered audio
+        y = audio_info['audio_data']
         threshold = audio_info['threshold']
         filename = audio_info['filename']
         author = audio_info['author']
@@ -548,14 +378,27 @@ def extract_balanced_segments_bandpass(audio_files, cap_per_class, segment_sec, 
             
             segment = y[start_idx:start_idx + segment_samples]
             
-            # Use bandpass filtering for detection only
-            if segment_has_bandpass_activity(segment, threshold, sr):
-                # Store the ORIGINAL unfiltered segment
+            # Check segment validity based on cutoff type
+            is_valid = False
+            
+            if cutoff_type == "rms":
+                rms = np.sqrt(np.mean(segment**2))
+                is_valid = rms > threshold
+            elif cutoff_type == "peak":
+                is_valid = segment_has_energy_peaks(segment, threshold, sr)
+            elif cutoff_type == "entropy":
+                is_valid = segment_has_spectral_complexity(segment, threshold, sr)
+            elif cutoff_type == "filter":
+                is_valid = segment_has_bandpass_activity(segment, threshold, sr)
+            elif cutoff_type == "uncut":
+                is_valid = True  # Accept all segments for uncut
+            
+            if is_valid:
                 all_segments.append({
                     'filename': filename,
                     'class_id': class_id,
                     'author': author,
-                    'segment': segment,  # Original unfiltered segment
+                    'segment': segment,
                     'segment_index': len(all_segments),
                     'sr': sr
                 })
