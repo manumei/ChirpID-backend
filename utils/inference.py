@@ -22,6 +22,7 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
     Returns:
         torch.nn.Module: Loaded model ready for inference
     """
+    logger.info("Step 2: Loading model...")
     logger.info(f"Loading model weights from: {model_path}")
     logger.info(f"Model class: {model_class.__name__}")
     logger.info(f"Number of classes: {num_classes}")
@@ -118,7 +119,7 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
         model.eval()
         model.to(device)
         logger.info("Model set to evaluation mode and moved to device")
-        
+        logger.info(f"Model loaded successfully on device: {device}")
         return model, device
         
     except Exception as e:
@@ -141,6 +142,33 @@ def load_model_weights(model_class, model_path, num_classes=NUM_CLASSES, device=
             logger.error(f"Current PyTorch version: {torch.__version__}")
             logger.error("Solution: Ensure all torch.load() calls use weights_only=False explicitly")
         raise
+
+def eval_on_model(segment_matrices, model, device):
+    # Step 3 & 4: Process each segment individually and perform inference
+    logger.info("Step 3: Processing segments and running inference...")
+    all_probabilities = []
+    
+    with torch.no_grad():
+        for i, segment_matrix in enumerate(segment_matrices):
+            logger.debug(f"Processing segment {i+1}/{len(segment_matrices)}")
+            
+            # Convert single segment to tensor
+            input_tensor = matrices_to_tensor(segment_matrix, device)
+            logger.debug(f"Segment {i+1} tensor shape: {input_tensor.shape}")
+            
+            # Run inference on the single segment
+            logits = model(input_tensor)
+            probabilities = torch.softmax(logits, dim=1)  # Shape: (1, NUM_CLASSES)
+            
+            # Convert to numpy and store
+            probabilities_np = probabilities.cpu().numpy()[0]  # Shape: (NUM_CLASSES,)
+            all_probabilities.append(probabilities_np)
+            
+            if i == 0:  # Log details for first segment
+                logger.info(f"First segment logits shape: {logits.shape}")
+                logger.info(f"First segment probabilities shape: {probabilities.shape}")
+                logger.info(f"First segment max probability: {np.max(probabilities_np):.4f}")
+    return all_probabilities
 
 def matrices_to_tensor(segment_matrix, device):
     """
@@ -187,6 +215,37 @@ def vectors_to_tensor(segment_vector, device):
     
     return tensor
 
+def validate_paths(audio_path, model_path):
+    if not os.path.exists(audio_path):
+        logger.error(f"Audio file not found: {audio_path}")
+        raise FileNotFoundError(f"Audio file not found: {audio_path}")
+    if not os.path.exists(model_path):
+        logger.error(f"Model weights file not found: {model_path}")
+        raise FileNotFoundError(f"Model weights file not found: {model_path}")
+    logger.info(f"Audio file size: {os.path.getsize(audio_path)} bytes")
+
+def validate_segments(segment_matrices, audio_path):
+    if not segment_matrices:
+        logger.error(f"No usable segments extracted from audio file: {audio_path}")
+        raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
+    
+    logger.info(f"Successfully extracted {len(segment_matrices)} segments for inference")
+
+def success_logs(probs, avg_probs):
+    logger.info(f"Inference completed successfully!")
+    logger.info(f"Processed {len(probs)} segments")
+    logger.info(f"Final average probabilities calculated for {len(avg_probs)} classes")
+    logger.info(f"Max final probability: {np.max(avg_probs):.4f}")
+    logger.info(f"Predicted class: {np.argmax(avg_probs)}")
+
+def get_avg_probabilities(all_probabilities):
+    logger.info("Step 4: Calculating average probabilities...")
+    all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, NUM_CLASSES)
+    average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (NUM_CLASSES,)
+    
+    success_logs(all_probabilities, average_probabilities)
+    return average_probabilities.tolist()
+
 def perform_audio_inference(audio_path, model_class, model_path):
     """
     Perform inference on an audio file using a trained CNN model.
@@ -209,78 +268,29 @@ def perform_audio_inference(audio_path, model_class, model_path):
         FileNotFoundError: If audio_path or model_path don't exist
         ValueError: If no usable segments are extracted from the audio
     """
-    logger.info(f"Starting audio inference for: {audio_path}")
-    logger.info(f"Model class: {model_class.__name__}")
-    logger.info(f"Model path: {model_path}")
-    
-    # Validate input files
-    if not os.path.exists(audio_path):
-        logger.error(f"Audio file not found: {audio_path}")
-        raise FileNotFoundError(f"Audio file not found: {audio_path}")
-    if not os.path.exists(model_path):
-        logger.error(f"Model weights file not found: {model_path}")
-        raise FileNotFoundError(f"Model weights file not found: {model_path}")
-    
-    logger.info(f"Audio file size: {os.path.getsize(audio_path)} bytes")
+
+    # First Validate input files
+    validate_paths(audio_path, model_path)
     
     try:
         # Step 1: Extract segment_matrices from audio using audio_process
-        logger.info("Step 1: Extracting segments from audio...")
         segment_matrices = audio_process(audio_path)
-        
-        if not segment_matrices:
-            logger.error(f"No usable segments extracted from audio file: {audio_path}")
-            raise ValueError(f"No usable segments extracted from audio file: {audio_path}")
-        
-        logger.info(f"Successfully extracted {len(segment_matrices)} segments for inference")
+        validate_segments(segment_matrices, audio_path)
         
         # Step 2: Load the model
-        logger.info("Step 2: Loading model...")
         model, device = load_model_weights(model_class, model_path, num_classes=NUM_CLASSES)
-        logger.info(f"Model loaded successfully on device: {device}")
         
-        # Step 3 & 4: Process each segment individually and perform inference
-        logger.info("Step 3: Processing segments and running inference...")
-        all_probabilities = []
-        
-        with torch.no_grad():
-            for i, segment_matrix in enumerate(segment_matrices):
-                logger.debug(f"Processing segment {i+1}/{len(segment_matrices)}")
-                
-                # Convert single segment to tensor
-                input_tensor = matrices_to_tensor(segment_matrix, device)
-                logger.debug(f"Segment {i+1} tensor shape: {input_tensor.shape}")
-                
-                # Run inference on the single segment
-                logits = model(input_tensor)
-                probabilities = torch.softmax(logits, dim=1)  # Shape: (1, NUM_CLASSES)
-                
-                # Convert to numpy and store
-                probabilities_np = probabilities.cpu().numpy()[0]  # Shape: (NUM_CLASSES,)
-                all_probabilities.append(probabilities_np)
-                
-                if i == 0:  # Log details for first segment
-                    logger.info(f"First segment logits shape: {logits.shape}")
-                    logger.info(f"First segment probabilities shape: {probabilities.shape}")
-                    logger.info(f"First segment max probability: {np.max(probabilities_np):.4f}")
+        # Step 3: Evaluate with Model
+        all_probabilities = eval_on_model(segment_matrices, model, device)
         
         # Step 5: Calculate average probabilities across all segments
-        logger.info("Step 4: Calculating average probabilities...")
-        all_probabilities = np.array(all_probabilities)  # Shape: (num_segments, NUM_CLASSES)
-        average_probabilities = np.mean(all_probabilities, axis=0)  # Shape: (NUM_CLASSES,)
+        avg_probs_list = get_avg_probabilities(all_probabilities)
         
-        logger.info(f"Inference completed successfully!")
-        logger.info(f"Processed {len(all_probabilities)} segments")
-        logger.info(f"Final average probabilities calculated for {len(average_probabilities)} classes")
-        logger.info(f"Max final probability: {np.max(average_probabilities):.4f}")
-        logger.info(f"Predicted class: {np.argmax(average_probabilities)}")
-        
-        # Return as list for classes 0-26
-        return average_probabilities.tolist()
+        return avg_probs_list
         
     except Exception as e:
         logger.error(f"Error during audio inference: {str(e)}", exc_info=True)
-        raise
+        raise e
 
 def perform_audio_inference_fcnn(audio_path, model_class, model_path):
     """
