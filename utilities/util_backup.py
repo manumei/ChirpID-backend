@@ -165,7 +165,7 @@ def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
     print(f"Loaded {len(segments)} audio segments from disk")
     return segments
 
-def load_audio_files(segments_df, segments_dir, sr, segment_sec, threshold_factor):
+def load_audio_files(segments_df, segments_dir, sr, segment_sec, thresh_factor):
     """Load and prepare audio files with metadata."""
     audio_files = []
     samples_per_segment = int(sr * segment_sec)
@@ -178,7 +178,7 @@ def load_audio_files(segments_df, segments_dir, sr, segment_sec, threshold_facto
         
         try:
             y, srate = lbrs_loading(audio_path, sr=sr, mono=True)
-            threshold = get_rmsThreshold(y, frame_len=2048, hop_len=512, thresh_factor=threshold_factor)
+            threshold = get_rmsThreshold(y, frame_len=2048, hop_len=512, thresh_factor=thresh_factor)
             max_segments = len(y) // samples_per_segment
             
             if max_segments > 0:
@@ -350,7 +350,7 @@ def get_spec_matrix_direct(segment, sr, mels, hoplen, nfft):
     return matrix
 
 def audio_process(audio_path, reduce_noise: bool, sr=32000, segment_sec=5.0,
-                frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.75):
+                frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.6):
     ''' 
     Takes the path to an audio file (any format) and processes it to finally return 
     the list of grayscale spectrogram pixel matrices for each of its high-RMS segments.
