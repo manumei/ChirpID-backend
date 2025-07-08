@@ -435,6 +435,17 @@ def get_spec_matrix_direct(segment, sr, mels, hoplen, nfft):
     matrix = np.clip(norm_spec, 0.0, 1.0).astype(np.float32)
     return matrix
 
+def get_audio_info(audio_path, sr, length):
+    y, srate = lbrs_loading(audio_path, sr)
+    audio_duration = len(y) / srate
+    
+    # Check Duration is enough
+    buffer = length * 1.005
+    if audio_duration < buffer:
+        raise ValueError(f"Audio is too short: {audio_duration:.2f}s. Minimum required: {length + 0.05:.2f}s")
+    else:
+        return y, srate
+
 def audio_process(audio_path, sr=32000, segment_sec=5.0,
                 frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.75):
     """
@@ -449,9 +460,9 @@ def audio_process(audio_path, sr=32000, segment_sec=5.0,
     matrices = []
     samples_per = int(sr * segment_sec)
     
-    y, srate = lbrs_loading(audio_path, sr)
+    y, srate = get_audio_info(audio_path, sr, segment_sec)
     threshold = get_rmsThreshold(y, frame_len, hop_len, thresh_factor=thresh)
-
+    
     for start in range(0, len(y) - samples_per + 1, samples_per):
         segment = y[start:start + samples_per]
         seg_rms = np.mean(librosa.feature.rms(y=segment)[0])
