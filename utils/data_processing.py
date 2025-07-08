@@ -232,20 +232,6 @@ def load_audio_files(segments_df, segments_dir, sr, segment_sec, thresh_factor):
     
     return audio_files
 
-def calculate_class_totals(audio_files):
-    """Calculate total potential segments per class."""
-    class_totals = {}
-    
-    for audio_info in audio_files:
-        class_id = audio_info['class_id']
-        segments = audio_info['max_segments']
-        
-        if class_id not in class_totals:
-            class_totals[class_id] = 0
-        class_totals[class_id] += segments
-    
-    return class_totals
-
 def extract_balanced_segments(audio_files, cap_per_class, segment_sec, sr, class_total_segments):
     """Extract balanced segments from audio files."""
     class_segments_extracted = {class_id: 0 for class_id in class_total_segments.keys()}
@@ -284,6 +270,20 @@ def extract_balanced_segments(audio_files, cap_per_class, segment_sec, sr, class
                 class_segments_extracted[class_id] += 1
     
     return all_segments
+
+def calculate_class_totals(audio_files):
+    """Calculate total potential segments per class."""
+    class_totals = {}
+    
+    for audio_info in audio_files:
+        class_id = audio_info['class_id']
+        segments = audio_info['max_segments']
+        
+        if class_id not in class_totals:
+            class_totals[class_id] = 0
+        class_totals[class_id] += segments
+    
+    return class_totals
 
 def extract_single_segment(audio_info, segment_index):
     """Extract a single segment from audio info."""
