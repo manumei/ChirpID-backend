@@ -265,8 +265,7 @@ def perform_audio_inference(audio_path, model_class, model_path):
         list: Average softmax probabilities for each of the NUM_CLASSES classes (indices 0-26)
         
     Raises:
-        FileNotFoundError: If audio_path or model_path don't exist
-        ValueError: If no usable segments are extracted from the audio
+        Error: If audio_path or model_path don't exist, or if no usable segments are extracted
     """
 
     # First Validate input files
@@ -283,7 +282,7 @@ def perform_audio_inference(audio_path, model_class, model_path):
         # Step 3: Evaluate with Model
         all_probabilities = eval_on_model(segment_matrices, model, device)
         
-        # Step 5: Calculate average probabilities across all segments
+        # Step 4: Get avg probabilities
         avg_probs_list = get_avg_probabilities(all_probabilities)
         
         return avg_probs_list
@@ -291,6 +290,10 @@ def perform_audio_inference(audio_path, model_class, model_path):
     except Exception as e:
         logger.error(f"Error during audio inference: {str(e)}", exc_info=True)
         raise e
+
+def perform_segment_inference():
+    ''' This function is called when the inputs are always a 5-second segment, ready to infer
+    Receives the audio_path, model_class and model_path and performs inference without needing to calculate average '''
 
 def perform_audio_inference_fcnn(audio_path, model_class, model_path):
     """
