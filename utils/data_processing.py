@@ -5,12 +5,12 @@ import os
 import shutil
 import numpy as np
 import librosa
-import soundfile as sf
 from PIL import Image
 import matplotlib.pyplot as plt
 import pandas as pd
+import soundfile as sf
 from tqdm import tqdm
-import noisereduce as nr
+
 
 # Directory Utilities
 def clean_dir(dest_dir):
@@ -25,30 +25,6 @@ def count_files_in_dir(dir_path):
     if not os.path.exists(dir_path):
         return 0
     return len([f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))])
-
-# Audio Loading and Processing
-def lbrs_loading(audio_path, sr, mono=True):
-    """Load audio file using librosa with sample rate validation."""
-    y, srate = librosa.load(audio_path, sr=sr, mono=mono)
-    if srate != sr:
-        raise ValueError(f"Sample rate mismatch: expected {sr}, got {srate}, at audio file {audio_path}")
-    return y, srate
-
-def get_rmsThreshold(y, frame_len, hop_len, thresh_factor=0.5):
-    """Calculate RMS energy threshold for audio segmentation."""
-    rms = librosa.feature.rms(y=y, frame_length=frame_len, hop_length=hop_len)[0]
-    threshold = thresh_factor * np.mean(rms)
-    return threshold
-
-def reduce_noise_seg(segment, srate, filename, class_id):
-    """Apply noise reduction to audio segment."""
-    try:
-        segment = nr.reduce_noise(y=segment, sr=srate, stationary=False)
-    except RuntimeWarning as e:
-        print(f"RuntimeWarning while reducing noise for segment in {filename} from {class_id}: {e}")
-    except Exception as e:
-        print(f"Error while reducing noise for segment in {filename} from {class_id}: {e}")
-    return segment
 
 # Spectrogram Processing
 def get_spec_norm(segment, sr, mels, hoplen, nfft):
@@ -104,7 +80,6 @@ def get_spec_npy(segment, sr, mels, hoplen, nfft, filename, start, spectrogram_d
 def save_test_audios(segment, sr, test_audios_dir, filename, start, saved_audios):
     """Save test audio segments."""
     if test_audios_dir is not None and saved_audios < 10:
-        import soundfile as sf
         os.makedirs(test_audios_dir, exist_ok=True)
         test_audio_filename = f"{os.path.splitext(filename)[0]}_{start}_test.wav"
         test_audio_path = os.path.join(test_audios_dir, test_audio_filename)
@@ -197,80 +172,6 @@ def load_audio_segments_from_disk(segments_csv_path, segments_dir, sr=32000):
     # print(f"Loaded {len(segments)} audio segments from disk")
     return segments
 
-# Audio File Loading and Segmentation
-def load_audio_files(segments_df, segments_dir, sr, segment_sec, thresh_factor):
-    """Load and prepare audio files with metadata."""
-    audio_files = []
-    samples_per_segment = int(sr * segment_sec)
-    
-    for _, row in segments_df.iterrows():
-        filename = row['filename']
-        class_id = row['class_id']
-        author = row['author']
-        audio_path = os.path.join(segments_dir, filename)
-        
-        try:
-            y, srate = lbrs_loading(audio_path, sr=sr, mono=True)
-            threshold = get_rmsThreshold(y, frame_len=2048, hop_len=512, thresh_factor=thresh_factor)
-            max_segments = len(y) // samples_per_segment
-            
-            if max_segments > 0:
-                audio_files.append({
-                    'audio_data': y,
-                    'class_id': class_id,
-                    'author': author,
-                    'filename': filename,
-                    'max_segments': max_segments,
-                    'threshold': threshold,
-                    'sr': srate,
-                    'samples_per_segment': samples_per_segment
-                })
-                
-        except Exception as e:
-            print(f"Error loading {filename}: {e}")
-            continue
-    
-    return audio_files
-
-def extract_balanced_segments(audio_files, cap_per_class, segment_sec, sr, class_total_segments):
-    """Extract balanced segments from audio files."""
-    class_segments_extracted = {class_id: 0 for class_id in class_total_segments.keys()}
-    all_segments = []
-    
-    for audio_info in tqdm(audio_files, desc="Extracting segments"):
-        class_id = audio_info['class_id']
-        
-        if class_segments_extracted[class_id] >= cap_per_class:
-            continue
-        
-        y = audio_info['audio_data']
-        threshold = audio_info['threshold']
-        filename = audio_info['filename']
-        author = audio_info['author']
-        
-        segment_samples = int(segment_sec * sr)
-        
-        for start_idx in range(0, len(y) - segment_samples + 1, segment_samples):
-            if class_segments_extracted[class_id] >= cap_per_class:
-                break
-            
-            segment = y[start_idx:start_idx + segment_samples]
-            
-            # Check if segment has enough energy
-            rms = np.sqrt(np.mean(segment**2))
-            if rms > threshold:
-                all_segments.append({
-                    'filename': filename,
-                    'class_id': class_id,
-                    'author': author,
-                    'segment': segment,
-                    'segment_index': len(all_segments),
-                    'sr': sr
-                })
-                class_segments_extracted[class_id] += 1
-    
-    return all_segments
-
 def calculate_class_totals(audio_files):
     """Calculate total potential segments per class."""
     class_totals = {}
@@ -284,30 +185,6 @@ def calculate_class_totals(audio_files):
         class_totals[class_id] += segments
     
     return class_totals
-
-def extract_single_segment(audio_info, segment_index):
-    """Extract a single segment from audio info."""
-    samples_per_segment = audio_info['samples_per_segment']
-    start_sample = segment_index * samples_per_segment
-    end_sample = start_sample + samples_per_segment
-    
-    # Extract segment
-    segment_audio = audio_info['audio_data'][start_sample:end_sample]
-    
-    # Check RMS threshold
-    seg_rms = np.mean(librosa.feature.rms(y=segment_audio)[0])
-    
-    if seg_rms < audio_info['threshold']:
-        return None  # Skip low-energy segments
-    
-    return {
-        'audio_data': segment_audio,
-        'class_id': audio_info['class_id'],
-        'author': audio_info['author'],
-        'original_filename': audio_info['filename'],
-        'segment_index': segment_index,
-        'sr': audio_info['sr'],
-    }
 
 def create_single_spectrogram(segment_info, spectrogram_dir, mels, hoplen, nfft):
     """Create a single spectrogram from segment info."""
