@@ -1619,9 +1619,9 @@ class BirdCNN_v10(nn.Module):
     
     Args:
         num_classes (int): Number of bird species classes to classify
-        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.15 (la subi para testing porque antes se caia)
     """
-    def __init__(self, num_classes, dropout_p=0.5):
+    def __init__(self, num_classes, dropout_p=0.15):
         """
         Initialize the BirdCNN_v10 model.
         
@@ -2187,4 +2187,249 @@ class BirdCNN_v16(nn.Module):
         lstm_out, (h_n, c_n) = self.lstm(x)
         x = lstm_out[:, -1, :]
         x = self.classifier(x)
+        return x
+
+
+class BirdCNN_v17(nn.Module):
+    """
+    v7 con mas dropout y menos params
+    """
+    def __init__(self, num_classes, dropout_p=0.6):
+        """
+        Initialize the BirdCNN_v7 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
+        super(BirdCNN_v7, self).__init__()
+        
+        # Initial convolution
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.pool1 = nn.MaxPool2d(3, stride=2, padding=1)
+        
+        # Dense blocks
+        self.dense1 = DenseBlock(64, growth_rate=32, num_layers=6)
+        self.trans1 = TransitionLayer(64 + 6*32, 128)
+        
+        self.dense2 = DenseBlock(128, growth_rate=32, num_layers=12)
+        self.trans2 = TransitionLayer(128 + 12*32, 256)
+        
+        self.dense3 = DenseBlock(256, growth_rate=32, num_layers=24)
+        self.trans3 = TransitionLayer(256 + 24*32, 512)
+        
+        self.dense4 = DenseBlock(512, growth_rate=32, num_layers=16)
+        
+        # Final classification
+        final_channels = 512 + 16*32
+        self.bn_final = nn.BatchNorm2d(final_channels)
+        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(final_channels, num_classes)
+        self.dropout = nn.Dropout(dropout_p)
+    
+    def forward(self, x):
+        """
+        Forward pass through DenseNet-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.pool1(x)
+        
+        x = self.dense1(x)
+        x = self.trans1(x)
+        x = self.dense2(x)
+        x = self.trans2(x)
+        x = self.dense3(x)
+        x = self.trans3(x)
+        x = self.dense4(x)
+        
+        x = F.relu(self.bn_final(x))
+        x = self.global_pool(x)
+        x = torch.flatten(x, 1)
+        x = self.dropout(x)
+        x = self.classifier(x)
+        return x
+
+
+class BirdCNN_v18(nn.Module):
+    """
+    v7 con leaky relu
+    """
+    def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v18 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
+        super(BirdCNN_v18, self).__init__()
+        
+        # Initial convolution
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.pool1 = nn.MaxPool2d(3, stride=2, padding=1)
+        
+        # Dense blocks
+        self.dense1 = DenseBlock(64, growth_rate=32, num_layers=6)
+        self.trans1 = TransitionLayer(64 + 6*32, 128)
+        
+        self.dense2 = DenseBlock(128, growth_rate=32, num_layers=12)
+        self.trans2 = TransitionLayer(128 + 12*32, 256)
+        
+        self.dense3 = DenseBlock(256, growth_rate=32, num_layers=24)
+        self.trans3 = TransitionLayer(256 + 24*32, 512)
+        
+        self.dense4 = DenseBlock(512, growth_rate=32, num_layers=16)
+        
+        # Final classification
+        final_channels = 512 + 16*32
+        self.bn_final = nn.BatchNorm2d(final_channels)
+        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(final_channels, num_classes)
+        self.dropout = nn.Dropout(dropout_p)
+    
+    def forward(self, x):
+        """
+        Forward pass through DenseNet-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
+        x = F.leaky_relu(self.bn1(self.conv1(x)))
+        x = self.pool1(x)
+        
+        x = self.dense1(x)
+        x = self.trans1(x)
+        x = self.dense2(x)
+        x = self.trans2(x)
+        x = self.dense3(x)
+        x = self.trans3(x)
+        x = self.dense4(x)
+        
+        x = F.leaky_relu(self.bn_final(x))
+        x = self.global_pool(x)
+        x = torch.flatten(x, 1)
+        x = self.dropout(x)
+        x = self.classifier(x)
+        return x
+
+
+class BirdCNN_v19(nn.Module):
+    """
+    v5 con mas dropout y menos params
+    """
+    def __init__(self, num_classes, dropout_p=0.5):
+        """
+        Initialize the BirdCNN_v5 model.
+        
+        Args:
+            num_classes (int): Number of bird species classes
+            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+        """
+        super(BirdCNN_v5, self).__init__()
+        
+        # Stem
+        self.stem = nn.Sequential(
+            nn.Conv2d(1, 32, 3, stride=2, padding=1),
+            nn.BatchNorm2d(32),
+            nn.SiLU(inplace=True)
+        )
+        
+        # MBConv blocks (EfficientNet-style)
+        self.blocks = nn.Sequential(
+            MBConvBlock(32, 16, expand_ratio=1, stride=1),   # 112x156
+            MBConvBlock(16, 24, expand_ratio=6, stride=2),   # 56x78
+            MBConvBlock(24, 24, expand_ratio=6, stride=1),   
+            MBConvBlock(24, 40, expand_ratio=6, stride=2),   # 28x39
+            MBConvBlock(40, 40, expand_ratio=6, stride=1),
+            MBConvBlock(40, 80, expand_ratio=6, stride=2),   # 14x19
+            MBConvBlock(80, 80, expand_ratio=6, stride=1),
+            MBConvBlock(80, 112, expand_ratio=6, stride=1),
+            MBConvBlock(112, 192, expand_ratio=6, stride=2), # 7x9
+            MBConvBlock(192, 192, expand_ratio=6, stride=1),
+            MBConvBlock(192, 320, expand_ratio=6, stride=1),
+        )
+        
+        # Head
+        self.head = nn.Sequential(
+            nn.Conv2d(320, 1280, 1),
+            nn.BatchNorm2d(1280),
+            nn.SiLU(inplace=True),
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Dropout(dropout_p),
+            nn.Linear(1280, num_classes)
+        )
+    
+    def forward(self, x):
+        """
+        Forward pass through EfficientNet-style network.
+        
+        Args:
+            x (torch.Tensor): Input spectrogram tensor
+            
+        Returns:
+            torch.Tensor: Classification logits
+        """
+        x = self.stem(x)
+        x = self.blocks(x)
+        x = self.head(x)
+        return x
+
+
+class BirdCNN_v20(nn.Module):
+    """
+    v5 con GELU, dropout in stem/head, residuals in MBConvBlock
+    """
+    
+    def __init__(self, num_classes, dropout_p=0.5):
+        super(BirdCNN_v20, self).__init__()
+
+        # Stem with GELU activation
+        self.stem = nn.Sequential(
+            nn.Conv2d(1, 32, 3, stride=2, padding=1),
+            nn.BatchNorm2d(32),
+            nn.GELU()
+        )
+        
+        # MBConv blocks sequence (uses your unchanged MBConvBlock with SEBlock)
+        self.blocks = nn.Sequential(
+            MBConvBlock(32, 16, expand_ratio=1, stride=1),
+            MBConvBlock(16, 24, expand_ratio=6, stride=2),
+            MBConvBlock(24, 24, expand_ratio=6, stride=1),
+            MBConvBlock(24, 40, expand_ratio=6, stride=2),
+            MBConvBlock(40, 40, expand_ratio=6, stride=1),
+            MBConvBlock(40, 80, expand_ratio=6, stride=2),
+            MBConvBlock(80, 80, expand_ratio=6, stride=1),
+            MBConvBlock(80, 112, expand_ratio=6, stride=1),
+            MBConvBlock(112, 192, expand_ratio=6, stride=2),
+            MBConvBlock(192, 192, expand_ratio=6, stride=1),
+            MBConvBlock(192, 320, expand_ratio=6, stride=1),
+        )
+
+        # Head with GELU activation and dropout
+        self.head = nn.Sequential(
+            nn.Conv2d(320, 1280, 1),
+            nn.BatchNorm2d(1280),
+            nn.GELU(),
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Dropout(dropout_p),
+            nn.Linear(1280, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.stem(x)
+        x = self.blocks(x)
+        x = self.head(x)
         return x
