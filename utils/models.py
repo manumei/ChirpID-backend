@@ -2196,33 +2196,33 @@ class BirdCNN_v17(nn.Module):
     """
     def __init__(self, num_classes, dropout_p=0.6):
         """
-        Initialize the BirdCNN_v7 model.
+        Initialize the BirdCNN_v17 model.
         
         Args:
             num_classes (int): Number of bird species classes
             dropout_p (float, optional): Dropout probability. Defaults to 0.6
         """
-        super(BirdCNN_v7, self).__init__()
+        super(BirdCNN_v17, self).__init__()
         
-        # Initial convolution
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
-        self.bn1 = nn.BatchNorm2d(64)
+        # Initial convolution - reduced from 64 to 48 channels
+        self.conv1 = nn.Conv2d(1, 48, kernel_size=7, stride=2, padding=3)
+        self.bn1 = nn.BatchNorm2d(48)
         self.pool1 = nn.MaxPool2d(3, stride=2, padding=1)
         
-        # Dense blocks
-        self.dense1 = DenseBlock(64, growth_rate=32, num_layers=6)
-        self.trans1 = TransitionLayer(64 + 6*32, 128)
+        # Dense blocks - reduced growth rate from 32 to 24
+        self.dense1 = DenseBlock(48, growth_rate=24, num_layers=5)  # reduced from 6 to 5
+        self.trans1 = TransitionLayer(48 + 5*24, 96)  # adjusted for new dimensions
         
-        self.dense2 = DenseBlock(128, growth_rate=32, num_layers=12)
-        self.trans2 = TransitionLayer(128 + 12*32, 256)
+        self.dense2 = DenseBlock(96, growth_rate=24, num_layers=10)  # reduced from 12 to 10
+        self.trans2 = TransitionLayer(96 + 10*24, 192)  # adjusted for new dimensions
         
-        self.dense3 = DenseBlock(256, growth_rate=32, num_layers=24)
-        self.trans3 = TransitionLayer(256 + 24*32, 512)
+        self.dense3 = DenseBlock(192, growth_rate=24, num_layers=20)  # reduced from 24 to 20
+        self.trans3 = TransitionLayer(192 + 20*24, 384)  # adjusted for new dimensions
         
-        self.dense4 = DenseBlock(512, growth_rate=32, num_layers=16)
+        self.dense4 = DenseBlock(384, growth_rate=24, num_layers=14)  # reduced from 16 to 14
         
-        # Final classification
-        final_channels = 512 + 16*32
+        # Final classification - adjusted for new final channels
+        final_channels = 384 + 14*24  # 384 + 336 = 720
         self.bn_final = nn.BatchNorm2d(final_channels)
         self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Linear(final_channels, num_classes)
@@ -2419,13 +2419,13 @@ class BirdCNN_v20(nn.Module):
 
         # Head with GELU activation and dropout
         self.head = nn.Sequential(
-            nn.Conv2d(256, 1024, 1),
-            nn.BatchNorm2d(1024),
+            nn.Conv2d(320, 1280, 1),
+            nn.BatchNorm2d(1280),
             nn.GELU(),
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
             nn.Dropout(dropout_p),
-            nn.Linear(1024, num_classes)
+            nn.Linear(1280, num_classes)
         )
 
     def forward(self, x):
