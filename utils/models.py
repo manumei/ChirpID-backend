@@ -2200,7 +2200,7 @@ class BirdCNN_v17(nn.Module):
         
         Args:
             num_classes (int): Number of bird species classes
-            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+            dropout_p (float, optional): Dropout probability. Defaults to 0.6
         """
         super(BirdCNN_v7, self).__init__()
         
@@ -2326,49 +2326,49 @@ class BirdCNN_v18(nn.Module):
 
 class BirdCNN_v19(nn.Module):
     """
-    v5 con mas dropout y menos params
+    v5 con mas dropout (0.6) y menos params
     """
-    def __init__(self, num_classes, dropout_p=0.5):
+    def __init__(self, num_classes, dropout_p=0.6):
         """
-        Initialize the BirdCNN_v5 model.
+        Initialize the BirdCNN_v19 model.
         
         Args:
             num_classes (int): Number of bird species classes
-            dropout_p (float, optional): Dropout probability. Defaults to 0.5
+            dropout_p (float, optional): Dropout probability. Defaults to 0.6
         """
-        super(BirdCNN_v5, self).__init__()
+        super(BirdCNN_v19, self).__init__()
         
-        # Stem
+        # Stem - reduced from 32 to 24 channels
         self.stem = nn.Sequential(
-            nn.Conv2d(1, 32, 3, stride=2, padding=1),
-            nn.BatchNorm2d(32),
+            nn.Conv2d(1, 24, 3, stride=2, padding=1),
+            nn.BatchNorm2d(24),
             nn.SiLU(inplace=True)
         )
         
-        # MBConv blocks (EfficientNet-style)
+        # MBConv blocks (EfficientNet-style) - reduced channel sizes
         self.blocks = nn.Sequential(
-            MBConvBlock(32, 16, expand_ratio=1, stride=1),   # 112x156
-            MBConvBlock(16, 24, expand_ratio=6, stride=2),   # 56x78
-            MBConvBlock(24, 24, expand_ratio=6, stride=1),   
-            MBConvBlock(24, 40, expand_ratio=6, stride=2),   # 28x39
-            MBConvBlock(40, 40, expand_ratio=6, stride=1),
-            MBConvBlock(40, 80, expand_ratio=6, stride=2),   # 14x19
-            MBConvBlock(80, 80, expand_ratio=6, stride=1),
-            MBConvBlock(80, 112, expand_ratio=6, stride=1),
-            MBConvBlock(112, 192, expand_ratio=6, stride=2), # 7x9
-            MBConvBlock(192, 192, expand_ratio=6, stride=1),
-            MBConvBlock(192, 320, expand_ratio=6, stride=1),
+            MBConvBlock(24, 16, expand_ratio=1, stride=1),   # 112x156
+            MBConvBlock(16, 20, expand_ratio=6, stride=2),   # 56x78 - reduced from 24 to 20
+            MBConvBlock(20, 20, expand_ratio=6, stride=1),   
+            MBConvBlock(20, 32, expand_ratio=6, stride=2),   # 28x39 - reduced from 40 to 32
+            MBConvBlock(32, 32, expand_ratio=6, stride=1),
+            MBConvBlock(32, 64, expand_ratio=6, stride=2),   # 14x19 - reduced from 80 to 64
+            MBConvBlock(64, 64, expand_ratio=6, stride=1),
+            MBConvBlock(64, 96, expand_ratio=6, stride=1),   # reduced from 112 to 96
+            MBConvBlock(96, 160, expand_ratio=6, stride=2),  # 7x9 - reduced from 192 to 160
+            MBConvBlock(160, 160, expand_ratio=6, stride=1),
+            MBConvBlock(160, 256, expand_ratio=6, stride=1), # reduced from 320 to 256
         )
         
-        # Head
+        # Head - reduced from 1280 to 1024 channels
         self.head = nn.Sequential(
-            nn.Conv2d(320, 1280, 1),
-            nn.BatchNorm2d(1280),
+            nn.Conv2d(256, 1024, 1),
+            nn.BatchNorm2d(1024),
             nn.SiLU(inplace=True),
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
             nn.Dropout(dropout_p),
-            nn.Linear(1280, num_classes)
+            nn.Linear(1024, num_classes)
         )
     
     def forward(self, x):
@@ -2419,13 +2419,13 @@ class BirdCNN_v20(nn.Module):
 
         # Head with GELU activation and dropout
         self.head = nn.Sequential(
-            nn.Conv2d(320, 1280, 1),
-            nn.BatchNorm2d(1280),
+            nn.Conv2d(256, 1024, 1),
+            nn.BatchNorm2d(1024),
             nn.GELU(),
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
             nn.Dropout(dropout_p),
-            nn.Linear(1280, num_classes)
+            nn.Linear(1024, num_classes)
         )
 
     def forward(self, x):
