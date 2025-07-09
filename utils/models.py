@@ -752,7 +752,7 @@ class BirdCNN_v1(nn.Module):
         >>> logits = model(x)  # Shape: (32, 50)
         >>> probabilities = model.predict_proba(x)  # Shape: (32, 50)
     """
-    def __init__(self, num_classes, dropout_p=0.4):
+    def __init__(self, num_classes, dropout_p=0.5):
         """
         Initialize the BirdCNN_v1 model.
         
@@ -1001,7 +1001,7 @@ class BirdCNN_v3(nn.Module):
         num_classes (int): Number of bird species classes to classify
         dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
-    def __init__(self, num_classes, dropout_p=0.4):
+    def __init__(self, num_classes, dropout_p=0.5):
         """
         Initialize the BirdCNN_v3 model.
         
@@ -1383,7 +1383,7 @@ class BirdCNN_v8(nn.Module):
         num_classes (int): Number of bird species classes to classify
         dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
-    def __init__(self, num_classes, dropout_p=0.4):
+    def __init__(self, num_classes, dropout_p=0.5):
         """
         Initialize the BirdCNN_v8 model.
         
@@ -1552,54 +1552,43 @@ class BirdCNN_v8(nn.Module):
 
 class BirdCNN_v9(nn.Module):
     """
-    la 5 con menor dropout
+    Inception-inspired network with parallel convolutions.
+    
+    Uses parallel convolution paths with different kernel sizes to capture
+    multi-scale features in spectrograms.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
-    def __init__(self, num_classes, dropout_p=0.25):
+    def __init__(self, num_classes, dropout_p=0.5):
         """
-        Initialize the BirdCNN_v5 model.
+        Initialize the BirdCNN_v9 model.
         
         Args:
             num_classes (int): Number of bird species classes
             dropout_p (float, optional): Dropout probability. Defaults to 0.5
         """
-        super(BirdCNN_v5, self).__init__()
+        super(BirdCNN_v9, self).__init__()
         
-        # Stem
-        self.stem = nn.Sequential(
-            nn.Conv2d(1, 32, 3, stride=2, padding=1),
-            nn.BatchNorm2d(32),
-            nn.SiLU(inplace=True)
-        )
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.maxpool1 = nn.MaxPool2d(3, stride=2, padding=1)
         
-        # MBConv blocks (EfficientNet-style)
-        self.blocks = nn.Sequential(
-            MBConvBlock(32, 16, expand_ratio=1, stride=1),   # 112x156
-            MBConvBlock(16, 24, expand_ratio=6, stride=2),   # 56x78
-            MBConvBlock(24, 24, expand_ratio=6, stride=1),   
-            MBConvBlock(24, 40, expand_ratio=6, stride=2),   # 28x39
-            MBConvBlock(40, 40, expand_ratio=6, stride=1),
-            MBConvBlock(40, 80, expand_ratio=6, stride=2),   # 14x19
-            MBConvBlock(80, 80, expand_ratio=6, stride=1),
-            MBConvBlock(80, 112, expand_ratio=6, stride=1),
-            MBConvBlock(112, 192, expand_ratio=6, stride=2), # 7x9
-            MBConvBlock(192, 192, expand_ratio=6, stride=1),
-            MBConvBlock(192, 320, expand_ratio=6, stride=1),
-        )
+        self.inception1 = InceptionBlock(64, 64, 96, 128, 16, 32, 32)
+        self.inception2 = InceptionBlock(256, 128, 128, 192, 32, 96, 64)
+        self.maxpool2 = nn.MaxPool2d(3, stride=2, padding=1)
         
-        # Head
-        self.head = nn.Sequential(
-            nn.Conv2d(320, 1280, 1),
-            nn.BatchNorm2d(1280),
-            nn.SiLU(inplace=True),
-            nn.AdaptiveAvgPool2d((1, 1)),
-            nn.Flatten(),
-            nn.Dropout(dropout_p),
-            nn.Linear(1280, num_classes)
-        )
+        self.inception3 = InceptionBlock(480, 192, 96, 208, 16, 48, 64)
+        self.inception4 = InceptionBlock(512, 160, 112, 224, 24, 64, 64)
+        
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.dropout = nn.Dropout(dropout_p)
+        self.fc = nn.Linear(512, num_classes)
     
     def forward(self, x):
         """
-        Forward pass through EfficientNet-style network.
+        Forward pass through Inception-style network.
         
         Args:
             x (torch.Tensor): Input spectrogram tensor
@@ -1607,62 +1596,79 @@ class BirdCNN_v9(nn.Module):
         Returns:
             torch.Tensor: Classification logits
         """
-        x = self.stem(x)
-        x = self.blocks(x)
-        x = self.head(x)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.maxpool1(x)
+        x = self.inception1(x)
+        x = self.inception2(x)
+        x = self.maxpool2(x)
+        x = self.inception3(x)
+        x = self.inception4(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.dropout(x)
+        x = self.fc(x)
         return x
 
 
 class BirdCNN_v10(nn.Module):
     """
-    la 5 con menor dropout
+    Compact CNN optimized for limited data.
+    
+    Lightweight architecture with fewer parameters, designed for scenarios
+    with limited training data or computational resources.
+    
+    Args:
+        num_classes (int): Number of bird species classes to classify
+        dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
-    def __init__(self, num_classes, dropout_p=0.35):
+    def __init__(self, num_classes, dropout_p=0.5):
         """
-        Initialize the BirdCNN_v5 model.
+        Initialize the BirdCNN_v10 model.
         
         Args:
             num_classes (int): Number of bird species classes
             dropout_p (float, optional): Dropout probability. Defaults to 0.5
         """
-        super(BirdCNN_v5, self).__init__()
+        super(BirdCNN_v10, self).__init__()
         
-        # Stem
-        self.stem = nn.Sequential(
-            nn.Conv2d(1, 32, 3, stride=2, padding=1),
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=5, stride=2, padding=2),
             nn.BatchNorm2d(32),
-            nn.SiLU(inplace=True)
-        )
-        
-        # MBConv blocks (EfficientNet-style)
-        self.blocks = nn.Sequential(
-            MBConvBlock(32, 16, expand_ratio=1, stride=1),   # 112x156
-            MBConvBlock(16, 24, expand_ratio=6, stride=2),   # 56x78
-            MBConvBlock(24, 24, expand_ratio=6, stride=1),   
-            MBConvBlock(24, 40, expand_ratio=6, stride=2),   # 28x39
-            MBConvBlock(40, 40, expand_ratio=6, stride=1),
-            MBConvBlock(40, 80, expand_ratio=6, stride=2),   # 14x19
-            MBConvBlock(80, 80, expand_ratio=6, stride=1),
-            MBConvBlock(80, 112, expand_ratio=6, stride=1),
-            MBConvBlock(112, 192, expand_ratio=6, stride=2), # 7x9
-            MBConvBlock(192, 192, expand_ratio=6, stride=1),
-            MBConvBlock(192, 320, expand_ratio=6, stride=1),
-        )
-        
-        # Head
-        self.head = nn.Sequential(
-            nn.Conv2d(320, 1280, 1),
-            nn.BatchNorm2d(1280),
-            nn.SiLU(inplace=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, stride=2),
+            
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
             nn.AdaptiveAvgPool2d((1, 1)),
+        )
+        
+        self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Dropout(dropout_p),
-            nn.Linear(1280, num_classes)
+            nn.Linear(256, 128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout_p),
+            nn.Linear(128, num_classes)
         )
     
     def forward(self, x):
         """
-        Forward pass through EfficientNet-style network.
+        Forward pass through compact network.
         
         Args:
             x (torch.Tensor): Input spectrogram tensor
@@ -1670,9 +1676,8 @@ class BirdCNN_v10(nn.Module):
         Returns:
             torch.Tensor: Classification logits
         """
-        x = self.stem(x)
-        x = self.blocks(x)
-        x = self.head(x)
+        x = self.features(x)
+        x = self.classifier(x)
         return x
 
 
@@ -1687,7 +1692,7 @@ class BirdCNN_v11(nn.Module):
         num_classes (int): Number of bird species classes to classify
         dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
-    def __init__(self, num_classes, dropout_p=0.4):
+    def __init__(self, num_classes, dropout_p=0.5):
         """
         Initialize the BirdCNN_v11 model.
         
@@ -1837,7 +1842,7 @@ class BirdCNN_v13(nn.Module):
         num_classes (int): Number of bird species classes to classify
         dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
-    def __init__(self, num_classes, dropout_p=0.4):
+    def __init__(self, num_classes, dropout_p=0.5):
         """
         Initialize the BirdCNN_v13 model.
         
@@ -1942,7 +1947,7 @@ class BirdCNN_v14(nn.Module):
         num_classes (int): Number of bird species classes to classify
         dropout_p (float, optional): Dropout probability for regularization. Defaults to 0.5
     """
-    def __init__(self, num_classes, dropout_p=0.4):
+    def __init__(self, num_classes, dropout_p=0.5):
         """
         Initialize the BirdCNN_v14 model.
         
@@ -2181,458 +2186,5 @@ class BirdCNN_v16(nn.Module):
         
         lstm_out, (h_n, c_n) = self.lstm(x)
         x = lstm_out[:, -1, :]
-        x = self.classifier(x)
-        return x
-
-
-class BirdCNN_v17(nn.Module):
-    """
-    la 8 con menos dropout
-    """
-    def __init__(self, num_classes, dropout_p=0.3):
-        """
-        Initialize the BirdCNN_v8 model.
-        
-        Args:
-            num_classes (int): Number of bird species classes
-            dropout_p (float, optional): Dropout probability. Defaults to 0.5
-        """
-        super(BirdCNN_v8, self).__init__()
-        
-        # Initial processing - spectrogram-aware kernel
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3))
-        self.bn1 = nn.BatchNorm2d(64)
-        
-        # Pre-activation residual blocks with progressive feature extraction
-        self.block1 = self._make_pre_activation_block(64, 128, stride=2)    # 56x78
-        self.block2 = self._make_pre_activation_block(128, 256, stride=2)   # 28x39
-        self.block3 = self._make_pre_activation_block(256, 512, stride=2)   # 14x19
-        self.block4 = self._make_pre_activation_block(512, 1024, stride=2)  # 7x9
-        
-        # Dual attention mechanisms (channel + spatial)
-        self.channel_attention = self._make_channel_attention(1024)
-        self.spatial_attention = self._make_spatial_attention()
-        
-        # Frequency-aware pooling
-        self.freq_pool = nn.AdaptiveAvgPool2d((1, None))  # Pool frequency dimension
-        self.temporal_conv = nn.Conv1d(1024, 1024, kernel_size=3, padding=1)
-        self.temporal_bn = nn.BatchNorm1d(1024)
-        
-        # Classification head with attention pooling
-        self.attention_pool = nn.Sequential(
-            nn.Conv1d(1024, 1, kernel_size=1),
-            nn.Softmax(dim=-1)
-        )
-        
-        self.classifier = nn.Sequential(
-            nn.Dropout(dropout_p),
-            nn.Linear(1024, 512),
-            nn.ReLU(inplace=False),
-            nn.Dropout(dropout_p),
-            nn.Linear(512, num_classes)
-        )
-    
-    def _make_pre_activation_block(self, in_channels, out_channels, stride=1):
-        """
-        Create pre-activation residual block (BN->ReLU->Conv).
-        
-        Args:
-            in_channels (int): Number of input channels
-            out_channels (int): Number of output channels
-            stride (int, optional): Stride for conv. Defaults to 1
-            
-        Returns:
-            nn.Sequential: Pre-activation block
-        """
-        return nn.Sequential(
-            # Main path
-            nn.BatchNorm2d(in_channels),
-            nn.ReLU(inplace=False),
-            nn.Conv2d(in_channels, out_channels//2, kernel_size=1, bias=False),
-            nn.BatchNorm2d(out_channels//2),
-            nn.ReLU(inplace=False),
-            nn.Conv2d(out_channels//2, out_channels//2, kernel_size=3, stride=stride, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels//2),
-            nn.ReLU(inplace=False),
-            nn.Conv2d(out_channels//2, out_channels, kernel_size=1, bias=False),
-            # Skip connection handled in forward pass
-        )
-    
-    def _make_channel_attention(self, channels, reduction=16):
-        """
-        Create channel attention module.
-        
-        Args:
-            channels (int): Number of channels
-            reduction (int, optional): Reduction factor. Defaults to 16
-            
-        Returns:
-            nn.Sequential: Channel attention module
-        """
-        return nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
-            nn.Linear(channels, channels // reduction),
-            nn.ReLU(inplace=False),
-            nn.Linear(channels // reduction, channels),
-            nn.Sigmoid()
-        )
-    
-    def _make_spatial_attention(self):
-        """
-        Create spatial attention module.
-        
-        Returns:
-            nn.Sequential: Spatial attention module
-        """
-        return nn.Sequential(
-            nn.Conv2d(2, 1, kernel_size=7, padding=3),
-            nn.Sigmoid()
-        )
-    
-    def forward(self, x):
-        """
-        Forward pass with dual attention and frequency-aware processing.
-        
-        Args:
-            x (torch.Tensor): Input spectrogram tensor
-            
-        Returns:
-            torch.Tensor: Classification logits
-        """
-        x = F.relu(self.bn1(self.conv1(x)))
-        
-        # Pre-activation residual blocks with skip connections
-        identity = x
-        x = self.block1(x)
-        if identity.shape != x.shape:
-            identity = F.interpolate(identity, size=x.shape[2:], mode='bilinear', align_corners=False)
-            identity = F.pad(identity, (0, 0, 0, 0, 0, x.shape[1] - identity.shape[1]))
-        x = x + identity
-        
-        identity = x
-        x = self.block2(x)
-        if identity.shape != x.shape:
-            identity = F.interpolate(identity, size=x.shape[2:], mode='bilinear', align_corners=False)
-            identity = F.pad(identity, (0, 0, 0, 0, 0, x.shape[1] - identity.shape[1]))
-        x = x + identity
-        
-        identity = x
-        x = self.block3(x)
-        if identity.shape != x.shape:
-            identity = F.interpolate(identity, size=x.shape[2:], mode='bilinear', align_corners=False)
-            identity = F.pad(identity, (0, 0, 0, 0, 0, x.shape[1] - identity.shape[1]))
-        x = x + identity
-        
-        identity = x
-        x = self.block4(x)
-        if identity.shape != x.shape:
-            identity = F.interpolate(identity, size=x.shape[2:], mode='bilinear', align_corners=False)
-            identity = F.pad(identity, (0, 0, 0, 0, 0, x.shape[1] - identity.shape[1]))
-        x = x + identity
-        
-        # Apply dual attention
-        # Channel attention
-        ca_weights = self.channel_attention(x).unsqueeze(-1).unsqueeze(-1)
-        x = x * ca_weights
-        
-        # Spatial attention
-        avg_out = torch.mean(x, dim=1, keepdim=True)
-        max_out, _ = torch.max(x, dim=1, keepdim=True)
-        spatial_input = torch.cat([avg_out, max_out], dim=1)
-        sa_weights = self.spatial_attention(spatial_input)
-        x = x * sa_weights
-        
-        # Frequency-aware processing
-        x = self.freq_pool(x)  # Pool frequency dimension: (B, C, 1, T)
-        x = x.squeeze(2)       # Remove frequency dimension: (B, C, T)
-        x = F.relu(self.temporal_bn(self.temporal_conv(x)))
-        
-        # Attention-based temporal pooling
-        attention_weights = self.attention_pool(x)  # (B, 1, T)
-        x = torch.sum(x * attention_weights, dim=-1)  # (B, C)
-        
-        x = self.classifier(x)
-        return x
-
-
-class BirdCNN_v18(nn.Module):
-    """
-    la 1 con menos dropout
-    """
-    def __init__(self, num_classes, dropout_p=0.3):
-        """
-        Initialize the BirdCNN_v1 model.
-        
-        Args:
-            num_classes (int): Number of bird species classes
-            dropout_p (float, optional): Dropout probability. Defaults to 0.5
-        """
-        super(BirdCNN_v1, self).__init__()
-        
-        # Input: (N, 1, 224, 313) - (batch, channels, freq_height, time_width)
-        # Conv1: kernel (7x9) to handle wider time dimension better
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 9), stride=2, padding=(3, 4))
-        self.bn1 = nn.BatchNorm2d(64)
-        # After conv1 + stride 2: (N, 64, 112, 157) - (batch, channels, freq_height, time_width)
-        self.pool1 = nn.MaxPool2d((3, 3), stride=2, padding=1)
-        # After pool1: (N, 64, 56, 79) - (batch, channels, freq_height, time_width)
-        
-        # Residual blocks
-        # layer1: maintains spatial dimensions (56, 79) - (freq_height, time_width)
-        self.layer1 = self._make_layer(64, 64, 2, stride=1)
-        # layer2: reduces to (28, 40) - (freq_height, time_width)
-        self.layer2 = self._make_layer(64, 128, 2, stride=2)
-        # layer3: reduces to (14, 20) - (freq_height, time_width)
-        self.layer3 = self._make_layer(128, 256, 2, stride=2)
-        
-        # Global pooling: (14, 20) -> (1, 1) - (freq_height, time_width) -> (1, 1)
-        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(256, num_classes)
-        self.dropout = nn.Dropout(dropout_p)
-        
-    def _make_layer(self, in_channels, out_channels, blocks, stride):
-        """
-        Create a sequential layer of residual blocks.
-        
-        Args:
-            in_channels (int): Number of input channels
-            out_channels (int): Number of output channels
-            blocks (int): Number of residual blocks in this layer
-            stride (int): Stride for the first block (subsequent blocks use stride=1)
-            
-        Returns:
-            nn.Sequential: Sequential container of residual blocks
-            
-        Note:
-            The first block handles channel dimension changes and spatial downsampling,
-            while subsequent blocks maintain the same dimensions.
-        """
-        layers = []
-        # First block may change dimensions
-        layers.append(ResidualBlock(in_channels, out_channels, stride))
-        # Remaining blocks maintain dimensions
-        for _ in range(1, blocks):
-            layers.append(ResidualBlock(out_channels, out_channels, 1))
-        return nn.Sequential(*layers)
-        
-    def forward(self, x):
-        """
-        Forward pass through the network.
-        
-        Args:
-            x (torch.Tensor): Input spectrogram tensor of shape (N, 1, 224, 313)
-                            where N is batch size, 224 is frequency bins, 313 is time frames
-                            
-        Returns:
-            torch.Tensor: Raw logits of shape (N, num_classes)
-            
-        Example:
-            >>> model = BirdCNN(num_classes=10)
-            >>> x = torch.randn(4, 1, 224, 313)
-            >>> logits = model.forward(x)  # Shape: (4, 10)
-        """
-        # x shape: (N, 1, 224, 313) - (batch, channels, freq_height, time_width)
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = self.pool1(x)
-        
-        # Pass through residual layers with progressive downsampling
-        x = self.layer1(x)  # Maintains spatial dimensions
-        x = self.layer2(x)  # Reduces spatial dimensions by half
-        x = self.layer3(x)  # Reduces spatial dimensions by half again
-        
-        # x shape before global_pool: (N, 256, 14, 20) - (batch, channels, freq_height, time_width)
-        x = self.global_pool(x)  # Adaptive pooling to (1, 1)
-        # x shape after global_pool: (N, 256, 1, 1)
-        x = torch.flatten(x, 1)  # Flatten to (N, 256)
-        # x shape after flatten: (N, 256)
-        x = self.dropout(x)  # Apply dropout for regularization
-        x = self.fc(x)  # Final classification layer
-
-        return x
-    
-    def predict_proba(self, x):
-        """
-        Forward pass with softmax applied for inference.
-        
-        This method applies softmax to convert raw logits into class probabilities,
-        making it suitable for inference where you need probability scores.
-        
-        Args:
-            x (torch.Tensor): Input spectrogram tensor of shape (N, 1, 224, 313)
-            
-        Returns:
-            torch.Tensor: Class probabilities of shape (N, num_classes)
-                        Each row sums to 1.0
-                        
-        Example:
-            >>> model = BirdCNN(num_classes=5)
-            >>> model.eval()  # Set to evaluation mode
-            >>> x = torch.randn(2, 1, 224, 313)
-            >>> probs = model.predict_proba(x)  # Shape: (2, 5)
-            >>> print(probs[0].sum())  # Should print ~1.0
-        """
-        with torch.no_grad():  # Disable gradient computation for efficiency
-            logits = self.forward(x)
-            probabilities = F.softmax(logits, dim=1)  # Convert logits to probabilities
-            return probabilities
-    
-    def predict(self, x):
-        """
-        Forward pass returning predicted class indices.
-        
-        This method returns the class with the highest probability for each input,
-        suitable for making final predictions.
-        
-        Args:
-            x (torch.Tensor): Input spectrogram tensor of shape (N, 1, 224, 313)
-            
-        Returns:
-            torch.Tensor: Predicted class indices of shape (N,)
-                        Each element is an integer in range [0, num_classes-1]
-                        
-        Example
-            >>> model = BirdCNN(num_classes=5)
-            >>> model.eval()  # Set to evaluation mode
-            >>> x = torch.randn(3, 1, 224, 313)
-            >>> predictions = model.predict(x)  # Shape: (3,)
-            >>> print(predictions)  # e.g., tensor([2, 0, 4])
-        """
-        with torch.no_grad():  # Disable gradient computation for efficiency
-            logits = self.forward(x)
-            predictions = torch.argmax(logits, dim=1)  # Get class with highest logit
-            return predictions
-
-
-class BirdCNN_v19(nn.Module):
-    """
-    la 7 con menos dropout
-    """
-    def __init__(self, num_classes, dropout_p=0.4):
-        """
-        Initialize the BirdCNN_v7 model.
-        
-        Args:
-            num_classes (int): Number of bird species classes
-            dropout_p (float, optional): Dropout probability. Defaults to 0.5
-        """
-        super(BirdCNN_v7, self).__init__()
-        
-        # Initial convolution
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.pool1 = nn.MaxPool2d(3, stride=2, padding=1)
-        
-        # Dense blocks
-        self.dense1 = DenseBlock(64, growth_rate=32, num_layers=6)
-        self.trans1 = TransitionLayer(64 + 6*32, 128)
-        
-        self.dense2 = DenseBlock(128, growth_rate=32, num_layers=12)
-        self.trans2 = TransitionLayer(128 + 12*32, 256)
-        
-        self.dense3 = DenseBlock(256, growth_rate=32, num_layers=24)
-        self.trans3 = TransitionLayer(256 + 24*32, 512)
-        
-        self.dense4 = DenseBlock(512, growth_rate=32, num_layers=16)
-        
-        # Final classification
-        final_channels = 512 + 16*32
-        self.bn_final = nn.BatchNorm2d(final_channels)
-        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.classifier = nn.Linear(final_channels, num_classes)
-        self.dropout = nn.Dropout(dropout_p)
-    
-    def forward(self, x):
-        """
-        Forward pass through DenseNet-style network.
-        
-        Args:
-            x (torch.Tensor): Input spectrogram tensor
-            
-        Returns:
-            torch.Tensor: Classification logits
-        """
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = self.pool1(x)
-        
-        x = self.dense1(x)
-        x = self.trans1(x)
-        x = self.dense2(x)
-        x = self.trans2(x)
-        x = self.dense3(x)
-        x = self.trans3(x)
-        x = self.dense4(x)
-        
-        x = F.relu(self.bn_final(x))
-        x = self.global_pool(x)
-        x = torch.flatten(x, 1)
-        x = self.dropout(x)
-        x = self.classifier(x)
-        return x
-
-
-class BirdCNN_v20(nn.Module):
-    """
-    la 7 con menos dropout
-    """
-    def __init__(self, num_classes, dropout_p=0.3):
-        """
-        Initialize the BirdCNN_v7 model.
-        
-        Args:
-            num_classes (int): Number of bird species classes
-            dropout_p (float, optional): Dropout probability. Defaults to 0.5
-        """
-        super(BirdCNN_v7, self).__init__()
-        
-        # Initial convolution
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.pool1 = nn.MaxPool2d(3, stride=2, padding=1)
-        
-        # Dense blocks
-        self.dense1 = DenseBlock(64, growth_rate=32, num_layers=6)
-        self.trans1 = TransitionLayer(64 + 6*32, 128)
-        
-        self.dense2 = DenseBlock(128, growth_rate=32, num_layers=12)
-        self.trans2 = TransitionLayer(128 + 12*32, 256)
-        
-        self.dense3 = DenseBlock(256, growth_rate=32, num_layers=24)
-        self.trans3 = TransitionLayer(256 + 24*32, 512)
-        
-        self.dense4 = DenseBlock(512, growth_rate=32, num_layers=16)
-        
-        # Final classification
-        final_channels = 512 + 16*32
-        self.bn_final = nn.BatchNorm2d(final_channels)
-        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.classifier = nn.Linear(final_channels, num_classes)
-        self.dropout = nn.Dropout(dropout_p)
-    
-    def forward(self, x):
-        """
-        Forward pass through DenseNet-style network.
-        
-        Args:
-            x (torch.Tensor): Input spectrogram tensor
-            
-        Returns:
-            torch.Tensor: Classification logits
-        """
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = self.pool1(x)
-        
-        x = self.dense1(x)
-        x = self.trans1(x)
-        x = self.dense2(x)
-        x = self.trans2(x)
-        x = self.dense3(x)
-        x = self.trans3(x)
-        x = self.dense4(x)
-        
-        x = F.relu(self.bn_final(x))
-        x = self.global_pool(x)
-        x = torch.flatten(x, 1)
-        x = self.dropout(x)
         x = self.classifier(x)
         return x
