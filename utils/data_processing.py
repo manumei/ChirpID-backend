@@ -326,7 +326,7 @@ def get_audio_info(audio_path, sr, length):
         return y, srate
 
 def audio_process(audio_path, sr=32000, segment_sec=5.0,
-                frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.75):
+                frame_len=2048, hop_len=512, mels=224, nfft=2048, thresh=0.7):
     """
     Takes the path to an audio file (any format) and processes it to finally return 
     the list of grayscale spectrogram pixel matrices for each of its high-RMS segments.
