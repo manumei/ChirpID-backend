@@ -1,2 +1,0 @@
-aca agregar los audios sacados de youtube y asi, muestras "reales" o "random", que no vengan directamente del dataset
-para poder hacer un mejor testeo.
