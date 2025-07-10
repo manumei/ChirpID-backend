@@ -148,7 +148,7 @@ from utils.training_core import cross_val_training
 from utils.models import ResNetBirdCNN
 results = cross_val_training(
     features=features, labels=labels, authors=authors,
-    model_class=ResNetBirdCNN, num_classes=33
+    model_class=ResNetBirdCNN, num_classes=NUM_CLASSES
 )
 
 # Inference
